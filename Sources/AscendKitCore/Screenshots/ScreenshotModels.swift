@@ -1220,6 +1220,49 @@ public struct ScreenshotCompositionCopyTemplateBuilder {
     }
 }
 
+public struct ScreenshotCompositionCopyLintReport: Codable, Equatable, Sendable {
+    public var valid: Bool
+    public var checkedArtifactCount: Int
+    public var copyItemCount: Int
+    public var findings: [String]
+
+    public init(checkedArtifactCount: Int, copyItemCount: Int, findings: [String] = []) {
+        self.valid = findings.isEmpty
+        self.checkedArtifactCount = checkedArtifactCount
+        self.copyItemCount = copyItemCount
+        self.findings = findings
+    }
+}
+
+public struct ScreenshotCompositionCopyLinter {
+    public init() {}
+
+    public func lint(importManifest: ScreenshotImportManifest, copyManifest: ScreenshotCompositionCopyManifest) -> ScreenshotCompositionCopyLintReport {
+        var findings: [String] = []
+        for artifact in importManifest.artifacts {
+            if copyManifest.copy(locale: artifact.locale, platform: artifact.platform, fileName: artifact.fileName) == nil {
+                findings.append("Missing copy for \(artifact.locale)/\(artifact.platform.rawValue)/\(artifact.fileName).")
+            }
+        }
+
+        for item in copyManifest.items {
+            let hasArtifact = importManifest.artifacts.contains {
+                ($0.locale == item.locale && $0.platform == item.platform && $0.fileName == item.fileName) ||
+                    $0.fileName == item.fileName
+            }
+            if !hasArtifact {
+                findings.append("Stale copy item for \(item.locale)/\(item.platform.rawValue)/\(item.fileName).")
+            }
+        }
+
+        return ScreenshotCompositionCopyLintReport(
+            checkedArtifactCount: importManifest.artifacts.count,
+            copyItemCount: copyManifest.items.count,
+            findings: findings.sorted()
+        )
+    }
+}
+
 public struct ScreenshotCompositionCopy: Codable, Equatable, Sendable {
     public var locale: String
     public var platform: ApplePlatform

@@ -84,6 +84,7 @@ If the app has UI-test screenshot flows, plan native local capture without fastl
 ```bash
 swift run ascendkit screenshots destinations --workspace "$WORKSPACE" --json
 swift run ascendkit screenshots copy init --workspace "$WORKSPACE" --locale en-US --json
+swift run ascendkit screenshots copy lint --workspace "$WORKSPACE" --locale en-US --json
 swift run ascendkit screenshots workflow run \
   --workspace "$WORKSPACE" \
   --scheme APP_SCHEME \
@@ -93,7 +94,7 @@ swift run ascendkit screenshots workflow run \
 swift run ascendkit screenshots workflow status --workspace "$WORKSPACE" --json
 ```
 
-Use `screenshots copy init` to create the editable framed-poster title/subtitle JSON before composition. Use `screenshots workflow run` as the default local capture path when the app has UI-test screenshot flows. It recommends available local simulator destinations, writes a fresh capture plan, executes only local Xcode UI tests, refreshes the import manifest, composes final screenshots, and writes `screenshots/manifests/workflow-result.json`. Use `screenshots workflow status` before upload planning. Do not treat capture as App Store Connect mutation or binary upload.
+Use `screenshots copy init` to create the editable framed-poster title/subtitle JSON before composition, and `screenshots copy lint` to check it against imported artifacts. Use `screenshots workflow run` as the default local capture path when the app has UI-test screenshot flows. It recommends available local simulator destinations, writes a fresh capture plan, executes only local Xcode UI tests, refreshes the import manifest, composes final screenshots, and writes `screenshots/manifests/workflow-result.json`. Use `screenshots workflow status` before upload planning. Do not treat capture as App Store Connect mutation or binary upload.
 
 Use framed screenshots when desired:
 

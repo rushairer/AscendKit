@@ -259,27 +259,53 @@ struct CLIRunner {
             try store.appendAudit(.init(action: .screenshotReadinessChecked, summary: "Checked screenshot readiness"), to: workspace)
             return try render(result, json: json) { "Screenshot readiness: \(result.ready ? "ready" : "not ready") with \(result.findings.count) finding(s)" }
         case "copy":
-            guard args.dropFirst().first == "init" else {
-                throw AscendKitError.invalidArguments("Usage: ascendkit screenshots copy init --workspace PATH [--locale en-US] [--output PATH] [--json]")
-            }
-            guard fileManager.fileExists(atPath: planURL.path) else {
-                throw AscendKitError.fileNotFound(planURL.path)
-            }
-            let plan = try AscendKitJSON.decoder.decode(ScreenshotPlan.self, from: Data(contentsOf: planURL))
-            let locale = value(after: "--locale", in: args) ?? plan.locales.first ?? "en-US"
-            let copy = ScreenshotCompositionCopyTemplateBuilder().build(plan: plan, locale: locale)
-            let outputURL = URL(fileURLWithPath: value(after: "--output", in: args) ?? defaultScreenshotCopyPath(workspace: workspace, locale: locale))
-            try store.save(copy, to: outputURL)
-            try store.appendAudit(
-                .init(
-                    action: .screenshotCopyInitialized,
-                    summary: "Initialized screenshot composition copy",
-                    details: ["items": "\(copy.items.count)", "path": outputURL.path]
-                ),
-                to: workspace
-            )
-            return try render(copy, json: json) {
-                "Screenshot copy template written to \(outputURL.path) with \(copy.items.count) item(s)."
+            switch args.dropFirst().first {
+            case "init":
+                guard fileManager.fileExists(atPath: planURL.path) else {
+                    throw AscendKitError.fileNotFound(planURL.path)
+                }
+                let plan = try AscendKitJSON.decoder.decode(ScreenshotPlan.self, from: Data(contentsOf: planURL))
+                let locale = value(after: "--locale", in: args) ?? plan.locales.first ?? "en-US"
+                let copy = ScreenshotCompositionCopyTemplateBuilder().build(plan: plan, locale: locale)
+                let outputURL = URL(fileURLWithPath: value(after: "--output", in: args) ?? defaultScreenshotCopyPath(workspace: workspace, locale: locale))
+                try store.save(copy, to: outputURL)
+                try store.appendAudit(
+                    .init(
+                        action: .screenshotCopyInitialized,
+                        summary: "Initialized screenshot composition copy",
+                        details: ["items": "\(copy.items.count)", "path": outputURL.path]
+                    ),
+                    to: workspace
+                )
+                return try render(copy, json: json) {
+                    "Screenshot copy template written to \(outputURL.path) with \(copy.items.count) item(s)."
+                }
+            case "lint":
+                guard let importManifest = try loadIfExists(ScreenshotImportManifest.self, path: workspace.paths.screenshotImportManifest) else {
+                    throw AscendKitError.fileNotFound(workspace.paths.screenshotImportManifest)
+                }
+                let locale = value(after: "--locale", in: args) ?? importManifest.artifacts.first?.locale ?? "en-US"
+                let copyPath = value(after: "--copy", in: args) ?? defaultScreenshotCopyPath(workspace: workspace, locale: locale)
+                guard let copyManifest = try loadScreenshotCompositionCopy(from: copyPath) else {
+                    throw AscendKitError.fileNotFound(copyPath)
+                }
+                let report = ScreenshotCompositionCopyLinter().lint(
+                    importManifest: importManifest,
+                    copyManifest: copyManifest
+                )
+                try store.appendAudit(
+                    .init(
+                        action: .screenshotCopyLinted,
+                        summary: "Linted screenshot composition copy",
+                        details: ["findings": "\(report.findings.count)", "path": copyPath]
+                    ),
+                    to: workspace
+                )
+                return try render(report, json: json) {
+                    "Screenshot copy lint \(report.valid ? "passed" : "failed") with \(report.findings.count) finding(s)."
+                }
+            default:
+                throw AscendKitError.invalidArguments("Usage: ascendkit screenshots copy init|lint --workspace PATH [--locale en-US] [--copy PATH] [--output PATH] [--json]")
             }
         case "capture-plan":
             guard fileManager.fileExists(atPath: planURL.path) else {
@@ -1641,6 +1667,7 @@ struct CLIRunner {
       ascendkit screenshots destinations --workspace PATH [--json]
       ascendkit screenshots plan --workspace PATH [--screens A,B] [--features A,B] [--platforms iOS,macOS] [--locales en-US] [--json]
       ascendkit screenshots copy init --workspace PATH [--locale en-US] [--output PATH] [--json]
+      ascendkit screenshots copy lint --workspace PATH [--locale en-US] [--copy PATH] [--json]
       ascendkit screenshots capture-plan --workspace PATH [--scheme SCHEME] [--configuration Debug] [--destination DESTINATION] [--json]
       ascendkit screenshots capture --workspace PATH [--json]
       ascendkit screenshots workflow run --workspace PATH [--scheme SCHEME] [--configuration Debug] [--destination DESTINATION] [--mode storeReadyCopy|poster|deviceFrame|framedPoster] [--copy PATH] [--json]

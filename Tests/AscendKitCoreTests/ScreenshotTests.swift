@@ -292,6 +292,42 @@ struct ScreenshotTests {
         #expect(copy.items[3].fileName == "02-history.png")
     }
 
+    @Test("lints screenshot copy coverage against imported artifacts")
+    func lintsScreenshotCopyCoverage() {
+        let importManifest = ScreenshotImportManifest(
+            sourceDirectory: "/tmp/raw",
+            artifacts: [
+                ScreenshotArtifact(locale: "en-US", platform: .iOS, path: "/tmp/raw/01-today.png", fileName: "01-today.png"),
+                ScreenshotArtifact(locale: "en-US", platform: .iOS, path: "/tmp/raw/02-history.png", fileName: "02-history.png")
+            ]
+        )
+        let copyManifest = ScreenshotCompositionCopyManifest(items: [
+            ScreenshotCompositionCopy(
+                locale: "en-US",
+                platform: .iOS,
+                fileName: "01-today.png",
+                title: "Today"
+            ),
+            ScreenshotCompositionCopy(
+                locale: "en-US",
+                platform: .iOS,
+                fileName: "03-settings.png",
+                title: "Settings"
+            )
+        ])
+
+        let report = ScreenshotCompositionCopyLinter().lint(
+            importManifest: importManifest,
+            copyManifest: copyManifest
+        )
+
+        #expect(report.valid == false)
+        #expect(report.checkedArtifactCount == 2)
+        #expect(report.copyItemCount == 2)
+        #expect(report.findings.contains("Missing copy for en-US/iOS/02-history.png."))
+        #expect(report.findings.contains("Stale copy item for en-US/iOS/03-settings.png."))
+    }
+
     @Test("validates user-provided import directory structure and image counts")
     func validatesImportDirectoryStructure() throws {
         let root = try TemporaryDirectory()

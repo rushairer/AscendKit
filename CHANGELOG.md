@@ -9,6 +9,7 @@ AscendKit follows [Semantic Versioning](https://semver.org/). During `0.y.z`, th
 - Local screenshot destination discovery and simulator recommendation for capture planning/workflows.
 - Local screenshot workflow status report for capture, import, composition, workflow, and upload-plan readiness.
 - Screenshot copy template initialization from `screenshot-plan.json` for framed poster title/subtitle editing.
+- Screenshot copy linting against imported artifacts before framed poster composition.
 
 ## 0.2.0 - 2026-05-01
 

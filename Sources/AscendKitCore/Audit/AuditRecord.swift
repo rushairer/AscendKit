@@ -14,6 +14,7 @@ public enum AuditAction: String, Codable, Equatable, Sendable {
     case screenshotImportManifestSaved
     case screenshotCompositionManifestSaved
     case screenshotCopyInitialized
+    case screenshotCopyLinted
     case screenshotWorkflowRan
     case screenshotUploadPlanned
     case screenshotUploadExecuted
