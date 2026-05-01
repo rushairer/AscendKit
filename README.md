@@ -400,6 +400,7 @@ swift run ascendkit screenshots upload \
 
 Executes native screenshot upload through App Store Connect by optionally deleting planned remote screenshots, creating or reusing screenshot sets, reserving screenshots, uploading ASC asset parts, and committing checksums. This command mutates ASC only with `--confirm-remote-mutation`.
 If `screenshots upload-plan` has findings, execution refuses to proceed.
+Transient ASC and asset-upload requests are retried with bounded backoff. If one screenshot fails after execution starts, AscendKit records the failure in `failedItems` and continues with remaining screenshots when possible.
 
 ### `asc auth`
 
@@ -629,7 +630,7 @@ Important files:
 - `metadata/lint/*.json`: lint results.
 - `screenshots/manifests/*.json`: screenshot import/composition manifests.
 - `screenshots/manifests/upload.json`: dry-run native ASC screenshot upload plan.
-- `screenshots/manifests/upload-result.json`: native ASC screenshot upload execution result.
+- `screenshots/manifests/upload-result.json`: native ASC screenshot upload execution result, including uploaded items, deleted remote screenshots, and per-item failures.
 - `asc/auth.json`: ASC auth config with secret references only.
 - `asc/apps.json`: ASC app lookup result.
 - `asc/observed-state.json`: observed ASC metadata state.
@@ -691,7 +692,7 @@ Release checklist:
 Fastlane removal roadmap:
 
 1. Keep `import-fastlane` commands only as migration helpers.
-2. Harden native ASC screenshot replacement with ordering sync, retry/backoff, and partial-failure recovery.
+2. Harden native ASC screenshot replacement with ordering sync and deeper real-world recovery checks.
 3. Formalize App Privacy declarations on official ASC API where available and explicit fallback paths where Apple exposes only private iris endpoints.
 4. Keep binary upload out of scope; Xcode Cloud remains the preferred binary delivery path.
 

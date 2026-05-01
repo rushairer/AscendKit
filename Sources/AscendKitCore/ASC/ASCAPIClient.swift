@@ -100,7 +100,7 @@ public struct ASCAPIClient {
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
 
-        let (data, response) = try await session.data(for: request)
+        let (data, response) = try await dataWithRetry(for: request)
         guard let http = response as? HTTPURLResponse else {
             throw AscendKitError.invalidState("ASC apps lookup did not return an HTTP response.")
         }
@@ -237,7 +237,7 @@ public struct ASCAPIClient {
             request.setValue("application/json", forHTTPHeaderField: "Accept")
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-            let (data, response) = try await session.data(for: request)
+            let (data, response) = try await dataWithRetry(for: request)
             guard let http = response as? HTTPURLResponse else {
                 throw AscendKitError.invalidState("ASC metadata request did not return an HTTP response for \(plannedRequest.id).")
             }
@@ -417,74 +417,118 @@ public struct ASCAPIClient {
         }
 
         var uploadedItems: [ScreenshotUploadExecutionItem] = []
+        var deletedScreenshots: [ScreenshotRemoteDeletion] = []
+        var failedItems: [ScreenshotUploadFailure] = []
         var setIDs: [String: String] = [:]
         let deletions = plan.replaceExistingRemoteScreenshots == true
-            ? Array(Set((plan.remoteScreenshotsToDelete ?? []).map(\.appScreenshotID))).filter { !$0.isEmpty }.sorted()
+            ? uniqueDeletions(plan.remoteScreenshotsToDelete ?? [])
             : []
 
-        for screenshotID in deletions {
-            _ = try await deleteAppScreenshot(screenshotID: screenshotID, token: token)
+        for deletion in deletions {
+            do {
+                _ = try await deleteAppScreenshot(screenshotID: deletion.appScreenshotID, token: token)
+                deletedScreenshots.append(deletion)
+            } catch {
+                failedItems.append(ScreenshotUploadFailure(
+                    phase: "delete",
+                    appScreenshotID: deletion.appScreenshotID,
+                    fileName: deletion.fileName,
+                    message: String(describing: error)
+                ))
+            }
         }
 
         for item in plan.items {
-            let setKey = "\(item.appStoreVersionLocalizationID)|\(item.displayType)"
-            let setID: String
-            if let cached = setIDs[setKey] {
-                setID = cached
-            } else {
-                setID = try await findOrCreateScreenshotSet(
-                    appStoreVersionLocalizationID: item.appStoreVersionLocalizationID,
-                    displayType: item.displayType,
+            do {
+                let fileURL = URL(fileURLWithPath: item.sourcePath)
+                let data = try Data(contentsOf: fileURL)
+                let checksum = Insecure.MD5.hash(data: data).map { String(format: "%02hhx", $0) }.joined()
+                let setKey = "\(item.appStoreVersionLocalizationID)|\(item.displayType)"
+                let setID: String
+                if let cached = setIDs[setKey] {
+                    setID = cached
+                } else {
+                    setID = try await findOrCreateScreenshotSet(
+                        appStoreVersionLocalizationID: item.appStoreVersionLocalizationID,
+                        displayType: item.displayType,
+                        token: token
+                    )
+                    setIDs[setKey] = setID
+                }
+
+                let reservation = try await createAppScreenshotReservation(
+                    appScreenshotSetID: setID,
+                    fileName: item.fileName,
+                    fileSize: data.count,
                     token: token
                 )
-                setIDs[setKey] = setID
+                try await uploadAssetParts(
+                    uploadOperations: reservation.uploadOperations,
+                    data: data
+                )
+                let commitResponse = try await commitAppScreenshot(
+                    screenshotID: reservation.id,
+                    checksum: checksum,
+                    token: token
+                )
+                let deliveryState = try await pollAppScreenshotDeliveryState(
+                    screenshotID: reservation.id,
+                    token: token
+                )
+                uploadedItems.append(ScreenshotUploadExecutionItem(
+                    planItemID: item.id,
+                    appScreenshotSetID: setID,
+                    appScreenshotID: reservation.id,
+                    fileName: item.fileName,
+                    checksum: checksum,
+                    assetDeliveryState: deliveryState,
+                    responses: [
+                        reservation.response,
+                        commitResponse
+                    ]
+                ))
+            } catch {
+                failedItems.append(ScreenshotUploadFailure(
+                    phase: "upload",
+                    planItemID: item.id,
+                    fileName: item.fileName,
+                    message: String(describing: error)
+                ))
             }
+        }
 
-            let fileURL = URL(fileURLWithPath: item.sourcePath)
-            let data = try Data(contentsOf: fileURL)
-            let checksum = Insecure.MD5.hash(data: data).map { String(format: "%02hhx", $0) }.joined()
-            let reservation = try await createAppScreenshotReservation(
-                appScreenshotSetID: setID,
-                fileName: item.fileName,
-                fileSize: data.count,
-                token: token
-            )
-            try await uploadAssetParts(
-                uploadOperations: reservation.uploadOperations,
-                data: data
-            )
-            let commitResponse = try await commitAppScreenshot(
-                screenshotID: reservation.id,
-                checksum: checksum,
-                token: token
-            )
-            let deliveryState = try await pollAppScreenshotDeliveryState(
-                screenshotID: reservation.id,
-                token: token
-            )
-            uploadedItems.append(ScreenshotUploadExecutionItem(
-                planItemID: item.id,
-                appScreenshotSetID: setID,
-                appScreenshotID: reservation.id,
-                fileName: item.fileName,
-                checksum: checksum,
-                assetDeliveryState: deliveryState,
-                responses: [
-                    reservation.response,
-                    commitResponse
-                ]
-            ))
+        let executed = !uploadedItems.isEmpty || !deletedScreenshots.isEmpty || !failedItems.isEmpty
+        var findings = [
+            "Screenshot upload executed through the official App Store Connect screenshot asset API."
+        ]
+        if !deletedScreenshots.isEmpty {
+            findings.append("Deleted \(deletedScreenshots.count) existing remote screenshot(s) before upload.")
+        }
+        if !failedItems.isEmpty {
+            findings.append("Screenshot upload completed with \(failedItems.count) failure(s); inspect failedItems before retrying.")
         }
 
         return ScreenshotUploadExecutionResult(
-            executed: true,
+            executed: executed,
             uploadedCount: uploadedItems.count,
             items: uploadedItems,
-            findings: [
-                "Screenshot upload executed through the official App Store Connect screenshot asset API.",
-                deletions.isEmpty ? nil : "Deleted \(deletions.count) existing remote screenshot(s) before upload."
-            ].compactMap { $0 }
+            findings: findings,
+            deletedScreenshots: deletedScreenshots,
+            failedItems: failedItems
         )
+    }
+
+    private func uniqueDeletions(_ deletions: [ScreenshotRemoteDeletion]) -> [ScreenshotRemoteDeletion] {
+        var seen = Set<String>()
+        var unique: [ScreenshotRemoteDeletion] = []
+        for deletion in deletions.sorted(by: { $0.appScreenshotID < $1.appScreenshotID }) {
+            guard !deletion.appScreenshotID.isEmpty, !seen.contains(deletion.appScreenshotID) else {
+                continue
+            }
+            seen.insert(deletion.appScreenshotID)
+            unique.append(deletion)
+        }
+        return unique
     }
 
     public func executeReviewSubmission(
@@ -748,7 +792,7 @@ public struct ASCAPIClient {
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
 
-        let (data, response) = try await session.data(for: request)
+        let (data, response) = try await dataWithRetry(for: request)
         guard let http = response as? HTTPURLResponse else {
             throw AscendKitError.invalidState("ASC request did not return an HTTP response for \(path).")
         }
@@ -778,7 +822,7 @@ public struct ASCAPIClient {
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
 
-        let (data, response) = try await session.data(for: request)
+        let (data, response) = try await dataWithRetry(for: request)
         guard let http = response as? HTTPURLResponse else {
             throw AscendKitError.invalidState("ASC request did not return an HTTP response for \(path).")
         }
@@ -798,7 +842,7 @@ public struct ASCAPIClient {
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
 
-        let (data, response) = try await session.data(for: request)
+        let (data, response) = try await dataWithRetry(for: request)
         guard let http = response as? HTTPURLResponse else {
             throw AscendKitError.invalidState("ASC request did not return an HTTP response for \(path).")
         }
@@ -815,7 +859,7 @@ public struct ASCAPIClient {
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
 
-        let (data, response) = try await session.data(for: request)
+        let (data, response) = try await dataWithRetry(for: request)
         guard let http = response as? HTTPURLResponse else {
             throw AscendKitError.invalidState("ASC request did not return an HTTP response for \(path).")
         }
@@ -936,7 +980,7 @@ public struct ASCAPIClient {
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        let (responseData, response) = try await session.data(for: request)
+        let (responseData, response) = try await dataWithRetry(for: request)
         guard let http = response as? HTTPURLResponse else {
             throw AscendKitError.invalidState("ASC app-screenshot.create request did not return an HTTP response.")
         }
@@ -979,7 +1023,7 @@ public struct ASCAPIClient {
             }
             request.httpBody = data.subdata(in: lowerBound..<(lowerBound + length))
 
-            let (responseData, response) = try await session.data(for: request)
+            let (responseData, response) = try await dataWithRetry(for: request)
             guard let http = response as? HTTPURLResponse else {
                 throw AscendKitError.invalidState("ASC upload operation did not return an HTTP response.")
             }
@@ -1309,7 +1353,7 @@ public struct ASCAPIClient {
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        let (data, response) = try await session.data(for: request)
+        let (data, response) = try await dataWithRetry(for: request)
         guard let http = response as? HTTPURLResponse else {
             throw AscendKitError.invalidState("ASC \(id) request did not return an HTTP response.")
         }
@@ -1339,7 +1383,7 @@ public struct ASCAPIClient {
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
 
-        let (data, response) = try await session.data(for: request)
+        let (data, response) = try await dataWithRetry(for: request)
         guard let http = response as? HTTPURLResponse else {
             throw AscendKitError.invalidState("ASC \(id) request did not return an HTTP response.")
         }
@@ -1352,6 +1396,48 @@ public struct ASCAPIClient {
             path: path,
             statusCode: http.statusCode
         )
+    }
+
+    private func dataWithRetry(for request: URLRequest, maxAttempts: Int = 3) async throws -> (Data, URLResponse) {
+        var lastError: Error?
+        for attempt in 1...maxAttempts {
+            do {
+                let (data, response) = try await session.data(for: request)
+                if let http = response as? HTTPURLResponse, shouldRetry(statusCode: http.statusCode), attempt < maxAttempts {
+                    try await sleepBeforeRetry(attempt: attempt)
+                    continue
+                }
+                return (data, response)
+            } catch {
+                lastError = error
+                guard attempt < maxAttempts, shouldRetry(error: error) else {
+                    throw error
+                }
+                try await sleepBeforeRetry(attempt: attempt)
+            }
+        }
+        throw lastError ?? AscendKitError.invalidState("Request failed after retry attempts.")
+    }
+
+    private func shouldRetry(statusCode: Int) -> Bool {
+        statusCode == 429 || (500...599).contains(statusCode)
+    }
+
+    private func shouldRetry(error: Error) -> Bool {
+        guard let urlError = error as? URLError else {
+            return false
+        }
+        switch urlError.code {
+        case .timedOut, .cannotFindHost, .cannotConnectToHost, .networkConnectionLost, .dnsLookupFailed, .notConnectedToInternet, .resourceUnavailable:
+            return true
+        default:
+            return false
+        }
+    }
+
+    private func sleepBeforeRetry(attempt: Int) async throws {
+        let delay = UInt64(250_000_000 * max(1, attempt))
+        try await Task.sleep(nanoseconds: delay)
     }
 
     private func ascPlatformValue(for platform: ApplePlatform) -> String {

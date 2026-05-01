@@ -287,7 +287,24 @@ struct ASCTests {
                     ]
                 )
             ],
-            findings: ["Screenshot upload executed through the official App Store Connect screenshot asset API."]
+            findings: ["Screenshot upload executed through the official App Store Connect screenshot asset API."],
+            deletedScreenshots: [
+                ScreenshotRemoteDeletion(
+                    locale: "en-US",
+                    displayType: "APP_IPHONE_67",
+                    appScreenshotSetID: "set-1",
+                    appScreenshotID: "old-screenshot-1",
+                    fileName: "old-home.png"
+                )
+            ],
+            failedItems: [
+                ScreenshotUploadFailure(
+                    phase: "upload",
+                    planItemID: "en-US:iOS:APP_IPHONE_67:2:settings.png",
+                    fileName: "settings.png",
+                    message: "fixture failure"
+                )
+            ]
         )
 
         let data = try AscendKitJSON.encoder.encode(result)
@@ -297,6 +314,8 @@ struct ASCTests {
         #expect(decoded.uploadedCount == 1)
         #expect(decoded.items.first?.appScreenshotSetID == "set-1")
         #expect(decoded.items.first?.checksum == "d41d8cd98f00b204e9800998ecf8427e")
+        #expect(decoded.deletedScreenshots?.first?.appScreenshotID == "old-screenshot-1")
+        #expect(decoded.failedItems?.first?.phase == "upload")
     }
 
     @Test("screenshot upload execution requires explicit confirmation")
@@ -324,6 +343,36 @@ struct ASCTests {
 
         #expect(result.executed == false)
         #expect(result.findings.contains("Missing --confirm-remote-mutation. No screenshot upload request was executed."))
+    }
+
+    @Test("screenshot upload records local file failure without throwing")
+    func screenshotUploadRecordsLocalFileFailure() async throws {
+        let plan = ScreenshotUploadPlan(
+            sourceKind: .imported,
+            items: [
+                ScreenshotUploadPlanItem(
+                    locale: "en-US",
+                    platform: .iOS,
+                    displayType: "APP_IPHONE_67",
+                    appStoreVersionLocalizationID: "version-loc-1",
+                    sourcePath: "/tmp/ascendkit-missing-screenshot.png",
+                    fileName: "missing.png",
+                    order: 1
+                )
+            ]
+        )
+
+        let result = try await ASCAPIClient().executeScreenshotUpload(
+            plan: plan,
+            confirmRemoteMutation: true,
+            token: "unused"
+        )
+
+        #expect(result.executed)
+        #expect(result.uploadedCount == 0)
+        #expect(result.failedItems?.count == 1)
+        #expect(result.failedItems?.first?.planItemID == "en-US:iOS:APP_IPHONE_67:1:missing.png")
+        #expect(result.findings.contains { $0.contains("1 failure") })
     }
 
     @Test("serializes review submission execution result")

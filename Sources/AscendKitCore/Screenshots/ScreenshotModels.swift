@@ -537,19 +537,52 @@ public struct ScreenshotUploadExecutionResult: Codable, Equatable, Sendable {
     public var uploadedCount: Int
     public var items: [ScreenshotUploadExecutionItem]
     public var findings: [String]
+    public var deletedScreenshots: [ScreenshotRemoteDeletion]?
+    public var failedItems: [ScreenshotUploadFailure]?
 
     public init(
         generatedAt: Date = Date(),
         executed: Bool,
         uploadedCount: Int = 0,
         items: [ScreenshotUploadExecutionItem] = [],
-        findings: [String] = []
+        findings: [String] = [],
+        deletedScreenshots: [ScreenshotRemoteDeletion] = [],
+        failedItems: [ScreenshotUploadFailure] = []
     ) {
         self.generatedAt = generatedAt
         self.executed = executed
         self.uploadedCount = uploadedCount
         self.items = items
         self.findings = findings
+        self.deletedScreenshots = deletedScreenshots
+        self.failedItems = failedItems
+    }
+}
+
+public struct ScreenshotUploadFailure: Codable, Equatable, Identifiable, Sendable {
+    public var id: String
+    public var phase: String
+    public var planItemID: String?
+    public var appScreenshotID: String?
+    public var fileName: String?
+    public var message: String
+
+    public init(
+        phase: String,
+        planItemID: String? = nil,
+        appScreenshotID: String? = nil,
+        fileName: String? = nil,
+        message: String
+    ) {
+        self.phase = phase
+        self.planItemID = planItemID
+        self.appScreenshotID = appScreenshotID
+        self.fileName = fileName
+        self.message = message
+        self.id = [
+            phase,
+            planItemID ?? appScreenshotID ?? fileName ?? "unknown"
+        ].joined(separator: ":")
     }
 }
 
