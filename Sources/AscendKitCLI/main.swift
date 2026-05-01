@@ -1531,8 +1531,21 @@ struct CLIRunner {
         }
 
         return try render(report, json: json) {
-            "Submission readiness: \(report.ready ? "ready" : "not ready")"
+            renderSubmissionReadinessText(report)
         }
+    }
+
+    private func renderSubmissionReadinessText(_ report: SubmissionReadinessReport) -> String {
+        let header = "Submission readiness: \(report.ready ? "ready" : "not ready")"
+        let blockers = report.items.filter { !$0.satisfied }
+        guard !blockers.isEmpty else {
+            return header
+        }
+        let lines = blockers.map { item in
+            let note = item.note.map { " - \($0)" } ?? ""
+            return "- \(item.id): \(item.title)\(note)"
+        }
+        return ([header, "Unsatisfied checklist item(s):"] + lines).joined(separator: "\n")
     }
 
     private func buildReviewSubmissionPlan(

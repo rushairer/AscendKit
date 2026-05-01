@@ -13,6 +13,7 @@ AscendKit follows [Semantic Versioning](https://semver.org/). During `0.y.z`, th
 - Persisted screenshot copy linting against imported artifacts before framed poster composition.
 - Local screenshot workflow copy refresh/lint when a copy file is supplied.
 - Submission readiness gating for framed poster screenshot copy lint.
+- Text submission readiness output now lists unsatisfied checklist items.
 
 ## 0.2.0 - 2026-05-01
 
