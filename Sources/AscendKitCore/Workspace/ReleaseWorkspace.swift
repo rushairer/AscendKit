@@ -10,6 +10,7 @@ public struct ReleaseWorkspacePaths: Codable, Equatable, Sendable {
     public var screenshotCapturePlan: String
     public var screenshotCaptureResult: String
     public var screenshotImportManifest: String
+    public var screenshotCopyLint: String
     public var screenshotCompositionManifest: String
     public var screenshotWorkflowResult: String
     public var screenshotUploadPlan: String
@@ -47,6 +48,7 @@ public struct ReleaseWorkspacePaths: Codable, Equatable, Sendable {
         self.screenshotCapturePlan = releaseRoot.appendingPathComponent("screenshots/manifests/capture-plan.json").path
         self.screenshotCaptureResult = releaseRoot.appendingPathComponent("screenshots/manifests/capture-result.json").path
         self.screenshotImportManifest = releaseRoot.appendingPathComponent("screenshots/manifests/import.json").path
+        self.screenshotCopyLint = releaseRoot.appendingPathComponent("screenshots/manifests/copy-lint.json").path
         self.screenshotCompositionManifest = releaseRoot.appendingPathComponent("screenshots/manifests/composition.json").path
         self.screenshotWorkflowResult = releaseRoot.appendingPathComponent("screenshots/manifests/workflow-result.json").path
         self.screenshotUploadPlan = releaseRoot.appendingPathComponent("screenshots/manifests/upload.json").path

@@ -293,6 +293,7 @@ struct CLIRunner {
                     importManifest: importManifest,
                     copyManifest: copyManifest
                 )
+                try store.save(report, to: URL(fileURLWithPath: workspace.paths.screenshotCopyLint))
                 try store.appendAudit(
                     .init(
                         action: .screenshotCopyLinted,
@@ -456,6 +457,7 @@ struct CLIRunner {
             capturePlan: loadIfExists(ScreenshotCapturePlan.self, path: workspace.paths.screenshotCapturePlan),
             captureResult: loadIfExists(ScreenshotCaptureExecutionResult.self, path: workspace.paths.screenshotCaptureResult),
             importManifest: loadIfExists(ScreenshotImportManifest.self, path: workspace.paths.screenshotImportManifest),
+            copyLintReport: loadIfExists(ScreenshotCompositionCopyLintReport.self, path: workspace.paths.screenshotCopyLint),
             compositionManifest: loadIfExists(ScreenshotCompositionManifest.self, path: workspace.paths.screenshotCompositionManifest),
             workflowResult: loadIfExists(ScreenshotLocalWorkflowResult.self, path: workspace.paths.screenshotWorkflowResult),
             uploadPlan: loadIfExists(ScreenshotUploadPlan.self, path: workspace.paths.screenshotUploadPlan),

@@ -237,6 +237,10 @@ struct ScreenshotTests {
                 sourceDirectory: "/tmp/raw",
                 artifacts: [ScreenshotArtifact(locale: "en-US", platform: .iOS, path: "/tmp/raw/01.png", fileName: "01.png")]
             ),
+            copyLintReport: ScreenshotCompositionCopyLintReport(
+                checkedArtifactCount: 1,
+                copyItemCount: 1
+            ),
             compositionManifest: ScreenshotCompositionManifest(
                 mode: .framedPoster,
                 artifacts: [
@@ -263,6 +267,7 @@ struct ScreenshotTests {
 
         #expect(report.readyForUploadPlan)
         #expect(report.steps.map(\.state).allSatisfy { $0 == .complete })
+        #expect(report.steps.contains { $0.id == "copy-lint" })
         #expect(report.findings.isEmpty)
     }
 

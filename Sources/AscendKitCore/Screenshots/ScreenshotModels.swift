@@ -462,6 +462,7 @@ public struct ScreenshotWorkflowStatusBuilder {
         capturePlan: ScreenshotCapturePlan?,
         captureResult: ScreenshotCaptureExecutionResult?,
         importManifest: ScreenshotImportManifest?,
+        copyLintReport: ScreenshotCompositionCopyLintReport? = nil,
         compositionManifest: ScreenshotCompositionManifest?,
         workflowResult: ScreenshotLocalWorkflowResult?,
         uploadPlan: ScreenshotUploadPlan? = nil,
@@ -506,6 +507,17 @@ public struct ScreenshotWorkflowStatusBuilder {
         ))
         if importManifest?.artifacts.isEmpty == true {
             findings.append("Screenshot import manifest has no artifacts.")
+        }
+
+        if let copyLintReport {
+            steps.append(.init(
+                id: "copy-lint",
+                title: "Copy lint",
+                state: copyLintReport.valid ? .complete : .blocked,
+                detail: "\(copyLintReport.copyItemCount) copy item(s), \(copyLintReport.findings.count) finding(s)",
+                path: paths?.screenshotCopyLint
+            ))
+            findings.append(contentsOf: copyLintReport.findings)
         }
 
         steps.append(.init(
