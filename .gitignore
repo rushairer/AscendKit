@@ -1,0 +1,6 @@
+.build/
+.swiftpm/
+.ascendkit/
+DerivedData/
+*.xcuserdata/
+.DS_Store
