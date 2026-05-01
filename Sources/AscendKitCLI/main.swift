@@ -68,6 +68,12 @@ struct CLIRunner {
             return try render(status, json: json) {
                 "Workspace \(status.releaseID): \(status.completeStepCount)/\(status.steps.count) step file(s) present"
             }
+        case "summary":
+            let workspace = try loadWorkspace(from: args)
+            let summary = ReleaseWorkspaceSummaryReader(fileManager: fileManager).read(workspace: workspace)
+            return try render(summary, json: json) {
+                renderReleaseWorkspaceSummaryText(summary)
+            }
         case "audit":
             let workspace = try loadWorkspace(from: args)
             let records = try AuditLogReader(fileManager: fileManager).read(workspace: workspace)
@@ -89,8 +95,28 @@ struct CLIRunner {
                 }.joined(separator: "\n")
             }
         default:
-            throw AscendKitError.invalidArguments("Usage: ascendkit workspace status|audit --workspace PATH [--json] OR ascendkit workspace list [--root PATH] [--json]")
+            throw AscendKitError.invalidArguments("Usage: ascendkit workspace status|summary|audit --workspace PATH [--json] OR ascendkit workspace list [--root PATH] [--json]")
         }
+    }
+
+    private func renderReleaseWorkspaceSummaryText(_ summary: ReleaseWorkspaceSummary) -> String {
+        var lines = [
+            "Release workspace summary: \(summary.releaseID)",
+            "Submission readiness: \(summary.submissionReadinessReady.map { $0 ? "ready" : "not ready" } ?? "unknown")",
+            "Manual review submission: \(summary.readyForManualReviewSubmission.map { $0 ? "ready" : "not ready" } ?? "unknown")",
+            "Remote submission execution allowed: \(summary.remoteSubmissionExecutionAllowed.map { $0 ? "yes" : "no" } ?? "unknown")",
+            "App Privacy: \(summary.appPrivacyState ?? "unknown") (\(summary.appPrivacyReadyForSubmission.map { $0 ? "ready" : "not ready" } ?? "unknown"))",
+            "Screenshot workflow upload-plan readiness: \(summary.screenshotWorkflowReadyForUploadPlan.map { $0 ? "ready" : "not ready" } ?? "unknown")"
+        ]
+        if summary.nextActions.isEmpty {
+            lines.append("Next action(s): none")
+        } else {
+            lines.append("Next action(s):")
+            lines.append(contentsOf: summary.nextActions.map {
+                "- [\($0.severity.rawValue)] \($0.title): \($0.detail)"
+            })
+        }
+        return lines.joined(separator: "\n")
     }
 
     private func intake(_ args: [String], json: Bool) throws -> String {
@@ -1838,6 +1864,7 @@ struct CLIRunner {
 
     Usage:
       ascendkit workspace status --workspace PATH [--json]
+      ascendkit workspace summary --workspace PATH [--json]
       ascendkit workspace audit --workspace PATH [--json]
       ascendkit workspace list [--root PATH] [--json]
       ascendkit intake inspect [--root PATH] [--project PATH] [--workspace PATH] [--release-id ID] [--save] [--json]

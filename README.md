@@ -254,9 +254,10 @@ Inspect existing release workspace state.
 ```bash
 swift run ascendkit workspace status --workspace "$WORKSPACE"
 swift run ascendkit workspace status --workspace "$WORKSPACE" --json
+swift run ascendkit workspace summary --workspace "$WORKSPACE" --json
 ```
 
-Shows which expected files exist, such as manifest, metadata, screenshots, ASC auth, readiness, and review artifacts.
+`workspace status` shows which expected files exist, such as manifest, metadata, screenshots, ASC auth, readiness, and review artifacts. `workspace summary` reads the persisted release artifacts and emits final readiness state plus deduplicated next actions for agents.
 
 ```bash
 swift run ascendkit workspace audit --workspace "$WORKSPACE"

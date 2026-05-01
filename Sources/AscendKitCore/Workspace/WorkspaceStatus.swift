@@ -97,6 +97,201 @@ public struct WorkspaceStatusReader {
     }
 }
 
+public enum ReleaseActionSeverity: String, Codable, Equatable, Sendable {
+    case info
+    case warning
+    case blocker
+}
+
+public struct ReleaseActionItem: Codable, Equatable, Identifiable, Sendable {
+    public var id: String
+    public var title: String
+    public var detail: String
+    public var severity: ReleaseActionSeverity
+
+    public init(id: String, title: String, detail: String, severity: ReleaseActionSeverity) {
+        self.id = id
+        self.title = title
+        self.detail = detail
+        self.severity = severity
+    }
+}
+
+public struct ReleaseWorkspaceSummary: Codable, Equatable, Sendable {
+    public var releaseID: String
+    public var root: String
+    public var generatedAt: Date
+    public var submissionReadinessReady: Bool?
+    public var readyForManualReviewSubmission: Bool?
+    public var remoteSubmissionExecutionAllowed: Bool?
+    public var appPrivacyReadyForSubmission: Bool?
+    public var appPrivacyState: String?
+    public var screenshotWorkflowReadyForUploadPlan: Bool?
+    public var nextActions: [ReleaseActionItem]
+
+    public init(
+        releaseID: String,
+        root: String,
+        generatedAt: Date = Date(),
+        submissionReadinessReady: Bool?,
+        readyForManualReviewSubmission: Bool?,
+        remoteSubmissionExecutionAllowed: Bool?,
+        appPrivacyReadyForSubmission: Bool?,
+        appPrivacyState: String?,
+        screenshotWorkflowReadyForUploadPlan: Bool?,
+        nextActions: [ReleaseActionItem]
+    ) {
+        self.releaseID = releaseID
+        self.root = root
+        self.generatedAt = generatedAt
+        self.submissionReadinessReady = submissionReadinessReady
+        self.readyForManualReviewSubmission = readyForManualReviewSubmission
+        self.remoteSubmissionExecutionAllowed = remoteSubmissionExecutionAllowed
+        self.appPrivacyReadyForSubmission = appPrivacyReadyForSubmission
+        self.appPrivacyState = appPrivacyState
+        self.screenshotWorkflowReadyForUploadPlan = screenshotWorkflowReadyForUploadPlan
+        self.nextActions = nextActions
+    }
+}
+
+public struct ReleaseWorkspaceSummaryReader {
+    public let fileManager: FileManager
+
+    public init(fileManager: FileManager = .default) {
+        self.fileManager = fileManager
+    }
+
+    public func read(workspace: ReleaseWorkspace) -> ReleaseWorkspaceSummary {
+        let readiness = load(SubmissionReadinessReport.self, path: workspace.paths.readiness)
+        let reviewPlan = load(ReviewSubmissionPlan.self, path: workspace.paths.reviewSubmissionPlan)
+        let appPrivacyStatus = load(AppPrivacyStatus.self, path: workspace.paths.ascPrivacyStatus) ?? AppPrivacyStatus(
+            state: .unknown,
+            source: "workspace",
+            findings: ["No App Privacy status has been recorded."]
+        )
+        let screenshotWorkflowStatus = ScreenshotWorkflowStatusBuilder().build(
+            capturePlan: load(ScreenshotCapturePlan.self, path: workspace.paths.screenshotCapturePlan),
+            captureResult: load(ScreenshotCaptureExecutionResult.self, path: workspace.paths.screenshotCaptureResult),
+            importManifest: load(ScreenshotImportManifest.self, path: workspace.paths.screenshotImportManifest),
+            copyLintReport: load(ScreenshotCompositionCopyLintReport.self, path: workspace.paths.screenshotCopyLint),
+            compositionManifest: load(ScreenshotCompositionManifest.self, path: workspace.paths.screenshotCompositionManifest),
+            workflowResult: load(ScreenshotLocalWorkflowResult.self, path: workspace.paths.screenshotWorkflowResult),
+            uploadPlan: load(ScreenshotUploadPlan.self, path: workspace.paths.screenshotUploadPlan),
+            paths: workspace.paths
+        )
+
+        var actions: [ReleaseActionItem] = []
+
+        if let readiness {
+            for item in readiness.items where !item.satisfied {
+                actions.append(.init(
+                    id: "readiness.\(item.id)",
+                    title: item.title,
+                    detail: item.note ?? "Resolve this readiness checklist item.",
+                    severity: .blocker
+                ))
+            }
+        } else {
+            actions.append(.init(
+                id: "readiness.missing",
+                title: "Submission readiness has not been generated",
+                detail: "Run submit readiness --workspace PATH.",
+                severity: .blocker
+            ))
+        }
+
+        if let reviewPlan {
+            for (index, finding) in reviewPlan.findings.enumerated() {
+                actions.append(.init(
+                    id: "review-plan.finding.\(index + 1)",
+                    title: "Review plan finding",
+                    detail: finding,
+                    severity: reviewPlanFindingSeverity(finding, plan: reviewPlan)
+                ))
+            }
+            if reviewPlan.readyForManualReviewSubmission && !reviewPlan.remoteSubmissionExecutionAllowed {
+                actions.append(.init(
+                    id: "review.submit-manual",
+                    title: "Complete final App Review submission manually",
+                    detail: "Run submit handoff, then submit the prepared version in App Store Connect. Remote submission execution is boundary-disabled.",
+                    severity: .info
+                ))
+            }
+        } else {
+            actions.append(.init(
+                id: "review-plan.missing",
+                title: "Review submission plan has not been generated",
+                detail: "Run submit review-plan --workspace PATH, then submit handoff --workspace PATH.",
+                severity: .blocker
+            ))
+        }
+
+        if !appPrivacyStatus.readyForSubmission {
+            for (index, action) in appPrivacyStatus.nextActions.enumerated() {
+                actions.append(.init(
+                    id: "app-privacy.next-action.\(index + 1)",
+                    title: "App Privacy next action",
+                    detail: action,
+                    severity: .blocker
+                ))
+            }
+        }
+
+        if !screenshotWorkflowStatus.readyForUploadPlan {
+            for (index, finding) in screenshotWorkflowStatus.findings.enumerated() {
+                actions.append(.init(
+                    id: "screenshots.workflow.finding.\(index + 1)",
+                    title: "Screenshot workflow finding",
+                    detail: finding,
+                    severity: .warning
+                ))
+            }
+        }
+
+        return ReleaseWorkspaceSummary(
+            releaseID: workspace.releaseID,
+            root: workspace.paths.root,
+            submissionReadinessReady: readiness?.ready,
+            readyForManualReviewSubmission: reviewPlan?.readyForManualReviewSubmission,
+            remoteSubmissionExecutionAllowed: reviewPlan?.remoteSubmissionExecutionAllowed,
+            appPrivacyReadyForSubmission: appPrivacyStatus.readyForSubmission,
+            appPrivacyState: appPrivacyStatus.state.rawValue,
+            screenshotWorkflowReadyForUploadPlan: screenshotWorkflowStatus.readyForUploadPlan,
+            nextActions: deduplicated(actions)
+        )
+    }
+
+    private func load<T: Decodable>(_ type: T.Type, path: String) -> T? {
+        guard fileManager.fileExists(atPath: path),
+              let data = fileManager.contents(atPath: path) else {
+            return nil
+        }
+        return try? AscendKitJSON.decoder.decode(type, from: data)
+    }
+
+    private func deduplicated(_ actions: [ReleaseActionItem]) -> [ReleaseActionItem] {
+        var seen = Set<String>()
+        var result: [ReleaseActionItem] = []
+        for action in actions {
+            let key = "\(action.title)\n\(action.detail)"
+            guard !seen.contains(key) else { continue }
+            seen.insert(key)
+            result.append(action)
+        }
+        return result
+    }
+
+    private func reviewPlanFindingSeverity(_ finding: String, plan: ReviewSubmissionPlan) -> ReleaseActionSeverity {
+        if finding.contains("Remote review submission execution is intentionally disabled") {
+            return .info
+        }
+        if finding.contains("releaseNotes/whatsNew remains unsynced") {
+            return .warning
+        }
+        return plan.readyForManualReviewSubmission ? .warning : .blocker
+    }
+}
+
 public struct WorkspaceSummary: Codable, Equatable, Identifiable, Sendable {
     public var id: String { releaseID }
     public var releaseID: String
