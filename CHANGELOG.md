@@ -12,6 +12,7 @@ AscendKit follows [Semantic Versioning](https://semver.org/). During `0.y.z`, th
 - Screenshot copy refresh that preserves edited titles/subtitles while syncing to the current screenshot plan.
 - Persisted screenshot copy linting against imported artifacts before framed poster composition.
 - Local screenshot workflow copy refresh/lint when a copy file is supplied.
+- Submission readiness gating for framed poster screenshot copy lint.
 
 ## 0.2.0 - 2026-05-01
 

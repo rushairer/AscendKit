@@ -187,6 +187,8 @@ swift run ascendkit submit review-plan --workspace "$WORKSPACE" --json
 swift run ascendkit submit handoff --workspace "$WORKSPACE" --json
 ```
 
+For `framedPoster` screenshot composition, readiness requires `screenshots copy lint` to have produced a clean `screenshots/manifests/copy-lint.json`.
+
 Only submit when readiness and the review plan are clean:
 
 ```bash

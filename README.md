@@ -687,7 +687,7 @@ Writes reviewer contact, notes, and login requirement. If login is required, pas
 swift run ascendkit submit readiness --workspace "$WORKSPACE" --json
 ```
 
-Builds a checklist of release prerequisites.
+Builds a checklist of release prerequisites. For `framedPoster` screenshot composition, readiness also requires a clean `screenshots/manifests/copy-lint.json` report.
 
 ```bash
 swift run ascendkit submit prepare --workspace "$WORKSPACE" --json

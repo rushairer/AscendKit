@@ -66,6 +66,7 @@ public struct SubmissionReadinessEvaluator {
         reviewInfo: ReviewInfo? = nil,
         metadataLintReports: [MetadataLintReport] = [],
         screenshotImportManifest: ScreenshotImportManifest? = nil,
+        screenshotCopyLintReport: ScreenshotCompositionCopyLintReport? = nil,
         screenshotCompositionManifest: ScreenshotCompositionManifest? = nil,
         ascLookupPlan: ASCLookupPlan? = nil,
         appPrivacyStatus: AppPrivacyStatus? = nil,
@@ -79,6 +80,7 @@ public struct SubmissionReadinessEvaluator {
         let hasMetadataLint = !metadataLintReports.isEmpty
         let screenshotArtifactCount = screenshotImportManifest?.artifacts.count ?? 0
         let composedScreenshotArtifactCount = screenshotCompositionManifest?.artifacts.count ?? 0
+        let requiresScreenshotCopyLint = screenshotCompositionManifest?.mode == .framedPoster || screenshotCopyLintReport != nil
         let ascLookupPlanReady = ascLookupPlan?.authConfigured == true && (ascLookupPlan?.findings.isEmpty ?? false)
         let releaseTargets = manifest.targets.filter(\.isAppStoreApplication)
         let selectedBuild = releaseTargets.compactMap { target -> BuildCandidate? in
@@ -120,6 +122,19 @@ public struct SubmissionReadinessEvaluator {
             satisfied: composedScreenshotArtifactCount > 0,
             note: composedScreenshotArtifactCount > 0 ? "\(composedScreenshotArtifactCount) composed screenshot artifact(s)." : "Run screenshots compose to prepare the final local screenshot artifact set."
         ))
+
+        if requiresScreenshotCopyLint {
+            items.append(.init(
+                id: "screenshots.copy-lint",
+                title: "Screenshot copy has been linted without findings",
+                satisfied: screenshotCopyLintReport?.valid == true,
+                note: screenshotCopyLintReport.map { report in
+                    report.valid
+                        ? "\(report.copyItemCount) screenshot copy item(s) linted."
+                        : "\(report.findings.count) screenshot copy lint finding(s)."
+                } ?? "Run screenshots copy lint before final readiness."
+            ))
+        }
 
         items.append(.init(
             id: "asc.lookup-plan",

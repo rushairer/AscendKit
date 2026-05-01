@@ -1414,6 +1414,7 @@ struct CLIRunner {
             reviewInfo: context.reviewInfo,
             metadataLintReports: context.metadataLintReports,
             screenshotImportManifest: context.screenshotImportManifest,
+            screenshotCopyLintReport: context.screenshotCopyLintReport,
             screenshotCompositionManifest: context.screenshotCompositionManifest,
             ascLookupPlan: context.ascLookupPlan,
             appPrivacyStatus: context.appPrivacyStatus,
@@ -1561,6 +1562,7 @@ struct CLIRunner {
         var reviewInfo: ReviewInfo?
         var metadataLintReports: [MetadataLintReport]
         var screenshotImportManifest: ScreenshotImportManifest?
+        var screenshotCopyLintReport: ScreenshotCompositionCopyLintReport?
         var screenshotCompositionManifest: ScreenshotCompositionManifest?
         var ascLookupPlan: ASCLookupPlan?
         var appPrivacyStatus: AppPrivacyStatus?
@@ -1575,6 +1577,7 @@ struct CLIRunner {
         let reviewInfo = try loadIfExists(ReviewInfo.self, path: workspace.paths.reviewInfo)
         let metadataLintReports = try loadMetadataLintReports(workspace: workspace)
         let screenshotImportManifest = try loadIfExists(ScreenshotImportManifest.self, path: workspace.paths.screenshotImportManifest)
+        let screenshotCopyLintReport = try loadIfExists(ScreenshotCompositionCopyLintReport.self, path: workspace.paths.screenshotCopyLint)
         let screenshotCompositionManifest = try loadIfExists(ScreenshotCompositionManifest.self, path: workspace.paths.screenshotCompositionManifest)
         let ascLookupPlan = try loadIfExists(ASCLookupPlan.self, path: workspace.paths.ascLookupPlan)
         let appPrivacyStatus = try loadIfExists(AppPrivacyStatus.self, path: workspace.paths.ascPrivacyStatus)
@@ -1586,6 +1589,7 @@ struct CLIRunner {
             reviewInfo: reviewInfo,
             metadataLintReports: metadataLintReports,
             screenshotImportManifest: screenshotImportManifest,
+            screenshotCopyLintReport: screenshotCopyLintReport,
             screenshotCompositionManifest: screenshotCompositionManifest,
             ascLookupPlan: ascLookupPlan,
             appPrivacyStatus: appPrivacyStatus,

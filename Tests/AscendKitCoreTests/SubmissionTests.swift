@@ -220,6 +220,38 @@ struct SubmissionTests {
         #expect(report.items.first { $0.id == "screenshots.composition" }?.satisfied == false)
     }
 
+    @Test("requires copy lint for framed poster screenshots")
+    func requiresCopyLintForFramedPosterScreenshots() {
+        let report = SubmissionReadinessEvaluator().evaluate(
+            manifest: readyManifest(),
+            doctorReport: DoctorReport(findings: []),
+            reviewInfo: readyReviewInfo(),
+            metadataLintReports: [MetadataLintReport(locale: "en-US", findings: [])],
+            screenshotImportManifest: ScreenshotImportManifest(
+                sourceDirectory: "/tmp/screenshots",
+                artifacts: [ScreenshotArtifact(locale: "en-US", platform: .iOS, path: "/tmp/screenshots/en-US/iOS/01.png", fileName: "01.png")]
+            ),
+            screenshotCompositionManifest: ScreenshotCompositionManifest(
+                mode: .framedPoster,
+                artifacts: [
+                    ScreenshotCompositionArtifact(
+                        locale: "en-US",
+                        platform: .iOS,
+                        inputPath: "/tmp/screenshots/en-US/iOS/01.png",
+                        outputPath: "/tmp/composed/framedPoster/en-US/iOS/01.png",
+                        mode: .framedPoster
+                    )
+                ]
+            ),
+            ascLookupPlan: readyASCLookupPlan(),
+            appPrivacyStatus: readyAppPrivacyStatus(),
+            buildCandidatesReport: readyBuildCandidates()
+        )
+
+        #expect(report.ready == false)
+        #expect(report.items.first { $0.id == "screenshots.copy-lint" }?.satisfied == false)
+    }
+
     @Test("fails readiness when metadata lint has findings")
     func failsForMetadataLintFindings() {
         let manifest = ReleaseManifest(
