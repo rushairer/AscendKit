@@ -1,54 +1,642 @@
 # AscendKit
 
-AscendKit is a working project folder for an open-source, AI-assisted, security-first App Store Asset Pipeline focused on modern Apple platform release assets and App Store Connect workflows.
+AscendKit is a local-first Swift toolkit for preparing App Store releases. It helps Apple platform teams organize release workspaces, inspect projects, lint App Store metadata, prepare screenshots, compare local metadata with App Store Connect, and execute a guarded review-submission workflow.
 
-The repository now contains the first Swift-first implementation foundation:
+The project is designed for AI-assisted release work without handing raw secrets or mutable App Store state directly to an agent. AscendKit keeps release state in deterministic local files, stores only secret references, and requires explicit confirmation flags before remote App Store Connect mutations.
 
-- `AscendKitCore` for deterministic release workspace, intake, doctor, metadata, screenshot, ASC boundary, submission, and IAP models.
-- `ascendkit` CLI for the initial command surface.
-- Swift Testing coverage for the first persisted models and validators.
+## Current Status
+
+AscendKit is an MVP. It has been used end-to-end on a real iOS app release workflow covering local screenshot preparation, metadata, App Privacy, pricing, reviewer information, build selection, and App Review submission.
+
+Implemented today:
+
+- Swift Package with `AscendKitCore` and the `ascendkit` CLI.
+- Durable release workspaces under `.ascendkit/releases/<release-id>`.
+- Project intake and release doctor checks.
+- Metadata templates, fastlane metadata import, linting, diffing, and ASC request planning.
+- Screenshot planning, import manifests, fastlane screenshot import, and local composition outputs.
+- App Store Connect auth profiles using secret references.
+- ASC app lookup, build lookup, metadata observation, metadata apply, and guarded review submission.
+- Reviewer information, readiness checks, review handoff, and submission result persistence.
+- Local IAP subscription template validation.
+
+Out of scope for the current MVP:
+
+- Binary upload.
+- Direct screenshot upload to App Store Connect.
+- Archive/sign/export replacement.
+- Xcode Cloud replacement.
+- Deep MCP integration.
+- Fully managed App Store Connect pricing/App Privacy abstractions for every Apple API edge case.
+
+## Requirements
+
+- macOS 14 or later.
+- Swift 6.1 or later.
+- Xcode command line tools.
+- An App Store Connect API key for remote ASC operations.
+- Optional: `fastlane` if you want to reuse existing fastlane metadata or screenshot folders.
 
 Build and test:
 
 ```bash
 swift test
-```
-
-CLI help:
-
-```bash
 swift run ascendkit --help
 ```
 
-Useful first commands:
+## Quick Start: Submit an App Store Release
+
+The typical flow is:
+
+1. Inspect the app project and create a release workspace.
+2. Add or import metadata.
+3. Prepare screenshots locally.
+4. Configure App Store Connect auth.
+5. Observe remote ASC state.
+6. Plan and apply metadata.
+7. Select a build.
+8. Upload screenshots outside AscendKit if they are not already in App Store Connect.
+9. Add reviewer information.
+10. Run readiness checks.
+11. Submit for review with explicit confirmation.
+
+Set a few shell variables first:
 
 ```bash
-swift run ascendkit intake inspect --root /path/to/app --save
-swift run ascendkit workspace list --root /path/to/app
-swift run ascendkit workspace status --workspace /path/to/app/.ascendkit/releases/<release-id>
-swift run ascendkit metadata init --workspace /path/to/app/.ascendkit/releases/<release-id>
-swift run ascendkit metadata lint --workspace /path/to/app/.ascendkit/releases/<release-id>
-swift run ascendkit screenshots plan --workspace /path/to/app/.ascendkit/releases/<release-id> --screens Home,Settings --features Onboarding,Sync --platforms iOS --locales en-US --source /path/to/screenshots
-swift run ascendkit screenshots import --workspace /path/to/app/.ascendkit/releases/<release-id> --source /path/to/screenshots
-swift run ascendkit screenshots compose --workspace /path/to/app/.ascendkit/releases/<release-id> --mode storeReadyCopy
-swift run ascendkit screenshots compose --workspace /path/to/app/.ascendkit/releases/<release-id> --mode poster
-swift run ascendkit screenshots compose --workspace /path/to/app/.ascendkit/releases/<release-id> --mode deviceFrame
-swift run ascendkit asc auth save-profile --name default --issuer-id ASC_ISSUER_ID --key-id ASC_KEY_ID --private-key-provider file --private-key-ref /secure/path/AuthKey_KEYID.p8
-swift run ascendkit doctor release --workspace /path/to/app/.ascendkit/releases/<release-id> --json
-swift run ascendkit asc auth init --workspace /path/to/app/.ascendkit/releases/<release-id> --profile default
-swift run ascendkit asc auth check --workspace /path/to/app/.ascendkit/releases/<release-id> --json
-swift run ascendkit asc lookup plan --workspace /path/to/app/.ascendkit/releases/<release-id> --json
-swift run ascendkit asc builds import --workspace /path/to/app/.ascendkit/releases/<release-id> --id build-123 --version 1.0 --build 7 --state processed
-swift run ascendkit asc metadata import --workspace /path/to/app/.ascendkit/releases/<release-id> --file /path/to/observed-state.json
-swift run ascendkit metadata diff --workspace /path/to/app/.ascendkit/releases/<release-id> --json
-swift run ascendkit submit review-info init --workspace /path/to/app/.ascendkit/releases/<release-id>
-swift run ascendkit submit prepare --workspace /path/to/app/.ascendkit/releases/<release-id> --json
+APP_ROOT=/path/to/YourApp
+RELEASE_ID=appstore-1.0
+WORKSPACE="$APP_ROOT/.ascendkit/releases/$RELEASE_ID"
 ```
 
-The `asc auth` commands store and validate local App Store Connect credential references only. Global profiles are written under `~/.ascendkit/profiles/asc/` with owner-only permissions and should contain references to secrets, not private key contents. The `asc metadata import` and `asc builds import` commands are local observation inputs only. They persist known App Store Connect state into the release workspace so local diff/readiness commands can run deterministically; they do not mutate remote metadata, upload binaries, or submit reviews.
+Create the workspace:
 
-The `asc lookup plan` command writes a dry-run plan for the official read-only App Store Connect lookup shape AscendKit will use later. It records planned app/build lookup endpoints and findings, but performs no network request.
+```bash
+swift run ascendkit intake inspect \
+  --root "$APP_ROOT" \
+  --release-id "$RELEASE_ID" \
+  --save
+```
 
-Screenshot composition supports deterministic store-ready copying, a local poster PNG renderer, and a generic local device-frame PNG renderer. These modes use local image files only and write organized artifacts under the release workspace.
+Create metadata templates, or import existing fastlane metadata:
 
-First-wave scope is intentionally narrow. AscendKit does not build, archive, sign, upload binaries, replace Xcode Cloud, execute remote review submission, or perform broad remote App Store Connect mutation in this foundation.
+```bash
+swift run ascendkit metadata init --workspace "$WORKSPACE" --locale en-US
+
+swift run ascendkit metadata import-fastlane \
+  --workspace "$WORKSPACE" \
+  --source "$APP_ROOT/fastlane/metadata"
+```
+
+Lint metadata:
+
+```bash
+swift run ascendkit metadata status --workspace "$WORKSPACE"
+swift run ascendkit metadata lint --workspace "$WORKSPACE" --locale en-US --json
+```
+
+Import screenshots from a folder or from fastlane:
+
+```bash
+swift run ascendkit screenshots import \
+  --workspace "$WORKSPACE" \
+  --source /path/to/screenshots
+
+swift run ascendkit screenshots import-fastlane \
+  --workspace "$WORKSPACE" \
+  --source "$APP_ROOT/fastlane/screenshots" \
+  --locales en-US,zh-Hans
+```
+
+Compose local screenshot artifacts:
+
+```bash
+swift run ascendkit screenshots compose --workspace "$WORKSPACE" --mode storeReadyCopy
+swift run ascendkit screenshots compose --workspace "$WORKSPACE" --mode deviceFrame
+swift run ascendkit screenshots compose --workspace "$WORKSPACE" --mode poster
+```
+
+Upload screenshots to App Store Connect before final submission. The current MVP does not include direct screenshot upload, so use App Store Connect UI or a focused fastlane command for this step:
+
+```bash
+bundle exec fastlane deliver \
+  --skip_metadata true \
+  --skip_binary_upload true \
+  --submit_for_review false
+```
+
+Save an ASC auth profile. The profile stores only a reference to the private key file, not the key content:
+
+```bash
+swift run ascendkit asc auth save-profile \
+  --name default \
+  --issuer-id ASC_ISSUER_ID \
+  --key-id ASC_KEY_ID \
+  --private-key-provider file \
+  --private-key-ref /secure/path/AuthKey_KEYID.p8
+```
+
+Attach that profile to the release workspace:
+
+```bash
+swift run ascendkit asc auth init \
+  --workspace "$WORKSPACE" \
+  --profile default
+
+swift run ascendkit asc auth check --workspace "$WORKSPACE" --json
+```
+
+Observe the app and remote metadata:
+
+```bash
+swift run ascendkit asc lookup plan --workspace "$WORKSPACE" --json
+swift run ascendkit asc apps lookup --workspace "$WORKSPACE" --json
+swift run ascendkit asc metadata observe --workspace "$WORKSPACE" --json
+```
+
+Plan and apply metadata changes:
+
+```bash
+swift run ascendkit metadata diff --workspace "$WORKSPACE" --json
+swift run ascendkit asc metadata plan --workspace "$WORKSPACE" --json
+swift run ascendkit asc metadata requests --workspace "$WORKSPACE" --json
+
+swift run ascendkit asc metadata apply \
+  --workspace "$WORKSPACE" \
+  --confirm-remote-mutation \
+  --json
+```
+
+Observe builds and select a processed build:
+
+```bash
+swift run ascendkit asc builds observe --workspace "$WORKSPACE" --json
+swift run ascendkit asc builds list --workspace "$WORKSPACE" --json
+```
+
+Add reviewer information. If no login is required, omit login credentials and leave `--requires-login` false:
+
+```bash
+swift run ascendkit submit review-info set \
+  --workspace "$WORKSPACE" \
+  --first-name "Ada" \
+  --last-name "Lovelace" \
+  --email "review@example.com" \
+  --phone "+15555555555" \
+  --notes "No login required. Please launch the app and continue through onboarding." \
+  --requires-login false
+```
+
+Prepare the submission and review the handoff:
+
+```bash
+swift run ascendkit doctor release --workspace "$WORKSPACE" --json
+swift run ascendkit submit readiness --workspace "$WORKSPACE" --json
+swift run ascendkit submit prepare --workspace "$WORKSPACE" --json
+swift run ascendkit submit review-plan --workspace "$WORKSPACE" --json
+swift run ascendkit submit handoff --workspace "$WORKSPACE"
+```
+
+Submit for review. This mutates App Store Connect and must be explicitly confirmed:
+
+```bash
+swift run ascendkit submit execute \
+  --workspace "$WORKSPACE" \
+  --confirm-remote-submission \
+  --json
+```
+
+## Command Reference
+
+All commands support `--json` where shown in `ascendkit --help`. JSON output is intended for scripts, CI, and AI-agent wrappers.
+
+### `workspace`
+
+Inspect existing release workspace state.
+
+```bash
+swift run ascendkit workspace status --workspace "$WORKSPACE"
+swift run ascendkit workspace status --workspace "$WORKSPACE" --json
+```
+
+Shows which expected files exist, such as manifest, metadata, screenshots, ASC auth, readiness, and review artifacts.
+
+```bash
+swift run ascendkit workspace audit --workspace "$WORKSPACE"
+```
+
+Reads the workspace audit log. Sensitive values are redacted before they are written.
+
+```bash
+swift run ascendkit workspace list --root "$APP_ROOT"
+```
+
+Lists known release workspaces under an app root.
+
+### `intake`
+
+Create or update the release manifest from an Apple project.
+
+```bash
+swift run ascendkit intake inspect \
+  --root "$APP_ROOT" \
+  --release-id "$RELEASE_ID" \
+  --save \
+  --json
+```
+
+Useful options:
+
+- `--root PATH`: app repository root.
+- `--project PATH`: specific `.xcodeproj` or project folder.
+- `--workspace PATH`: existing release workspace.
+- `--release-id ID`: release workspace identifier.
+- `--save`: persist the discovered manifest.
+
+### `doctor`
+
+Run release hygiene checks.
+
+```bash
+swift run ascendkit doctor release --workspace "$WORKSPACE" --json
+```
+
+The doctor checks app icon presence, entitlements, Info.plist privacy purpose strings, local metadata, screenshot state, IAP templates, and release-sensitive residue.
+
+### `metadata`
+
+Manage local App Store metadata.
+
+```bash
+swift run ascendkit metadata init --workspace "$WORKSPACE" --locale en-US
+```
+
+Writes a starter metadata JSON file for one locale.
+
+```bash
+swift run ascendkit metadata import-fastlane \
+  --workspace "$WORKSPACE" \
+  --source "$APP_ROOT/fastlane/metadata" \
+  --json
+```
+
+Imports fastlane metadata folders into AscendKit's local metadata model.
+
+```bash
+swift run ascendkit metadata status --workspace "$WORKSPACE" --json
+```
+
+Lists local metadata bundles known to the workspace.
+
+```bash
+swift run ascendkit metadata lint --workspace "$WORKSPACE" --locale en-US --json
+```
+
+Checks required fields and App Store length constraints.
+
+```bash
+swift run ascendkit metadata diff --workspace "$WORKSPACE" --json
+```
+
+Compares local metadata with observed ASC metadata saved in the workspace.
+
+### `screenshots`
+
+Plan, import, validate, and compose local screenshot artifacts.
+
+```bash
+swift run ascendkit screenshots plan \
+  --workspace "$WORKSPACE" \
+  --screens Home,Settings,Paywall \
+  --features Onboarding,Sync,Premium \
+  --platforms iOS \
+  --locales en-US,zh-Hans \
+  --json
+```
+
+Creates a deterministic screenshot plan with coverage warnings.
+
+```bash
+swift run ascendkit screenshots readiness \
+  --workspace "$WORKSPACE" \
+  --source /path/to/screenshots \
+  --json
+```
+
+Validates whether a screenshot source folder can be imported.
+
+```bash
+swift run ascendkit screenshots import --workspace "$WORKSPACE" --source /path/to/screenshots
+```
+
+Imports screenshots from a user-provided folder into a manifest.
+
+```bash
+swift run ascendkit screenshots import-fastlane \
+  --workspace "$WORKSPACE" \
+  --source "$APP_ROOT/fastlane/screenshots" \
+  --locales en-US,zh-Hans
+```
+
+Imports fastlane-style screenshots.
+
+```bash
+swift run ascendkit screenshots compose --workspace "$WORKSPACE" --mode storeReadyCopy
+swift run ascendkit screenshots compose --workspace "$WORKSPACE" --mode poster
+swift run ascendkit screenshots compose --workspace "$WORKSPACE" --mode deviceFrame
+```
+
+Composition modes:
+
+- `storeReadyCopy`: organize imported images for upload.
+- `poster`: render local poster-style PNG artifacts.
+- `deviceFrame`: render generic local framed PNG artifacts.
+
+### `asc auth`
+
+Configure App Store Connect credentials without storing private key contents.
+
+```bash
+swift run ascendkit asc auth save-profile \
+  --name production \
+  --issuer-id ASC_ISSUER_ID \
+  --key-id ASC_KEY_ID \
+  --private-key-provider file \
+  --private-key-ref /secure/path/AuthKey_KEYID.p8
+```
+
+Profiles are saved under `~/.ascendkit/profiles/asc/` with owner-only permissions.
+
+```bash
+swift run ascendkit asc auth profiles --json
+```
+
+Lists saved auth profiles with redacted IDs.
+
+```bash
+swift run ascendkit asc auth init --workspace "$WORKSPACE" --profile production
+swift run ascendkit asc auth check --workspace "$WORKSPACE" --json
+```
+
+Writes and validates the workspace auth config.
+
+Supported secret providers:
+
+- `file`: read a private key from a local file path.
+- `env`: read a secret from an environment variable.
+- `keychain`: reserved in the current CLI slice.
+
+### `asc lookup` and `asc apps`
+
+Plan and perform ASC app lookup.
+
+```bash
+swift run ascendkit asc lookup plan --workspace "$WORKSPACE" --json
+```
+
+Writes the planned read-only ASC lookup shape.
+
+```bash
+swift run ascendkit asc apps lookup --workspace "$WORKSPACE" --json
+```
+
+Uses the official ASC API to find the app from the release manifest bundle ID.
+
+`asc lookup apps` is retained as a compatibility alias:
+
+```bash
+swift run ascendkit asc lookup apps --workspace "$WORKSPACE" --json
+```
+
+### `asc builds`
+
+Observe or import App Store Connect build candidates.
+
+```bash
+swift run ascendkit asc builds observe --workspace "$WORKSPACE" --json
+```
+
+Fetches remote ASC builds for the selected app.
+
+```bash
+swift run ascendkit asc builds list --workspace "$WORKSPACE" --json
+```
+
+Prints currently saved build candidates.
+
+```bash
+swift run ascendkit asc builds import \
+  --workspace "$WORKSPACE" \
+  --id BUILD_ID \
+  --version 1.0 \
+  --build 7 \
+  --state processed \
+  --json
+```
+
+Imports a build candidate manually. This is useful for deterministic tests or when remote observation is unavailable.
+
+### `asc metadata`
+
+Observe, plan, and apply App Store metadata.
+
+```bash
+swift run ascendkit asc metadata import \
+  --workspace "$WORKSPACE" \
+  --file /path/to/observed-state.json \
+  --json
+```
+
+Imports previously observed ASC metadata state.
+
+```bash
+swift run ascendkit asc metadata observe --workspace "$WORKSPACE" --json
+```
+
+Fetches current ASC metadata for the app/version.
+
+```bash
+swift run ascendkit asc metadata plan --workspace "$WORKSPACE" --json
+```
+
+Builds a dry-run mutation plan from local metadata and observed ASC state.
+
+```bash
+swift run ascendkit asc metadata requests --workspace "$WORKSPACE" --json
+```
+
+Builds grouped JSON:API request plans from the mutation plan.
+
+```bash
+swift run ascendkit asc metadata apply \
+  --workspace "$WORKSPACE" \
+  --confirm-remote-mutation \
+  --json
+```
+
+Applies remote metadata mutations. The confirmation flag is required by design.
+
+### `submit`
+
+Prepare and execute App Review submission.
+
+```bash
+swift run ascendkit submit review-info init --workspace "$WORKSPACE"
+```
+
+Writes an editable reviewer-info template.
+
+```bash
+swift run ascendkit submit review-info set \
+  --workspace "$WORKSPACE" \
+  --first-name "Ada" \
+  --last-name "Lovelace" \
+  --email "review@example.com" \
+  --phone "+15555555555" \
+  --notes "No login required." \
+  --requires-login false
+```
+
+Writes reviewer contact, notes, and login requirement. If login is required, pass `--requires-login true`, `--credential-ref ENV_VAR_NAME`, and `--access-instructions "..."`. The credential reference points to an environment variable; do not place review passwords in the repository.
+
+```bash
+swift run ascendkit submit readiness --workspace "$WORKSPACE" --json
+```
+
+Builds a checklist of release prerequisites.
+
+```bash
+swift run ascendkit submit prepare --workspace "$WORKSPACE" --json
+```
+
+Creates a submission preparation summary.
+
+```bash
+swift run ascendkit submit review-plan --workspace "$WORKSPACE" --json
+```
+
+Builds a review submission plan from local readiness, ASC state, metadata apply results, and selected build.
+
+```bash
+swift run ascendkit submit handoff --workspace "$WORKSPACE"
+```
+
+Writes a human-readable review handoff Markdown file.
+
+```bash
+swift run ascendkit submit execute \
+  --workspace "$WORKSPACE" \
+  --confirm-remote-submission \
+  --json
+```
+
+Attaches the selected build, updates review details, updates safe default declarations where supported, creates or reuses a review submission, creates the submission item, and submits it. The confirmation flag is required.
+
+### `iap`
+
+Create and validate local subscription templates.
+
+```bash
+swift run ascendkit iap template init --workspace "$WORKSPACE" --json
+swift run ascendkit iap validate --workspace "$WORKSPACE" --json
+```
+
+This is a local validation layer. Remote IAP creation and subscription sync are not part of the current MVP command surface.
+
+## Workspace Layout
+
+AscendKit writes release state under:
+
+```text
+<app-root>/.ascendkit/releases/<release-id>/
+```
+
+Important files:
+
+- `manifest.json`: discovered app/project metadata.
+- `doctor-report.json`: release doctor results.
+- `metadata/source/*.json`: local source metadata.
+- `metadata/localized/*.json`: imported or localized metadata.
+- `metadata/lint/*.json`: lint results.
+- `screenshots/manifests/*.json`: screenshot import/composition manifests.
+- `asc/auth.json`: ASC auth config with secret references only.
+- `asc/apps.json`: ASC app lookup result.
+- `asc/observed-state.json`: observed ASC metadata state.
+- `asc/metadata-plan.json`: metadata mutation dry-run plan.
+- `asc/metadata-requests.json`: JSON:API request plan.
+- `asc/metadata-apply-result.json`: remote metadata apply result.
+- `build/candidates.json`: build candidates.
+- `review/reviewer-info.json`: reviewer contact and access notes.
+- `review/submission-plan.json`: planned review submission.
+- `review/submission-result.json`: remote submission result.
+- `audit/events.jsonl`: redacted audit log.
+
+`.ascendkit/` is ignored by default because it may contain app-specific release state.
+
+## Security Model
+
+AscendKit's core rule is: commit configuration and references, not secrets.
+
+- Do not commit `.p8` files.
+- Do not commit `.ascendkit/` release workspaces.
+- Do not store private keys, passwords, or reviewer login credentials in repository files.
+- Use `asc auth save-profile` with `file` or `env` references.
+- Prefer `--json` outputs for automation, but treat workspace artifacts as release-sensitive.
+- Review `docs/security-model.md` before adapting AscendKit for team or CI use.
+
+Remote mutation commands require explicit flags:
+
+- `asc metadata apply --confirm-remote-mutation`
+- `submit execute --confirm-remote-submission`
+
+## Maintainer Workflow
+
+Run this before committing:
+
+```bash
+swift test
+swift run ascendkit --help
+git diff --check
+```
+
+Recommended local security scan:
+
+```bash
+rg -n --hidden --glob '!.build/**' --glob '!.swiftpm/**' \
+  "(BEGIN .*PRIVATE KEY|AuthKey_|\\.p8|issuer_id|key_id|password|token|bearer)" .
+```
+
+Release checklist:
+
+1. Keep `README.md` command examples aligned with `swift run ascendkit --help`.
+2. Add tests for new command behavior before expanding remote mutation.
+3. Update `docs/mvp-roadmap.md` and `docs/automation-boundaries.md` when scope changes.
+4. Never commit real app release workspaces, screenshots, API keys, or reviewer credentials.
+5. Prefer small, deterministic command outputs that can be consumed by scripts and agents.
+
+## Contributing
+
+Issues and pull requests are welcome. Good contributions usually fit one of these categories:
+
+- Safer ASC API abstractions.
+- Better release-readiness diagnostics.
+- More deterministic screenshot and metadata workflows.
+- Tests around edge cases in real App Store Connect behavior.
+- Documentation improvements that make release automation safer.
+
+Please keep the project local-first and secret-safe. Features that require hidden global state, plaintext credentials, or unreviewable remote mutation should be redesigned before merging.
+
+## Documentation
+
+Useful design docs:
+
+- `docs/project-charter.md`
+- `docs/product-scope.md`
+- `docs/security-model.md`
+- `docs/automation-boundaries.md`
+- `docs/release-workspace-model.md`
+- `docs/asc-api-strategy.md`
+- `docs/mvp-roadmap.md`
+
+## License
+
+AscendKit is released under the MIT License. See `LICENSE`.

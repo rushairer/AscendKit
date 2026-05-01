@@ -1117,7 +1117,7 @@ struct CLIRunner {
       ascendkit submit handoff --workspace PATH [--json]
       ascendkit submit execute --workspace PATH --confirm-remote-submission [--json]
       ascendkit submit review-info init --workspace PATH [--json]
-      ascendkit submit review-info set --workspace PATH --first-name NAME --last-name NAME --email EMAIL --phone PHONE [--notes TEXT] [--json]
+      ascendkit submit review-info set --workspace PATH --first-name NAME --last-name NAME --email EMAIL --phone PHONE [--notes TEXT] [--requires-login true|false] [--credential-ref ENV_VAR] [--access-instructions TEXT] [--json]
       ascendkit iap template init --workspace PATH [--json]
       ascendkit iap validate --workspace PATH [--json]
     """
