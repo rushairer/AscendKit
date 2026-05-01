@@ -132,6 +132,7 @@ swift run ascendkit asc metadata requests --workspace "$WORKSPACE" --json
 swift run ascendkit asc metadata apply --workspace "$WORKSPACE" --confirm-remote-mutation --json
 swift run ascendkit asc metadata observe --workspace "$WORKSPACE" --json
 swift run ascendkit metadata diff --workspace "$WORKSPACE" --json
+swift run ascendkit asc metadata status --workspace "$WORKSPACE" --json
 ```
 
 Set pricing when appropriate:

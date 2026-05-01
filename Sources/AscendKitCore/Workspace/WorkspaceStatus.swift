@@ -183,6 +183,10 @@ public struct ReleaseWorkspaceSummaryReader {
             plan: load(ScreenshotUploadPlan.self, path: workspace.paths.screenshotUploadPlan),
             result: load(ScreenshotUploadExecutionResult.self, path: workspace.paths.screenshotUploadResult)
         )
+        let metadataStatus = ASCMetadataSyncStatusBuilder().build(
+            applyResult: load(ASCMetadataApplyResult.self, path: workspace.paths.ascMetadataApplyResult),
+            diffReport: load(MetadataDiffReport.self, path: workspace.paths.ascDiff)
+        )
 
         var actions: [ReleaseActionItem] = []
 
@@ -259,6 +263,17 @@ public struct ReleaseWorkspaceSummaryReader {
                     title: "Screenshot upload next action",
                     detail: action,
                     severity: .warning
+                ))
+            }
+        }
+
+        if !metadataStatus.readyForReviewPlan {
+            for (index, action) in metadataStatus.nextActions.enumerated() {
+                actions.append(.init(
+                    id: "metadata.next-action.\(index + 1)",
+                    title: "Metadata next action",
+                    detail: action,
+                    severity: .blocker
                 ))
             }
         }

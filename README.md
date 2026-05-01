@@ -611,9 +611,12 @@ swift run ascendkit asc metadata apply \
   --workspace "$WORKSPACE" \
   --confirm-remote-mutation \
   --json
+
+swift run ascendkit asc metadata status --workspace "$WORKSPACE" --json
 ```
 
 Applies remote metadata mutations. The confirmation flag is required by design.
+Use `asc metadata status` after observe/diff/apply to summarize whether metadata is ready for review planning, including stale diff and release-notes-only cases.
 
 ### `asc pricing`
 

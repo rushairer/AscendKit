@@ -73,6 +73,45 @@ struct MetadataTests {
         #expect(report.diffs.contains { $0.field == "releaseNotes" && $0.status == .missingRemote })
     }
 
+    @Test("summarizes ASC metadata sync status")
+    func summarizesASCMetadataSyncStatus() {
+        let status = ASCMetadataSyncStatusBuilder().build(
+            applyResult: ASCMetadataApplyResult(
+                generatedAt: Date(timeIntervalSince1970: 100),
+                applied: true,
+                responses: [
+                    ASCMetadataApplyResponse(
+                        id: "metadata.update.en-US.description",
+                        method: "PATCH",
+                        path: "/v1/appStoreVersionLocalizations/version-loc-1",
+                        statusCode: 200
+                    )
+                ]
+            ),
+            diffReport: MetadataDiffReport(
+                generatedAt: Date(timeIntervalSince1970: 101),
+                diffs: [
+                    MetadataFieldDiff(
+                        locale: "en-US",
+                        field: "releaseNotes",
+                        status: .changed,
+                        localValue: "Bug fixes",
+                        remoteValue: nil
+                    )
+                ]
+            )
+        )
+
+        #expect(status.applied == true)
+        #expect(status.applyResponseCount == 1)
+        #expect(status.diffFresh == true)
+        #expect(status.remainingDiffCount == 1)
+        #expect(status.blockingDiffCount == 0)
+        #expect(status.releaseNotesOnlyDiff)
+        #expect(status.readyForReviewPlan)
+        #expect(status.findings.contains { $0.contains("releaseNotes/whatsNew") })
+    }
+
     @Test("plans ASC metadata mutations from local and observed diff")
     func plansASCMetadataMutations() {
         let local = AppMetadata(

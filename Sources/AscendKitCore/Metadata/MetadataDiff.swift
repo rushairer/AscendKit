@@ -261,6 +261,108 @@ public struct ASCMetadataApplyResponse: Codable, Equatable, Identifiable, Sendab
     }
 }
 
+public struct ASCMetadataSyncStatusReport: Codable, Equatable, Sendable {
+    public var generatedAt: Date
+    public var applied: Bool?
+    public var applyResponseCount: Int?
+    public var diffFresh: Bool?
+    public var remainingDiffCount: Int?
+    public var blockingDiffCount: Int?
+    public var releaseNotesOnlyDiff: Bool
+    public var readyForReviewPlan: Bool
+    public var findings: [String]
+    public var nextActions: [String]
+
+    public init(
+        generatedAt: Date = Date(),
+        applied: Bool?,
+        applyResponseCount: Int?,
+        diffFresh: Bool?,
+        remainingDiffCount: Int?,
+        blockingDiffCount: Int?,
+        releaseNotesOnlyDiff: Bool,
+        readyForReviewPlan: Bool,
+        findings: [String],
+        nextActions: [String]
+    ) {
+        self.generatedAt = generatedAt
+        self.applied = applied
+        self.applyResponseCount = applyResponseCount
+        self.diffFresh = diffFresh
+        self.remainingDiffCount = remainingDiffCount
+        self.blockingDiffCount = blockingDiffCount
+        self.releaseNotesOnlyDiff = releaseNotesOnlyDiff
+        self.readyForReviewPlan = readyForReviewPlan
+        self.findings = findings
+        self.nextActions = nextActions
+    }
+}
+
+public struct ASCMetadataSyncStatusBuilder {
+    public init() {}
+
+    public func build(
+        applyResult: ASCMetadataApplyResult?,
+        diffReport: MetadataDiffReport?
+    ) -> ASCMetadataSyncStatusReport {
+        let remainingDiffs = diffReport?.diffs.filter { $0.status != .unchanged }
+        let blockingDiffs = remainingDiffs?.filter { $0.field != "releaseNotes" }
+        let releaseNotesOnly = remainingDiffs?.isEmpty == false && blockingDiffs?.isEmpty == true
+        let diffFresh = Self.diffIsFresh(applyResult: applyResult, diffReport: diffReport)
+
+        var findings: [String] = []
+        var nextActions: [String] = []
+
+        if applyResult?.applied != true {
+            findings.append("ASC metadata apply has not completed.")
+            nextActions.append("Run asc metadata plan, asc metadata requests, then asc metadata apply --confirm-remote-mutation.")
+        }
+        if applyResult?.applied == true && diffReport == nil {
+            findings.append("ASC metadata diff has not been observed after metadata apply.")
+            nextActions.append("Run asc metadata observe, then metadata diff.")
+        }
+        if diffFresh == false {
+            findings.append("ASC metadata diff is older than the latest metadata apply.")
+            nextActions.append("Run asc metadata observe, then metadata diff.")
+        }
+        if let blockingDiffs, !blockingDiffs.isEmpty {
+            findings.append("\(blockingDiffs.count) blocking metadata diff(s) remain.")
+            nextActions.append("Inspect asc/diff.json, then rerun asc metadata plan/requests/apply or edit local metadata.")
+        }
+        if releaseNotesOnly {
+            findings.append("Only releaseNotes/whatsNew remains different; App Store Connect may reject first-version or non-editable whatsNew edits.")
+            nextActions.append("Proceed with review handoff if all other readiness checks are satisfied.")
+        }
+
+        return ASCMetadataSyncStatusReport(
+            applied: applyResult?.applied,
+            applyResponseCount: applyResult?.responses.count,
+            diffFresh: diffFresh,
+            remainingDiffCount: remainingDiffs?.count,
+            blockingDiffCount: blockingDiffs?.count,
+            releaseNotesOnlyDiff: releaseNotesOnly,
+            readyForReviewPlan: applyResult?.applied == true && diffFresh == true && (blockingDiffs?.isEmpty == true),
+            findings: findings + (applyResult?.findings ?? []),
+            nextActions: deduplicated(nextActions)
+        )
+    }
+
+    private static func diffIsFresh(applyResult: ASCMetadataApplyResult?, diffReport: MetadataDiffReport?) -> Bool? {
+        guard let applyResult, applyResult.applied else {
+            return nil
+        }
+        guard let diffReport else {
+            return nil
+        }
+        return diffReport.generatedAt >= applyResult.generatedAt
+    }
+
+    private func deduplicated(_ values: [String]) -> [String] {
+        var seen = Set<String>()
+        return values.filter { seen.insert($0).inserted }
+    }
+}
+
 public struct ASCMetadataRequestPlanBuilder {
     public init() {}
 

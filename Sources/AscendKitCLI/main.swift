@@ -1143,7 +1143,7 @@ struct CLIRunner {
 
     private func ascMetadata(_ args: [String], json: Bool) async throws -> String {
         guard let subcommand = args.dropFirst().first else {
-            throw AscendKitError.invalidArguments("Usage: ascendkit asc metadata import|observe|plan|requests|apply --workspace PATH [--file PATH] [--json]")
+            throw AscendKitError.invalidArguments("Usage: ascendkit asc metadata import|observe|plan|requests|apply|status --workspace PATH [--file PATH] [--json]")
         }
         let workspace = try loadWorkspace(from: args)
         let store = ReleaseWorkspaceStore(fileManager: fileManager)
@@ -1185,9 +1185,38 @@ struct CLIRunner {
                     ? "ASC metadata apply completed with \(result.responses.count) response(s)."
                     : "ASC metadata apply was not executed: \(result.findings.joined(separator: " "))"
             }
+        case "status":
+            let status = ASCMetadataSyncStatusBuilder().build(
+                applyResult: try loadIfExists(ASCMetadataApplyResult.self, path: workspace.paths.ascMetadataApplyResult),
+                diffReport: try loadIfExists(MetadataDiffReport.self, path: workspace.paths.ascDiff)
+            )
+            return try render(status, json: json) {
+                renderASCMetadataStatusText(status)
+            }
         default:
-            throw AscendKitError.invalidArguments("Usage: ascendkit asc metadata import|observe|plan|requests|apply --workspace PATH [--file PATH] [--json]")
+            throw AscendKitError.invalidArguments("Usage: ascendkit asc metadata import|observe|plan|requests|apply|status --workspace PATH [--file PATH] [--json]")
         }
+    }
+
+    private func renderASCMetadataStatusText(_ status: ASCMetadataSyncStatusReport) -> String {
+        var lines = [
+            "ASC metadata status: \(status.readyForReviewPlan ? "ready for review plan" : "not ready")",
+            "Applied: \(status.applied.map { $0 ? "yes" : "no" } ?? "unknown")",
+            "Apply responses: \(status.applyResponseCount.map(String.init) ?? "unknown")",
+            "Diff fresh: \(status.diffFresh.map { $0 ? "yes" : "no" } ?? "unknown")",
+            "Remaining diffs: \(status.remainingDiffCount.map(String.init) ?? "unknown")",
+            "Blocking diffs: \(status.blockingDiffCount.map(String.init) ?? "unknown")",
+            "Release notes only diff: \(status.releaseNotesOnlyDiff ? "yes" : "no")"
+        ]
+        if !status.findings.isEmpty {
+            lines.append("Finding(s):")
+            lines.append(contentsOf: status.findings.map { "- \($0)" })
+        }
+        if !status.nextActions.isEmpty {
+            lines.append("Next action(s):")
+            lines.append(contentsOf: status.nextActions.map { "- \($0)" })
+        }
+        return lines.joined(separator: "\n")
     }
 
     private func planASCMetadata(workspace: ReleaseWorkspace, store: ReleaseWorkspaceStore) throws -> ASCMetadataMutationPlan {
@@ -1936,6 +1965,7 @@ struct CLIRunner {
       ascendkit asc metadata plan --workspace PATH [--json]
       ascendkit asc metadata requests --workspace PATH [--json]
       ascendkit asc metadata apply --workspace PATH --confirm-remote-mutation [--json]
+      ascendkit asc metadata status --workspace PATH [--json]
       ascendkit asc pricing set-free --workspace PATH [--app-id ID] [--base-territory USA] [--confirm-remote-mutation] [--json]
       ascendkit asc privacy set-not-collected --workspace PATH [--app-id ID] --confirm-remote-mutation [--json]
       ascendkit asc privacy status --workspace PATH [--json]
