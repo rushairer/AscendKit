@@ -162,9 +162,10 @@ public struct SubmissionReadinessEvaluator {
                     return "App Privacy status: \(status.state.rawValue) via \(status.source)."
                 }
                 return (status.findings + [
+                    "Run asc privacy status to inspect the recorded handoff state.",
                     "Use App Store Connect UI to publish App Privacy answers, then run asc privacy confirm-manual --data-not-collected."
                 ]).joined(separator: " ")
-            } ?? "Run asc privacy set-not-collected, or complete App Privacy in App Store Connect UI and run asc privacy confirm-manual --data-not-collected."
+            } ?? "Run asc privacy status to inspect the recorded handoff state. Run asc privacy set-not-collected, or complete App Privacy in App Store Connect UI and run asc privacy confirm-manual --data-not-collected."
         ))
 
         if let iapValidationReport {

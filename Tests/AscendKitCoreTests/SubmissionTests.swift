@@ -127,6 +127,7 @@ struct SubmissionTests {
 
         #expect(report.ready == false)
         #expect(report.items.first { $0.id == "app-privacy.published" }?.satisfied == false)
+        #expect(report.items.first { $0.id == "app-privacy.published" }?.note?.contains("asc privacy status") == true)
         #expect(report.items.first { $0.id == "app-privacy.published" }?.note?.contains("confirm-manual") == true)
     }
 
