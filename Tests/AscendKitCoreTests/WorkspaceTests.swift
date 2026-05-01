@@ -62,6 +62,18 @@ struct WorkspaceTests {
         let store = ReleaseWorkspaceStore()
         let workspace = try store.createWorkspace(baseDirectory: root.url, manifest: manifest)
         try store.save(
+            ScreenshotPlan(
+                inputPath: .uiTestCapture,
+                platforms: [.iOS],
+                locales: ["en-US"],
+                items: [
+                    ScreenshotPlanItem(id: "home", screenName: "Home", order: 1, purpose: "Show home"),
+                    ScreenshotPlanItem(id: "settings", screenName: "Settings", order: 2, purpose: "Show settings")
+                ]
+            ),
+            to: URL(fileURLWithPath: workspace.paths.screenshotPlan)
+        )
+        try store.save(
             SubmissionReadinessReport(items: [
                 SubmissionChecklistItem(id: "app-privacy.published", title: "App Privacy answers are published", satisfied: false, note: "Run asc privacy status.")
             ]),
@@ -123,6 +135,7 @@ struct WorkspaceTests {
         #expect(summary.nextActions.contains { $0.id == "readiness.app-privacy.published" })
         #expect(summary.nextActions.contains { $0.detail == "Submission readiness is not complete." })
         #expect(summary.nextActions.contains { $0.detail.contains("asc privacy set-not-collected") })
+        #expect(summary.nextActions.contains { $0.id.hasPrefix("screenshots.coverage.finding.") })
     }
 
     @Test("lists release workspaces under a project root")

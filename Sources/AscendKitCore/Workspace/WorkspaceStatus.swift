@@ -183,6 +183,12 @@ public struct ReleaseWorkspaceSummaryReader {
             plan: load(ScreenshotUploadPlan.self, path: workspace.paths.screenshotUploadPlan),
             result: load(ScreenshotUploadExecutionResult.self, path: workspace.paths.screenshotUploadResult)
         )
+        let screenshotCoverage = ScreenshotCoverageBuilder().build(
+            plan: load(ScreenshotPlan.self, path: workspace.paths.screenshotPlan),
+            importManifest: load(ScreenshotImportManifest.self, path: workspace.paths.screenshotImportManifest),
+            compositionManifest: load(ScreenshotCompositionManifest.self, path: workspace.paths.screenshotCompositionManifest),
+            uploadPlan: load(ScreenshotUploadPlan.self, path: workspace.paths.screenshotUploadPlan)
+        )
         let metadataStatus = ASCMetadataSyncStatusBuilder().build(
             applyResult: load(ASCMetadataApplyResult.self, path: workspace.paths.ascMetadataApplyResult),
             diffReport: load(MetadataDiffReport.self, path: workspace.paths.ascDiff)
@@ -262,6 +268,17 @@ public struct ReleaseWorkspaceSummaryReader {
                     id: "screenshots.upload.next-action.\(index + 1)",
                     title: "Screenshot upload next action",
                     detail: action,
+                    severity: .warning
+                ))
+            }
+        }
+
+        if !screenshotCoverage.complete {
+            for (index, finding) in screenshotCoverage.findings.enumerated() {
+                actions.append(.init(
+                    id: "screenshots.coverage.finding.\(index + 1)",
+                    title: "Screenshot coverage finding",
+                    detail: finding,
                     severity: .warning
                 ))
             }
