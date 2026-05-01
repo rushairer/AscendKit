@@ -182,6 +182,127 @@ public struct ScreenshotCapturePlan: Codable, Equatable, Sendable {
     }
 }
 
+public struct ScreenshotDestinationDiscoveryReport: Codable, Equatable, Sendable {
+    public var generatedAt: Date
+    public var availableDestinations: [ScreenshotCaptureDestination]
+    public var recommendedDestinations: [ScreenshotCaptureDestination]
+    public var findings: [String]
+
+    public init(
+        generatedAt: Date = Date(),
+        availableDestinations: [ScreenshotCaptureDestination],
+        recommendedDestinations: [ScreenshotCaptureDestination],
+        findings: [String] = []
+    ) {
+        self.generatedAt = generatedAt
+        self.availableDestinations = availableDestinations
+        self.recommendedDestinations = recommendedDestinations
+        self.findings = findings
+    }
+}
+
+public struct ScreenshotDestinationDiscoverer {
+    public init() {}
+
+    public func discover(simctlOutput: String, requestedPlatforms: [ApplePlatform]) -> ScreenshotDestinationDiscoveryReport {
+        let available = parseAvailableDestinations(simctlOutput: simctlOutput)
+        let requested = requestedPlatforms.isEmpty ? [.iOS] : requestedPlatforms
+        let recommended = recommendedDestinations(from: available, requestedPlatforms: requested)
+        var findings: [String] = []
+        if available.isEmpty {
+            findings.append("No available iOS simulators were discovered from simctl output.")
+        }
+        let missing = requested.filter { platform in
+            platform == .iOS || platform == .iPadOS
+        }.filter { platform in
+            !recommended.contains { $0.platform == platform }
+        }
+        for platform in missing {
+            findings.append("No recommended simulator destination found for \(platform.rawValue). Pass --destination explicitly or install a matching simulator.")
+        }
+        return ScreenshotDestinationDiscoveryReport(
+            availableDestinations: available,
+            recommendedDestinations: recommended,
+            findings: findings
+        )
+    }
+
+    private func parseAvailableDestinations(simctlOutput: String) -> [ScreenshotCaptureDestination] {
+        simctlOutput
+            .split(separator: "\n")
+            .compactMap { rawLine -> ScreenshotCaptureDestination? in
+                let line = rawLine.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard line.hasPrefix("iPhone ") || line.hasPrefix("iPad ") else {
+                    return nil
+                }
+                guard let name = simulatorName(from: line) else {
+                    return nil
+                }
+                let platform: ApplePlatform = name.hasPrefix("iPad ") ? .iPadOS : .iOS
+                return ScreenshotCaptureDestination(
+                    platform: platform,
+                    name: name,
+                    xcodebuildDestination: "platform=iOS Simulator,name=\(name)"
+                )
+            }
+    }
+
+    private func simulatorName(from line: String) -> String? {
+        let withoutState = line.replacingOccurrences(
+            of: #" \((Booted|Shutdown|Creating|Shutting Down)\)( .*)?$"#,
+            with: "",
+            options: .regularExpression
+        )
+        let withoutIdentifier = withoutState.replacingOccurrences(
+            of: #" \([^()]+\)$"#,
+            with: "",
+            options: .regularExpression
+        )
+        let name = withoutIdentifier.trimmingCharacters(in: .whitespacesAndNewlines)
+        return name.isEmpty ? nil : name
+    }
+
+    private func recommendedDestinations(
+        from available: [ScreenshotCaptureDestination],
+        requestedPlatforms: [ApplePlatform]
+    ) -> [ScreenshotCaptureDestination] {
+        var result: [ScreenshotCaptureDestination] = []
+        if requestedPlatforms.contains(.iOS),
+           let phone = preferredDestination(
+               from: available,
+               platform: .iOS,
+               preferredNames: ["iPhone 17 Pro Max", "iPhone 16 Pro Max", "iPhone 15 Pro Max"]
+           ) {
+            result.append(phone)
+        }
+        if requestedPlatforms.contains(.iPadOS),
+           let tablet = preferredDestination(
+               from: available,
+               platform: .iPadOS,
+               preferredNames: ["iPad Pro 13-inch (M5)", "iPad Pro 13-inch (M4)", "iPad Pro 12.9-inch"]
+           ) {
+            result.append(tablet)
+        }
+        return result
+    }
+
+    private func preferredDestination(
+        from available: [ScreenshotCaptureDestination],
+        platform: ApplePlatform,
+        preferredNames: [String]
+    ) -> ScreenshotCaptureDestination? {
+        let platformDestinations = available.filter { $0.platform == platform }
+        for preferredName in preferredNames {
+            if let destination = platformDestinations.first(where: { $0.name == preferredName }) {
+                return destination
+            }
+        }
+        return platformDestinations.sorted { lhs, rhs in
+            lhs.name.localizedStandardCompare(rhs.name) == .orderedDescending
+        }.first
+    }
+}
+
 public struct ScreenshotCaptureExecutionItem: Codable, Equatable, Identifiable, Sendable {
     public var id: String
     public var commandID: String
@@ -428,7 +549,8 @@ public struct ScreenshotCapturePlanBuilder {
         workspaceRoot: URL,
         scheme: String? = nil,
         configuration: String = "Debug",
-        destinationOverrides: [String] = []
+        destinationOverrides: [String] = [],
+        discoveredDestinations: [ScreenshotCaptureDestination] = []
     ) -> ScreenshotCapturePlan {
         var findings: [String] = []
         let projectReference = preferredProjectReference(from: manifest.projects)
@@ -442,7 +564,7 @@ public struct ScreenshotCapturePlanBuilder {
         }
 
         let destinations = destinationOverrides.isEmpty
-            ? defaultDestinations(for: screenshotPlan.platforms)
+            ? defaultDestinations(for: screenshotPlan.platforms, discoveredDestinations: discoveredDestinations)
             : destinationOverrides.map(parseDestination)
         if destinations.isEmpty {
             findings.append("No screenshot capture destinations were supplied or inferred.")
@@ -503,7 +625,13 @@ public struct ScreenshotCapturePlanBuilder {
         projects.first { $0.kind == .xcworkspace } ?? projects.first { $0.kind == .xcodeproj }
     }
 
-    private func defaultDestinations(for platforms: [ApplePlatform]) -> [ScreenshotCaptureDestination] {
+    private func defaultDestinations(
+        for platforms: [ApplePlatform],
+        discoveredDestinations: [ScreenshotCaptureDestination]
+    ) -> [ScreenshotCaptureDestination] {
+        if !discoveredDestinations.isEmpty {
+            return discoveredDestinations
+        }
         var seen: [ApplePlatform] = []
         for platform in platforms where !seen.contains(platform) {
             seen.append(platform)

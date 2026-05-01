@@ -81,6 +81,64 @@ struct ScreenshotTests {
         #expect(capturePlan.findings.isEmpty)
     }
 
+    @Test("discovers and recommends available simulator destinations")
+    func discoversRecommendedSimulatorDestinations() {
+        let output = """
+        == Devices ==
+        -- iOS 26.4 --
+            iPhone 17 Pro (AAAA) (Shutdown)
+            iPhone 17 Pro Max (BBBB) (Shutdown)
+            iPad Pro 13-inch (M5) (CCCC) (Shutdown)
+            iPad Air 11-inch (M4) (DDDD) (Shutdown)
+        """
+
+        let report = ScreenshotDestinationDiscoverer().discover(
+            simctlOutput: output,
+            requestedPlatforms: [.iOS, .iPadOS]
+        )
+
+        #expect(report.recommendedDestinations.map(\.name) == ["iPhone 17 Pro Max", "iPad Pro 13-inch (M5)"])
+        #expect(report.recommendedDestinations.map(\.xcodebuildDestination) == [
+            "platform=iOS Simulator,name=iPhone 17 Pro Max",
+            "platform=iOS Simulator,name=iPad Pro 13-inch (M5)"
+        ])
+        #expect(report.findings.isEmpty)
+    }
+
+    @Test("uses discovered destinations when building capture plans")
+    func usesDiscoveredDestinationsForCapturePlan() {
+        let manifest = ReleaseManifest(
+            releaseID: "demo-1.0",
+            appSlug: "Demo",
+            projects: [ProjectReference(kind: .xcodeproj, path: "/tmp/Demo/Demo.xcodeproj")],
+            targets: [
+                BundleTarget(name: "Demo", platform: .iOS, productType: "com.apple.product-type.application")
+            ]
+        )
+        let screenshotPlan = ScreenshotPlan(
+            inputPath: .uiTestCapture,
+            platforms: [.iOS],
+            locales: ["en-US"],
+            items: [ScreenshotPlanItem(id: "home", screenName: "Home", order: 1, purpose: "Show home")]
+        )
+
+        let capturePlan = ScreenshotCapturePlanBuilder().build(
+            manifest: manifest,
+            screenshotPlan: screenshotPlan,
+            workspaceRoot: URL(fileURLWithPath: "/tmp/Demo/.ascendkit/releases/demo-1.0"),
+            discoveredDestinations: [
+                ScreenshotCaptureDestination(
+                    platform: .iOS,
+                    name: "iPhone 17",
+                    xcodebuildDestination: "platform=iOS Simulator,name=iPhone 17"
+                )
+            ]
+        )
+
+        #expect(capturePlan.destinations.map(\.name) == ["iPhone 17"])
+        #expect(capturePlan.commands.first?.command.contains("platform=iOS Simulator,name=iPhone 17") == true)
+    }
+
     @Test("executes screenshot capture command and records output files")
     func executesScreenshotCaptureCommand() throws {
         let root = try TemporaryDirectory()

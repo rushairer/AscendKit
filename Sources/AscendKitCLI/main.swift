@@ -211,13 +211,26 @@ struct CLIRunner {
 
     private func screenshots(_ args: [String], json: Bool) async throws -> String {
         guard let subcommand = args.first else {
-            throw AscendKitError.invalidArguments("Usage: ascendkit screenshots plan|capture-plan|capture|workflow|readiness|compose|upload-plan|upload --workspace PATH")
+            throw AscendKitError.invalidArguments("Usage: ascendkit screenshots destinations|plan|capture-plan|capture|workflow|readiness|compose|upload-plan|upload --workspace PATH")
         }
         let workspace = try loadWorkspace(from: args)
         let store = ReleaseWorkspaceStore(fileManager: fileManager)
         let planURL = URL(fileURLWithPath: workspace.paths.screenshotPlan)
 
         switch subcommand {
+        case "destinations":
+            let manifest = try store.loadManifest(from: workspace)
+            let screenshotPlan = try loadIfExists(ScreenshotPlan.self, path: workspace.paths.screenshotPlan)
+            let platforms = screenshotPlan?.platforms ?? Array(Set(manifest.targets.map(\.platform).filter { $0 == .iOS || $0 == .iPadOS }))
+            let report = try discoverScreenshotDestinations(platforms: platforms)
+            return try render(report, json: json) {
+                if report.recommendedDestinations.isEmpty {
+                    return "No recommended screenshot destinations found: \(report.findings.joined(separator: " "))"
+                }
+                return report.recommendedDestinations.map {
+                    "\($0.platform.rawValue): \($0.xcodebuildDestination)"
+                }.joined(separator: "\n")
+            }
         case "plan":
             let manifest = try store.loadManifest(from: workspace)
             let input = ScreenshotPlanningInput(
@@ -251,13 +264,17 @@ struct CLIRunner {
             }
             let manifest = try store.loadManifest(from: workspace)
             let plan = try AscendKitJSON.decoder.decode(ScreenshotPlan.self, from: Data(contentsOf: planURL))
+            let destinationOverrides = repeatedValues(after: "--destination", in: args)
             let capturePlan = ScreenshotCapturePlanBuilder().build(
                 manifest: manifest,
                 screenshotPlan: plan,
                 workspaceRoot: URL(fileURLWithPath: workspace.paths.root),
                 scheme: value(after: "--scheme", in: args),
                 configuration: value(after: "--configuration", in: args) ?? "Debug",
-                destinationOverrides: repeatedValues(after: "--destination", in: args)
+                destinationOverrides: destinationOverrides,
+                discoveredDestinations: destinationOverrides.isEmpty
+                    ? try discoverScreenshotDestinations(platforms: plan.platforms).recommendedDestinations
+                    : []
             )
             try store.save(capturePlan, to: URL(fileURLWithPath: workspace.paths.screenshotCapturePlan))
             try store.appendAudit(
@@ -388,7 +405,10 @@ struct CLIRunner {
             workspaceRoot: URL(fileURLWithPath: workspace.paths.root),
             scheme: value(after: "--scheme", in: args),
             configuration: value(after: "--configuration", in: args) ?? "Debug",
-            destinationOverrides: repeatedValues(after: "--destination", in: args)
+            destinationOverrides: repeatedValues(after: "--destination", in: args),
+            discoveredDestinations: repeatedValues(after: "--destination", in: args).isEmpty
+                ? try discoverScreenshotDestinations(platforms: screenshotPlan.platforms).recommendedDestinations
+                : []
         )
         try store.save(capturePlan, to: URL(fileURLWithPath: workspace.paths.screenshotCapturePlan))
         try store.appendAudit(
@@ -464,6 +484,25 @@ struct CLIRunner {
         try store.save(manifest, to: URL(fileURLWithPath: workspace.paths.screenshotCompositionManifest))
         try store.appendAudit(.init(action: .screenshotCompositionManifestSaved, summary: "Saved screenshot composition manifest"), to: workspace)
         return manifest
+    }
+
+    private func discoverScreenshotDestinations(platforms: [ApplePlatform]) throws -> ScreenshotDestinationDiscoveryReport {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+        process.arguments = ["xcrun", "simctl", "list", "devices", "available"]
+        let stdout = Pipe()
+        let stderr = Pipe()
+        process.standardOutput = stdout
+        process.standardError = stderr
+        try process.run()
+        process.waitUntilExit()
+        let output = String(decoding: stdout.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+        let errorOutput = String(decoding: stderr.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+        var report = ScreenshotDestinationDiscoverer().discover(simctlOutput: output, requestedPlatforms: platforms)
+        if process.terminationStatus != 0 {
+            report.findings.append("simctl destination discovery failed with exit code \(process.terminationStatus): \(errorOutput)")
+        }
+        return report
     }
 
     private func executeScreenshotCapture(workspace: ReleaseWorkspace, store: ReleaseWorkspaceStore) throws -> ScreenshotCaptureExecutionResult {
@@ -1549,8 +1588,9 @@ struct CLIRunner {
       ascendkit metadata status --workspace PATH [--json]
       ascendkit metadata lint --workspace PATH [--locale en-US] [--json]
       ascendkit metadata diff --workspace PATH [--json]
+      ascendkit screenshots destinations --workspace PATH [--json]
       ascendkit screenshots plan --workspace PATH [--screens A,B] [--features A,B] [--platforms iOS,macOS] [--locales en-US] [--json]
-      ascendkit screenshots capture-plan --workspace PATH [--scheme SCHEME] [--configuration Debug] [--destination "platform=iOS Simulator,name=iPhone 17 Pro Max"] [--json]
+      ascendkit screenshots capture-plan --workspace PATH [--scheme SCHEME] [--configuration Debug] [--destination DESTINATION] [--json]
       ascendkit screenshots capture --workspace PATH [--json]
       ascendkit screenshots workflow run --workspace PATH [--scheme SCHEME] [--configuration Debug] [--destination DESTINATION] [--mode storeReadyCopy|poster|deviceFrame|framedPoster] [--copy PATH] [--json]
       ascendkit screenshots readiness --workspace PATH [--source PATH] [--json]
