@@ -6,6 +6,13 @@ AscendKit follows [Semantic Versioning](https://semver.org/). During `0.y.z`, th
 
 No unreleased changes.
 
+## 0.6.0 - 2026-05-02
+
+### Added
+
+- `screenshots coverage --workspace PATH [--json]` summarizes screenshot coverage by locale, platform, and upload display type.
+- `workspace summary` now includes screenshot coverage findings when a workspace has incomplete screenshot coverage.
+
 ## 0.5.0 - 2026-05-02
 
 ### Added
