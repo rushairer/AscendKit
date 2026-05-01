@@ -322,6 +322,44 @@ struct ScreenshotTests {
         #expect(NSImage(contentsOfFile: manifest.artifacts[0].outputPath)?.isValid == true)
     }
 
+    @Test("renders framed poster composition at original screenshot size")
+    func rendersFramedPosterCompositionAtOriginalSize() throws {
+        let root = try TemporaryDirectory()
+        let input = root.url.appendingPathComponent("source/en-US/iOS/01-home.png")
+        try FileManager.default.createDirectory(at: input.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try makePNG(size: NSSize(width: 1_320, height: 2_868), url: input)
+        let importManifest = ScreenshotImportManifest(
+            sourceDirectory: root.url.appendingPathComponent("source").path,
+            artifacts: [
+                ScreenshotArtifact(locale: "en-US", platform: .iOS, path: input.path, fileName: "01-home.png")
+            ]
+        )
+        let copyManifest = ScreenshotCompositionCopyManifest(items: [
+            ScreenshotCompositionCopy(
+                locale: "en-US",
+                platform: .iOS,
+                fileName: "01-home.png",
+                title: "Choose Three",
+                subtitle: "Keep today simple"
+            )
+        ])
+
+        let manifest = try ScreenshotComposer().compose(
+            importManifest: importManifest,
+            outputRoot: root.url.appendingPathComponent("composed"),
+            mode: .framedPoster,
+            copyManifest: copyManifest
+        )
+
+        let output = try #require(NSImage(contentsOfFile: manifest.artifacts[0].outputPath))
+        let rep = try #require(output.representations.first)
+        #expect(manifest.artifacts.count == 1)
+        #expect(manifest.artifacts[0].outputPath.hasSuffix("01-home-framed-poster.png"))
+        #expect(manifest.artifacts[0].mode == .framedPoster)
+        #expect(rep.pixelsWide == 1_320)
+        #expect(rep.pixelsHigh == 2_868)
+    }
+
     private func makePNG(size: NSSize, url: URL) throws {
         let image = NSImage(size: size)
         image.lockFocus()

@@ -3,6 +3,11 @@ import Testing
 
 @Suite("CLI smoke")
 struct CLISmokeTests {
+    @Test("reports current semantic version")
+    func reportsCurrentSemanticVersion() {
+        #expect(AscendKitVersion.current == "0.1.0")
+    }
+
     @Test("core JSON encoder produces sorted manifest output")
     func jsonEncoderWorksForCLIValues() throws {
         let manifest = ReleaseManifest(

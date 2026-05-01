@@ -398,6 +398,45 @@ public enum ScreenshotCompositionMode: String, Codable, Equatable, Sendable {
     case storeReadyCopy
     case poster
     case deviceFrame
+    case framedPoster
+}
+
+public struct ScreenshotCompositionCopyManifest: Codable, Equatable, Sendable {
+    public var items: [ScreenshotCompositionCopy]
+
+    public init(items: [ScreenshotCompositionCopy]) {
+        self.items = items
+    }
+
+    public func copy(locale: String, platform: ApplePlatform, fileName: String) -> ScreenshotCompositionCopy? {
+        items.first {
+            $0.locale == locale &&
+                $0.platform == platform &&
+                $0.fileName == fileName
+        } ?? items.first { $0.fileName == fileName }
+    }
+}
+
+public struct ScreenshotCompositionCopy: Codable, Equatable, Sendable {
+    public var locale: String
+    public var platform: ApplePlatform
+    public var fileName: String
+    public var title: String
+    public var subtitle: String?
+
+    public init(
+        locale: String,
+        platform: ApplePlatform,
+        fileName: String,
+        title: String,
+        subtitle: String? = nil
+    ) {
+        self.locale = locale
+        self.platform = platform
+        self.fileName = fileName
+        self.title = title
+        self.subtitle = subtitle
+    }
 }
 
 public struct ScreenshotCompositionArtifact: Codable, Equatable, Identifiable, Sendable {
@@ -814,7 +853,12 @@ public struct ScreenshotComposer {
         self.fileManager = fileManager
     }
 
-    public func compose(importManifest: ScreenshotImportManifest, outputRoot: URL, mode: ScreenshotCompositionMode) throws -> ScreenshotCompositionManifest {
+    public func compose(
+        importManifest: ScreenshotImportManifest,
+        outputRoot: URL,
+        mode: ScreenshotCompositionMode,
+        copyManifest: ScreenshotCompositionCopyManifest? = nil
+    ) throws -> ScreenshotCompositionManifest {
         var artifacts: [ScreenshotCompositionArtifact] = []
         for artifact in importManifest.artifacts {
             let inputURL = URL(fileURLWithPath: artifact.path)
@@ -842,6 +886,22 @@ public struct ScreenshotComposer {
                 outputURL = outputDirectory.appendingPathComponent("\(baseName)-device-frame.png")
                 try replaceExistingFile(at: outputURL) {
                     try renderDeviceFrame(inputURL: inputURL, outputURL: outputURL)
+                }
+            case .framedPoster:
+                let baseName = inputURL.deletingPathExtension().lastPathComponent
+                outputURL = outputDirectory.appendingPathComponent("\(baseName)-framed-poster.png")
+                let copy = copyManifest?.copy(
+                    locale: artifact.locale,
+                    platform: artifact.platform,
+                    fileName: artifact.fileName
+                )
+                try replaceExistingFile(at: outputURL) {
+                    try renderFramedPoster(
+                        inputURL: inputURL,
+                        outputURL: outputURL,
+                        title: copy?.title ?? inferredTitle(from: inputURL),
+                        subtitle: copy?.subtitle
+                    )
                 }
             }
 
@@ -1019,6 +1079,167 @@ public struct ScreenshotComposer {
             throw AscendKitError.invalidState("Cannot encode device-frame PNG: \(outputURL.path)")
         }
         try png.write(to: outputURL, options: [.atomic])
+    }
+
+    private func renderFramedPoster(inputURL: URL, outputURL: URL, title: String, subtitle: String?) throws {
+        guard let screenshot = NSImage(contentsOf: inputURL), screenshot.isValid else {
+            throw AscendKitError.invalidState("Cannot decode screenshot image for framed poster composition: \(inputURL.path)")
+        }
+
+        let canvasSize = bitmapPixelSize(for: screenshot)
+        guard canvasSize.width > 0, canvasSize.height > 0 else {
+            throw AscendKitError.invalidState("Screenshot has invalid dimensions: \(inputURL.path)")
+        }
+
+        let isTablet = canvasSize.width >= 1_800 || canvasSize.height <= canvasSize.width * 1.45
+        let topBandHeight = canvasSize.height * (isTablet ? 0.30 : 0.33)
+        let sideInset = canvasSize.width * (isTablet ? 0.12 : 0.10)
+        let bottomInset = canvasSize.height * 0.055
+        let deviceTop = bottomInset
+        let deviceMaxSize = NSSize(
+            width: canvasSize.width - sideInset * 2,
+            height: canvasSize.height - topBandHeight - bottomInset * 1.1
+        )
+        let screenSize = aspectFitSize(source: canvasSize, maximum: deviceMaxSize)
+        let screenRect = NSRect(
+            x: (canvasSize.width - screenSize.width) / 2,
+            y: deviceTop,
+            width: screenSize.width,
+            height: screenSize.height
+        )
+        let framePadding = max(14, min(screenSize.width, screenSize.height) * 0.045)
+        let frameRect = screenRect.insetBy(dx: -framePadding, dy: -framePadding)
+
+        guard let bitmap = NSBitmapImageRep(
+            bitmapDataPlanes: nil,
+            pixelsWide: Int(canvasSize.width.rounded(.up)),
+            pixelsHigh: Int(canvasSize.height.rounded(.up)),
+            bitsPerSample: 8,
+            samplesPerPixel: 4,
+            hasAlpha: true,
+            isPlanar: false,
+            colorSpaceName: .deviceRGB,
+            bytesPerRow: 0,
+            bitsPerPixel: 0
+        ) else {
+            throw AscendKitError.invalidState("Cannot allocate framed poster bitmap: \(outputURL.path)")
+        }
+
+        let previousContext = NSGraphicsContext.current
+        NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: bitmap)
+        defer { NSGraphicsContext.current = previousContext }
+
+        drawFramedPosterBackground(canvasSize: canvasSize)
+
+        let titleFontSize = min(canvasSize.width * 0.085, topBandHeight * 0.32)
+        let subtitleFontSize = titleFontSize * 0.34
+        let titleRect = NSRect(
+            x: sideInset,
+            y: canvasSize.height - topBandHeight + topBandHeight * 0.42,
+            width: canvasSize.width - sideInset * 2,
+            height: topBandHeight * 0.34
+        )
+        drawCenteredText(
+            title,
+            in: titleRect,
+            font: NSFont.systemFont(ofSize: titleFontSize, weight: .bold),
+            color: NSColor(calibratedRed: 0.98, green: 0.96, blue: 0.90, alpha: 1)
+        )
+
+        if let subtitle, !subtitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            drawCenteredText(
+                subtitle,
+                in: NSRect(
+                    x: sideInset,
+                    y: canvasSize.height - topBandHeight + topBandHeight * 0.22,
+                    width: canvasSize.width - sideInset * 2,
+                    height: topBandHeight * 0.18
+                ),
+                font: NSFont.systemFont(ofSize: subtitleFontSize, weight: .medium),
+                color: NSColor(calibratedRed: 0.83, green: 0.88, blue: 0.78, alpha: 1)
+            )
+        }
+
+        let shadow = NSShadow()
+        shadow.shadowColor = NSColor.black.withAlphaComponent(0.35)
+        shadow.shadowOffset = NSSize(width: 0, height: -22)
+        shadow.shadowBlurRadius = 56
+        shadow.set()
+
+        let frameRadius = framePadding * 1.55
+        let framePath = NSBezierPath(roundedRect: frameRect, xRadius: frameRadius, yRadius: frameRadius)
+        NSColor(calibratedRed: 0.05, green: 0.06, blue: 0.06, alpha: 1).setFill()
+        framePath.fill()
+
+        NSGraphicsContext.saveGraphicsState()
+        NSShadow().set()
+        let screenPath = NSBezierPath(roundedRect: screenRect, xRadius: framePadding * 0.95, yRadius: framePadding * 0.95)
+        screenPath.addClip()
+        screenshot.draw(
+            in: screenRect,
+            from: NSRect(origin: .zero, size: screenshot.size),
+            operation: .sourceOver,
+            fraction: 1,
+            respectFlipped: false,
+            hints: [.interpolation: NSImageInterpolation.high]
+        )
+        NSGraphicsContext.restoreGraphicsState()
+
+        NSColor.white.withAlphaComponent(0.16).setStroke()
+        framePath.lineWidth = max(2, framePadding * 0.08)
+        framePath.stroke()
+
+        guard let png = bitmap.representation(using: .png, properties: [:]) else {
+            throw AscendKitError.invalidState("Cannot encode framed poster PNG: \(outputURL.path)")
+        }
+        try png.write(to: outputURL, options: [.atomic])
+    }
+
+    private func bitmapPixelSize(for image: NSImage) -> NSSize {
+        return image.size
+    }
+
+    private func drawFramedPosterBackground(canvasSize: NSSize) {
+        NSColor(calibratedRed: 0.08, green: 0.12, blue: 0.10, alpha: 1).setFill()
+        NSRect(origin: .zero, size: canvasSize).fill()
+
+        let upper = NSBezierPath(ovalIn: NSRect(
+            x: -canvasSize.width * 0.20,
+            y: canvasSize.height * 0.52,
+            width: canvasSize.width * 1.35,
+            height: canvasSize.height * 0.60
+        ))
+        NSColor(calibratedRed: 0.18, green: 0.36, blue: 0.30, alpha: 0.78).setFill()
+        upper.fill()
+
+        let lower = NSBezierPath(ovalIn: NSRect(
+            x: canvasSize.width * 0.18,
+            y: -canvasSize.height * 0.20,
+            width: canvasSize.width * 0.95,
+            height: canvasSize.height * 0.48
+        ))
+        NSColor(calibratedRed: 0.88, green: 0.66, blue: 0.34, alpha: 0.30).setFill()
+        lower.fill()
+    }
+
+    private func drawCenteredText(_ text: String, in rect: NSRect, font: NSFont, color: NSColor) {
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.alignment = .center
+        paragraph.lineBreakMode = .byWordWrapping
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: font,
+            .foregroundColor: color,
+            .paragraphStyle: paragraph
+        ]
+        NSString(string: text).draw(in: rect, withAttributes: attributes)
+    }
+
+    private func inferredTitle(from inputURL: URL) -> String {
+        inputURL.deletingPathExtension().lastPathComponent
+            .replacingOccurrences(of: #"^\d+[-_\s]*"#, with: "", options: .regularExpression)
+            .replacingOccurrences(of: "-", with: " ")
+            .replacingOccurrences(of: "_", with: " ")
+            .capitalized
     }
 
     private func aspectFitSize(source: NSSize, maximum: NSSize) -> NSSize {

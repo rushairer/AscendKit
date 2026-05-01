@@ -25,6 +25,10 @@ struct CLIRunner {
     var fileManager: FileManager = .default
 
     func run() async throws -> String {
+        if arguments == ["--version"] || arguments == ["-v"] {
+            return "ascendkit \(AscendKitVersion.current)"
+        }
+
         if arguments.isEmpty || arguments.contains("--help") || arguments.contains("-h") {
             return Self.help
         }
@@ -284,11 +288,13 @@ struct CLIRunner {
                 throw AscendKitError.fileNotFound(workspace.paths.screenshotImportManifest)
             }
             let mode = ScreenshotCompositionMode(rawValue: value(after: "--mode", in: args) ?? "storeReadyCopy") ?? .storeReadyCopy
+            let copyManifest = try loadScreenshotCompositionCopy(from: value(after: "--copy", in: args))
             let outputRoot = URL(fileURLWithPath: workspace.paths.root).appendingPathComponent("screenshots/composed")
             let manifest = try ScreenshotComposer(fileManager: fileManager).compose(
                 importManifest: importManifest,
                 outputRoot: outputRoot,
-                mode: mode
+                mode: mode,
+                copyManifest: copyManifest
             )
             try store.save(manifest, to: URL(fileURLWithPath: workspace.paths.screenshotCompositionManifest))
             try store.appendAudit(.init(action: .screenshotCompositionManifestSaved, summary: "Saved screenshot composition manifest"), to: workspace)
@@ -473,6 +479,17 @@ struct CLIRunner {
         default:
             throw AscendKitError.invalidArguments("Usage: ascendkit asc builds observe --workspace PATH [--json] OR ascendkit asc builds list [--workspace PATH] [--json] OR ascendkit asc builds import --workspace PATH --id ID --version VERSION --build BUILD [--state STATE] [--json]")
         }
+    }
+
+    private func loadScreenshotCompositionCopy(from path: String?) throws -> ScreenshotCompositionCopyManifest? {
+        guard let path else {
+            return nil
+        }
+        let url = URL(fileURLWithPath: path)
+        guard fileManager.fileExists(atPath: url.path) else {
+            throw AscendKitError.fileNotFound(url.path)
+        }
+        return try AscendKitJSON.decoder.decode(ScreenshotCompositionCopyManifest.self, from: Data(contentsOf: url))
     }
 
     private func observeASCBuilds(workspace: ReleaseWorkspace, store: ReleaseWorkspaceStore) async throws -> BuildCandidatesReport {
@@ -1312,7 +1329,7 @@ struct CLIRunner {
       ascendkit screenshots readiness --workspace PATH [--source PATH] [--json]
       ascendkit screenshots import --workspace PATH --source PATH [--json]
       ascendkit screenshots import-fastlane --workspace PATH --source PATH [--locales en-US,zh-Hans] [--json]
-      ascendkit screenshots compose --workspace PATH [--mode storeReadyCopy|poster|deviceFrame] [--json]
+      ascendkit screenshots compose --workspace PATH [--mode storeReadyCopy|poster|deviceFrame|framedPoster] [--copy PATH] [--json]
       ascendkit screenshots upload-plan --workspace PATH [--display-type APP_IPHONE_67] [--replace-existing] [--json]
       ascendkit screenshots upload --workspace PATH [--replace-existing] --confirm-remote-mutation [--json]
       ascendkit asc auth save-profile --name NAME --issuer-id ID --key-id ID --private-key-provider env|file|keychain --private-key-ref REF [--json]

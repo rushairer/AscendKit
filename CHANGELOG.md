@@ -1,0 +1,24 @@
+# Changelog
+
+AscendKit follows [Semantic Versioning](https://semver.org/). During `0.y.z`, the project is usable but still evolving quickly; minor versions may introduce breaking workflow changes when needed, and patch versions are reserved for compatible fixes.
+
+## 0.1.0 - 2026-05-01
+
+Initial public MVP release.
+
+### Added
+
+- Local release workspaces under `.ascendkit/releases/<release-id>`.
+- Xcode project intake, release doctor checks, readiness checks, and audit logs.
+- Metadata templates, linting, local-vs-ASC diffing, ASC metadata request planning, and guarded metadata apply.
+- ASC auth profiles with secret references stored outside the repository.
+- ASC app lookup, build lookup, free pricing mutation, native screenshot upload, and guarded review submission execution.
+- Screenshot planning, import, fastlane migration import, store-ready copy composition, poster composition, generic device frame composition, and App Store-sized framed poster composition with configurable copy.
+- Reviewer information management and review handoff generation.
+- Local IAP subscription template validation.
+
+### Known Boundaries
+
+- Binary upload is intentionally out of scope; use Xcode Cloud or Apple's upload tooling.
+- App Privacy "Data Not Collected" publishing cannot be completed with an ASC API key in the tested environment because Apple's IRIS privacy endpoint rejects API-key JWT auth.
+- Deep MCP integration is intentionally out of scope for this release.

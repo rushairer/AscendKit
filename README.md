@@ -6,7 +6,9 @@ The project is designed for AI-assisted release work without handing raw secrets
 
 ## Current Status
 
-AscendKit is an MVP. It has been used end-to-end on a real iOS app release workflow covering local screenshot preparation, metadata, App Privacy, pricing, reviewer information, build selection, and App Review submission.
+AscendKit is versioned from `v0.1.0` and follows [Semantic Versioning](https://semver.org/). The `0.y.z` line is usable but still evolving: each tagged release should build, test, and support the documented workflow, while minor versions may still refine command shapes before `1.0.0`.
+
+AscendKit is an MVP. It has been used end-to-end on a real iOS app release workflow covering local screenshot preparation, metadata, pricing, reviewer information, build selection, screenshot upload, and guarded App Review submission. App Privacy publishing is currently documented as a boundary where Apple's IRIS endpoint may require App Store Connect UI or future Apple ID web-session support.
 
 Implemented today:
 
@@ -42,6 +44,7 @@ Build and test:
 ```bash
 swift test
 swift run ascendkit --help
+swift run ascendkit --version
 ```
 
 ## Quick Start: Submit an App Store Release
@@ -362,6 +365,7 @@ Imports fastlane-style screenshots.
 swift run ascendkit screenshots compose --workspace "$WORKSPACE" --mode storeReadyCopy
 swift run ascendkit screenshots compose --workspace "$WORKSPACE" --mode poster
 swift run ascendkit screenshots compose --workspace "$WORKSPACE" --mode deviceFrame
+swift run ascendkit screenshots compose --workspace "$WORKSPACE" --mode framedPoster --copy "$WORKSPACE/screenshots/copy/en-US.json"
 ```
 
 Composition modes:
@@ -369,6 +373,23 @@ Composition modes:
 - `storeReadyCopy`: organize imported images for upload.
 - `poster`: render local poster-style PNG artifacts.
 - `deviceFrame`: render generic local framed PNG artifacts.
+- `framedPoster`: render App Store-sized PNG artifacts with a background, title/subtitle copy, and an inset device frame while preserving the source screenshot dimensions.
+
+Optional framed poster copy file:
+
+```json
+{
+  "items": [
+    {
+      "locale": "en-US",
+      "platform": "iOS",
+      "fileName": "01-today.png",
+      "title": "Choose Three",
+      "subtitle": "Set a calm focus for today"
+    }
+  ]
+}
+```
 
 ```bash
 swift run ascendkit screenshots upload-plan \
