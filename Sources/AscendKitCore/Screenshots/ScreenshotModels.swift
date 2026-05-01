@@ -429,6 +429,173 @@ public struct ScreenshotCompositionManifest: Codable, Equatable, Sendable {
     }
 }
 
+public enum ScreenshotUploadSourceKind: String, Codable, Equatable, Sendable {
+    case imported
+    case composed
+}
+
+public struct ScreenshotUploadPlanItem: Codable, Equatable, Identifiable, Sendable {
+    public var id: String
+    public var locale: String
+    public var platform: ApplePlatform
+    public var displayType: String
+    public var appStoreVersionLocalizationID: String
+    public var sourcePath: String
+    public var fileName: String
+    public var order: Int
+    public var uploadOperations: [String]
+
+    public init(
+        locale: String,
+        platform: ApplePlatform,
+        displayType: String,
+        appStoreVersionLocalizationID: String,
+        sourcePath: String,
+        fileName: String,
+        order: Int,
+        uploadOperations: [String] = [
+            "create appScreenshotSet when missing",
+            "create appScreenshot reservation",
+            "upload asset delivery parts",
+            "commit appScreenshot",
+            "wait for processing"
+        ]
+    ) {
+        self.locale = locale
+        self.platform = platform
+        self.displayType = displayType
+        self.appStoreVersionLocalizationID = appStoreVersionLocalizationID
+        self.sourcePath = sourcePath
+        self.fileName = fileName
+        self.order = order
+        self.uploadOperations = uploadOperations
+        self.id = [
+            locale,
+            platform.rawValue,
+            displayType,
+            "\(order)",
+            fileName
+        ].joined(separator: ":")
+    }
+}
+
+public struct ScreenshotUploadPlan: Codable, Equatable, Sendable {
+    public var generatedAt: Date
+    public var sourceKind: ScreenshotUploadSourceKind
+    public var dryRunOnly: Bool
+    public var items: [ScreenshotUploadPlanItem]
+    public var findings: [String]
+
+    public init(
+        generatedAt: Date = Date(),
+        sourceKind: ScreenshotUploadSourceKind,
+        dryRunOnly: Bool = true,
+        items: [ScreenshotUploadPlanItem],
+        findings: [String] = []
+    ) {
+        self.generatedAt = generatedAt
+        self.sourceKind = sourceKind
+        self.dryRunOnly = dryRunOnly
+        self.items = items
+        self.findings = findings
+    }
+}
+
+public struct ScreenshotUploadPlanBuilder {
+    public init() {}
+
+    public func build(
+        importManifest: ScreenshotImportManifest?,
+        compositionManifest: ScreenshotCompositionManifest?,
+        observedState: MetadataObservedState?,
+        displayTypeOverride: String? = nil
+    ) -> ScreenshotUploadPlan {
+        let composedArtifacts = compositionManifest?.artifacts ?? []
+        let sourceKind: ScreenshotUploadSourceKind = composedArtifacts.isEmpty ? .imported : .composed
+        let sourceArtifacts = composedArtifacts.isEmpty
+            ? importArtifacts(from: importManifest)
+            : composedArtifacts.map {
+                UploadSourceArtifact(
+                    locale: $0.locale,
+                    platform: $0.platform,
+                    path: $0.outputPath,
+                    fileName: URL(fileURLWithPath: $0.outputPath).lastPathComponent
+                )
+            }
+
+        var findings: [String] = []
+        if sourceArtifacts.isEmpty {
+            findings.append("No screenshot artifacts are available. Run screenshots import or screenshots compose first.")
+        }
+        if observedState == nil {
+            findings.append("ASC observed metadata state is missing. Run asc metadata observe before planning screenshot upload.")
+        }
+
+        let grouped = Dictionary(grouping: sourceArtifacts) { "\($0.locale)|\($0.platform.rawValue)" }
+        let items = grouped
+            .flatMap { _, artifacts in
+                artifacts.sorted { $0.fileName < $1.fileName }.enumerated().compactMap { offset, artifact -> ScreenshotUploadPlanItem? in
+                    guard let localizationID = observedState?.resourceIDsByLocale?[artifact.locale]?.appStoreVersionLocalizationID else {
+                        findings.append("Missing appStoreVersionLocalizationID for locale \(artifact.locale).")
+                        return nil
+                    }
+                    return ScreenshotUploadPlanItem(
+                        locale: artifact.locale,
+                        platform: artifact.platform,
+                        displayType: displayTypeOverride ?? defaultDisplayType(for: artifact.platform),
+                        appStoreVersionLocalizationID: localizationID,
+                        sourcePath: artifact.path,
+                        fileName: artifact.fileName,
+                        order: offset + 1
+                    )
+                }
+            }
+            .sorted {
+                if $0.locale != $1.locale { return $0.locale < $1.locale }
+                if $0.platform.rawValue != $1.platform.rawValue { return $0.platform.rawValue < $1.platform.rawValue }
+                if $0.displayType != $1.displayType { return $0.displayType < $1.displayType }
+                return $0.order < $1.order
+            }
+
+        return ScreenshotUploadPlan(sourceKind: sourceKind, items: items, findings: Array(Set(findings)).sorted())
+    }
+
+    private func importArtifacts(from manifest: ScreenshotImportManifest?) -> [UploadSourceArtifact] {
+        (manifest?.artifacts ?? []).map {
+            UploadSourceArtifact(
+                locale: $0.locale,
+                platform: $0.platform,
+                path: $0.path,
+                fileName: $0.fileName
+            )
+        }
+    }
+
+    private func defaultDisplayType(for platform: ApplePlatform) -> String {
+        switch platform {
+        case .iPadOS:
+            return "APP_IPAD_PRO_3GEN_129"
+        case .macOS:
+            return "APP_DESKTOP"
+        case .tvOS:
+            return "APP_APPLE_TV"
+        case .watchOS:
+            return "APP_WATCH_ULTRA"
+        case .visionOS:
+            return "APP_VISION_PRO"
+        case .iOS, .unknown:
+            return "APP_IPHONE_67"
+        }
+    }
+
+    private struct UploadSourceArtifact {
+        var locale: String
+        var platform: ApplePlatform
+        var path: String
+        var fileName: String
+    }
+}
+
 public struct ScreenshotComposer {
     public let fileManager: FileManager
 

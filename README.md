@@ -113,6 +113,7 @@ Compose local screenshot artifacts:
 swift run ascendkit screenshots compose --workspace "$WORKSPACE" --mode storeReadyCopy
 swift run ascendkit screenshots compose --workspace "$WORKSPACE" --mode deviceFrame
 swift run ascendkit screenshots compose --workspace "$WORKSPACE" --mode poster
+swift run ascendkit screenshots upload-plan --workspace "$WORKSPACE" --json
 ```
 
 Upload screenshots to App Store Connect before final submission. The current MVP does not include direct screenshot upload, so use App Store Connect UI for now. Native screenshot upload is the next major fastlane-removal milestone.
@@ -359,6 +360,15 @@ Composition modes:
 - `poster`: render local poster-style PNG artifacts.
 - `deviceFrame`: render generic local framed PNG artifacts.
 
+```bash
+swift run ascendkit screenshots upload-plan \
+  --workspace "$WORKSPACE" \
+  --display-type APP_IPHONE_67 \
+  --json
+```
+
+Creates a dry-run App Store Connect screenshot upload plan from imported or composed artifacts. This is the native upload foundation; it does not mutate ASC yet.
+
 ### `asc auth`
 
 Configure App Store Connect credentials without storing private key contents.
@@ -586,6 +596,7 @@ Important files:
 - `metadata/localized/*.json`: imported or localized metadata.
 - `metadata/lint/*.json`: lint results.
 - `screenshots/manifests/*.json`: screenshot import/composition manifests.
+- `screenshots/manifests/upload.json`: dry-run native ASC screenshot upload plan.
 - `asc/auth.json`: ASC auth config with secret references only.
 - `asc/apps.json`: ASC app lookup result.
 - `asc/observed-state.json`: observed ASC metadata state.
@@ -645,7 +656,7 @@ Release checklist:
 Fastlane removal roadmap:
 
 1. Keep `import-fastlane` commands only as migration helpers.
-2. Implement native ASC screenshot upload next.
+2. Implement native ASC screenshot upload execution on top of the current upload plan.
 3. Formalize App Privacy declarations on official ASC API where available and explicit fallback paths where Apple exposes only private iris endpoints.
 4. Keep binary upload out of scope; Xcode Cloud remains the preferred binary delivery path.
 

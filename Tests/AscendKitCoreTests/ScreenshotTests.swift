@@ -139,6 +139,46 @@ struct ScreenshotTests {
         #expect(manifest.artifacts[0].mode == .storeReadyCopy)
     }
 
+    @Test("builds ASC screenshot upload plan from imported artifacts")
+    func buildsScreenshotUploadPlan() throws {
+        let importManifest = ScreenshotImportManifest(
+            sourceDirectory: "/tmp/screenshots",
+            artifacts: [
+                ScreenshotArtifact(
+                    locale: "en-US",
+                    platform: .iOS,
+                    path: "/tmp/screenshots/en-US/iOS/01-home.png",
+                    fileName: "01-home.png"
+                )
+            ]
+        )
+        let observed = MetadataObservedState(
+            metadataByLocale: [
+                "en-US": AppMetadata(
+                    locale: "en-US",
+                    name: "Demo",
+                    description: "Demo description"
+                )
+            ],
+            resourceIDsByLocale: [
+                "en-US": MetadataLocalizationResourceIDs(appStoreVersionLocalizationID: "version-loc-1")
+            ]
+        )
+
+        let plan = ScreenshotUploadPlanBuilder().build(
+            importManifest: importManifest,
+            compositionManifest: nil,
+            observedState: observed
+        )
+
+        #expect(plan.dryRunOnly)
+        #expect(plan.sourceKind == ScreenshotUploadSourceKind.imported)
+        #expect(plan.items.count == 1)
+        #expect(plan.items[0].displayType == "APP_IPHONE_67")
+        #expect(plan.items[0].appStoreVersionLocalizationID == "version-loc-1")
+        #expect(plan.findings.isEmpty)
+    }
+
     @Test("renders poster composition as a PNG artifact")
     func rendersPosterComposition() throws {
         let root = try TemporaryDirectory()

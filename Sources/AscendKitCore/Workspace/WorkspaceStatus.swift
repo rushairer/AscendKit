@@ -55,6 +55,7 @@ public struct WorkspaceStatusReader {
             ("screenshot-plan", "Screenshot plan", workspace.paths.screenshotPlan),
             ("screenshot-import", "Screenshot import manifest", workspace.paths.screenshotImportManifest),
             ("screenshot-composition", "Screenshot composition manifest", workspace.paths.screenshotCompositionManifest),
+            ("screenshot-upload-plan", "Screenshot upload plan", workspace.paths.screenshotUploadPlan),
             ("review-info", "Reviewer info", workspace.paths.reviewInfo),
             ("review-checklist", "Review preparation checklist", workspace.paths.reviewChecklist),
             ("review-submission-plan", "Review submission plan", workspace.paths.reviewSubmissionPlan),

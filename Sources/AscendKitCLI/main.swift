@@ -207,7 +207,7 @@ struct CLIRunner {
 
     private func screenshots(_ args: [String], json: Bool) throws -> String {
         guard let subcommand = args.first else {
-            throw AscendKitError.invalidArguments("Usage: ascendkit screenshots plan|readiness --workspace PATH")
+            throw AscendKitError.invalidArguments("Usage: ascendkit screenshots plan|readiness|upload-plan --workspace PATH")
         }
         let workspace = try loadWorkspace(from: args)
         let store = ReleaseWorkspaceStore(fileManager: fileManager)
@@ -294,6 +294,28 @@ struct CLIRunner {
             try store.appendAudit(.init(action: .screenshotCompositionManifestSaved, summary: "Saved screenshot composition manifest"), to: workspace)
             return try render(manifest, json: json) {
                 "Screenshot composition manifest saved with \(manifest.artifacts.count) artifact(s)"
+            }
+        case "upload-plan":
+            let importManifest = try loadIfExists(ScreenshotImportManifest.self, path: workspace.paths.screenshotImportManifest)
+            let compositionManifest = try loadIfExists(ScreenshotCompositionManifest.self, path: workspace.paths.screenshotCompositionManifest)
+            let observedState = try loadIfExists(MetadataObservedState.self, path: workspace.paths.ascObservedState)
+            let plan = ScreenshotUploadPlanBuilder().build(
+                importManifest: importManifest,
+                compositionManifest: compositionManifest,
+                observedState: observedState,
+                displayTypeOverride: value(after: "--display-type", in: args)
+            )
+            try store.save(plan, to: URL(fileURLWithPath: workspace.paths.screenshotUploadPlan))
+            try store.appendAudit(
+                .init(
+                    action: .screenshotUploadPlanned,
+                    summary: "Planned ASC screenshot upload",
+                    details: ["items": "\(plan.items.count)"]
+                ),
+                to: workspace
+            )
+            return try render(plan, json: json) {
+                "Screenshot upload plan saved with \(plan.items.count) item(s) and \(plan.findings.count) finding(s); no ASC mutation was made."
             }
         case "capture":
             throw AscendKitError.unsupported("screenshots capture is deferred; first wave supports planning, import readiness, import manifests, and local composition organization.")
@@ -1152,6 +1174,7 @@ struct CLIRunner {
       ascendkit screenshots import --workspace PATH --source PATH [--json]
       ascendkit screenshots import-fastlane --workspace PATH --source PATH [--locales en-US,zh-Hans] [--json]
       ascendkit screenshots compose --workspace PATH [--mode storeReadyCopy|poster|deviceFrame] [--json]
+      ascendkit screenshots upload-plan --workspace PATH [--display-type APP_IPHONE_67] [--json]
       ascendkit asc auth save-profile --name NAME --issuer-id ID --key-id ID --private-key-provider env|file|keychain --private-key-ref REF [--json]
       ascendkit asc auth profiles [--json]
       ascendkit asc auth init --workspace PATH --issuer-id ID --key-id ID --private-key-provider env|file|keychain --private-key-ref REF [--json]
