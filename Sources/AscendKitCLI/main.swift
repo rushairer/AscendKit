@@ -467,8 +467,7 @@ struct CLIRunner {
             case "status":
                 let status = try screenshotWorkflowStatus(workspace: workspace)
                 return try render(status, json: json) {
-                    let lines = status.steps.map { "\($0.id): \($0.state.rawValue)\($0.detail.map { " (\($0))" } ?? "")" }
-                    return ([status.readyForUploadPlan ? "Screenshot workflow ready for upload-plan." : "Screenshot workflow is not ready for upload-plan."] + lines).joined(separator: "\n")
+                    renderScreenshotWorkflowStatusText(status)
                 }
             default:
                 throw AscendKitError.invalidArguments("Usage: ascendkit screenshots workflow run|status --workspace PATH [--scheme SCHEME] [--configuration Debug] [--destination DESTINATION] [--mode storeReadyCopy|poster|deviceFrame|framedPoster] [--copy PATH] [--json]")
@@ -489,6 +488,18 @@ struct CLIRunner {
             uploadPlan: loadIfExists(ScreenshotUploadPlan.self, path: workspace.paths.screenshotUploadPlan),
             paths: workspace.paths
         )
+    }
+
+    private func renderScreenshotWorkflowStatusText(_ status: ScreenshotWorkflowStatusReport) -> String {
+        let header = status.readyForUploadPlan
+            ? "Screenshot workflow ready for upload-plan."
+            : "Screenshot workflow is not ready for upload-plan."
+        let stepLines = status.steps.map { "\($0.id): \($0.state.rawValue)\($0.detail.map { " (\($0))" } ?? "")" }
+        guard !status.findings.isEmpty else {
+            return ([header] + stepLines).joined(separator: "\n")
+        }
+        let findingLines = status.findings.map { "- \($0)" }
+        return ([header] + stepLines + ["Workflow finding(s):"] + findingLines).joined(separator: "\n")
     }
 
     private func renderScreenshotUploadPlanText(_ plan: ScreenshotUploadPlan) -> String {
