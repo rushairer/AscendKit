@@ -594,6 +594,7 @@ public struct ScreenshotUploadExecutionItem: Codable, Equatable, Identifiable, S
     public var fileName: String
     public var checksum: String
     public var assetDeliveryState: String?
+    public var assetDeliveryPollAttempts: Int?
     public var responses: [ReviewSubmissionExecutionResponse]
 
     public init(
@@ -603,6 +604,7 @@ public struct ScreenshotUploadExecutionItem: Codable, Equatable, Identifiable, S
         fileName: String,
         checksum: String,
         assetDeliveryState: String? = nil,
+        assetDeliveryPollAttempts: Int? = nil,
         responses: [ReviewSubmissionExecutionResponse] = []
     ) {
         self.planItemID = planItemID
@@ -611,6 +613,7 @@ public struct ScreenshotUploadExecutionItem: Codable, Equatable, Identifiable, S
         self.fileName = fileName
         self.checksum = checksum
         self.assetDeliveryState = assetDeliveryState
+        self.assetDeliveryPollAttempts = assetDeliveryPollAttempts
         self.responses = responses
         self.id = appScreenshotID
     }

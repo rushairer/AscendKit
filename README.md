@@ -401,6 +401,7 @@ swift run ascendkit screenshots upload \
 Executes native screenshot upload through App Store Connect by optionally deleting planned remote screenshots, creating or reusing screenshot sets, reserving screenshots, uploading ASC asset parts, and committing checksums. This command mutates ASC only with `--confirm-remote-mutation`.
 If `screenshots upload-plan` has findings, execution refuses to proceed.
 Transient ASC and asset-upload requests are retried with bounded backoff. If one screenshot fails after execution starts, AscendKit records the failure in `failedItems` and continues with remaining screenshots when possible.
+After each commit, AscendKit polls `assetDeliveryState` for a bounded number of attempts and records both the final state and `assetDeliveryPollAttempts` for each uploaded screenshot.
 
 ### `asc auth`
 
@@ -630,7 +631,7 @@ Important files:
 - `metadata/lint/*.json`: lint results.
 - `screenshots/manifests/*.json`: screenshot import/composition manifests.
 - `screenshots/manifests/upload.json`: dry-run native ASC screenshot upload plan.
-- `screenshots/manifests/upload-result.json`: native ASC screenshot upload execution result, including uploaded items, deleted remote screenshots, and per-item failures.
+- `screenshots/manifests/upload-result.json`: native ASC screenshot upload execution result, including uploaded items, asset delivery state, delivery poll attempts, deleted remote screenshots, and per-item failures.
 - `asc/auth.json`: ASC auth config with secret references only.
 - `asc/apps.json`: ASC app lookup result.
 - `asc/observed-state.json`: observed ASC metadata state.

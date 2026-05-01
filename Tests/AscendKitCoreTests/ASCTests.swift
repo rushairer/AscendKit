@@ -276,6 +276,7 @@ struct ASCTests {
                     fileName: "home.png",
                     checksum: "d41d8cd98f00b204e9800998ecf8427e",
                     assetDeliveryState: "COMPLETE",
+                    assetDeliveryPollAttempts: 2,
                     responses: [
                         ReviewSubmissionExecutionResponse(
                             id: "app-screenshot.commit",
@@ -314,6 +315,7 @@ struct ASCTests {
         #expect(decoded.uploadedCount == 1)
         #expect(decoded.items.first?.appScreenshotSetID == "set-1")
         #expect(decoded.items.first?.checksum == "d41d8cd98f00b204e9800998ecf8427e")
+        #expect(decoded.items.first?.assetDeliveryPollAttempts == 2)
         #expect(decoded.deletedScreenshots?.first?.appScreenshotID == "old-screenshot-1")
         #expect(decoded.failedItems?.first?.phase == "upload")
     }

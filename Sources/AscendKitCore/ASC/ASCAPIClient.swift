@@ -481,7 +481,8 @@ public struct ASCAPIClient {
                     appScreenshotID: reservation.id,
                     fileName: item.fileName,
                     checksum: checksum,
-                    assetDeliveryState: deliveryState,
+                    assetDeliveryState: deliveryState.state,
+                    assetDeliveryPollAttempts: deliveryState.attempts,
                     responses: [
                         reservation.response,
                         commitResponse
@@ -1071,13 +1072,28 @@ public struct ASCAPIClient {
     private func pollAppScreenshotDeliveryState(
         screenshotID: String,
         token: String
-    ) async throws -> String? {
-        let resource = try await getResource(
-            path: "v1/appScreenshots/\(screenshotID)",
-            token: token,
-            as: AppScreenshotResource.self
-        )
-        return resource.attributes.assetDeliveryState?.state
+    ) async throws -> (state: String?, attempts: Int) {
+        let maxAttempts = 6
+        for attempt in 1...maxAttempts {
+            let resource = try await getResource(
+                path: "v1/appScreenshots/\(screenshotID)",
+                token: token,
+                as: AppScreenshotResource.self
+            )
+            let state = resource.attributes.assetDeliveryState?.state
+            if isTerminalAssetDeliveryState(state) || attempt == maxAttempts {
+                return (state, attempt)
+            }
+            try await Task.sleep(nanoseconds: 500_000_000)
+        }
+        return (nil, maxAttempts)
+    }
+
+    private func isTerminalAssetDeliveryState(_ state: String?) -> Bool {
+        guard let state = state?.uppercased() else {
+            return false
+        }
+        return state == "COMPLETE" || state == "FAILED"
     }
 
     private func upsertReviewDetail(
