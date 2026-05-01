@@ -2,6 +2,12 @@
 
 AscendKit follows [Semantic Versioning](https://semver.org/). During `0.y.z`, the project is usable but still evolving quickly; minor versions may introduce breaking workflow changes when needed, and patch versions are reserved for compatible fixes.
 
+## Unreleased
+
+### Added
+
+- Text App Privacy status output now lists source and findings for manual handoff.
+
 ## 0.3.0 - 2026-05-01
 
 ### Added

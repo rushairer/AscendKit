@@ -1302,9 +1302,9 @@ struct CLIRunner {
                     state: .unknown,
                     source: "workspace",
                     findings: ["No App Privacy status has been recorded."]
-                )
+            )
             return try render(status, json: json) {
-                "ASC App Privacy status: \(status.state.rawValue)"
+                renderAppPrivacyStatusText(status)
             }
         case "confirm-manual":
             guard args.contains("--data-not-collected") else {
@@ -1401,6 +1401,15 @@ struct CLIRunner {
                 ? "ASC app privacy could not be published with API key auth; use App Store Connect UI or Apple ID web session support."
                 : "ASC app privacy Data Not Collected answers published with \(responses.count) response(s)."
         }
+    }
+
+    private func renderAppPrivacyStatusText(_ status: AppPrivacyStatus) -> String {
+        let header = "ASC App Privacy status: \(status.state.rawValue) via \(status.source)"
+        guard !status.findings.isEmpty else {
+            return header
+        }
+        let lines = status.findings.map { "- \($0)" }
+        return ([header, "App Privacy finding(s):"] + lines).joined(separator: "\n")
     }
 
     private func submit(_ args: [String], json: Bool) async throws -> String {
