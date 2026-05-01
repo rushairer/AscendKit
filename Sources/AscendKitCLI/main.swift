@@ -211,7 +211,7 @@ struct CLIRunner {
 
     private func screenshots(_ args: [String], json: Bool) async throws -> String {
         guard let subcommand = args.first else {
-            throw AscendKitError.invalidArguments("Usage: ascendkit screenshots destinations|plan|capture-plan|capture|workflow|readiness|compose|upload-plan|upload --workspace PATH")
+            throw AscendKitError.invalidArguments("Usage: ascendkit screenshots destinations|plan|copy|capture-plan|capture|workflow|readiness|compose|upload-plan|upload --workspace PATH")
         }
         let workspace = try loadWorkspace(from: args)
         let store = ReleaseWorkspaceStore(fileManager: fileManager)
@@ -258,6 +258,29 @@ struct CLIRunner {
             let result = ScreenshotReadinessEvaluator(fileManager: fileManager).evaluate(plan: plan, sourceDirectory: source)
             try store.appendAudit(.init(action: .screenshotReadinessChecked, summary: "Checked screenshot readiness"), to: workspace)
             return try render(result, json: json) { "Screenshot readiness: \(result.ready ? "ready" : "not ready") with \(result.findings.count) finding(s)" }
+        case "copy":
+            guard args.dropFirst().first == "init" else {
+                throw AscendKitError.invalidArguments("Usage: ascendkit screenshots copy init --workspace PATH [--locale en-US] [--output PATH] [--json]")
+            }
+            guard fileManager.fileExists(atPath: planURL.path) else {
+                throw AscendKitError.fileNotFound(planURL.path)
+            }
+            let plan = try AscendKitJSON.decoder.decode(ScreenshotPlan.self, from: Data(contentsOf: planURL))
+            let locale = value(after: "--locale", in: args) ?? plan.locales.first ?? "en-US"
+            let copy = ScreenshotCompositionCopyTemplateBuilder().build(plan: plan, locale: locale)
+            let outputURL = URL(fileURLWithPath: value(after: "--output", in: args) ?? defaultScreenshotCopyPath(workspace: workspace, locale: locale))
+            try store.save(copy, to: outputURL)
+            try store.appendAudit(
+                .init(
+                    action: .screenshotCopyInitialized,
+                    summary: "Initialized screenshot composition copy",
+                    details: ["items": "\(copy.items.count)", "path": outputURL.path]
+                ),
+                to: workspace
+            )
+            return try render(copy, json: json) {
+                "Screenshot copy template written to \(outputURL.path) with \(copy.items.count) item(s)."
+            }
         case "capture-plan":
             guard fileManager.fileExists(atPath: planURL.path) else {
                 throw AscendKitError.fileNotFound(planURL.path)
@@ -412,6 +435,13 @@ struct CLIRunner {
             uploadPlan: loadIfExists(ScreenshotUploadPlan.self, path: workspace.paths.screenshotUploadPlan),
             paths: workspace.paths
         )
+    }
+
+    private func defaultScreenshotCopyPath(workspace: ReleaseWorkspace, locale: String) -> String {
+        URL(fileURLWithPath: workspace.paths.root)
+            .appendingPathComponent("screenshots/copy")
+            .appendingPathComponent("\(locale).json")
+            .path
     }
 
     private func runScreenshotWorkflow(workspace: ReleaseWorkspace, store: ReleaseWorkspaceStore, args: [String]) throws -> ScreenshotLocalWorkflowResult {
@@ -1610,6 +1640,7 @@ struct CLIRunner {
       ascendkit metadata diff --workspace PATH [--json]
       ascendkit screenshots destinations --workspace PATH [--json]
       ascendkit screenshots plan --workspace PATH [--screens A,B] [--features A,B] [--platforms iOS,macOS] [--locales en-US] [--json]
+      ascendkit screenshots copy init --workspace PATH [--locale en-US] [--output PATH] [--json]
       ascendkit screenshots capture-plan --workspace PATH [--scheme SCHEME] [--configuration Debug] [--destination DESTINATION] [--json]
       ascendkit screenshots capture --workspace PATH [--json]
       ascendkit screenshots workflow run --workspace PATH [--scheme SCHEME] [--configuration Debug] [--destination DESTINATION] [--mode storeReadyCopy|poster|deviceFrame|framedPoster] [--copy PATH] [--json]

@@ -1197,6 +1197,29 @@ public struct ScreenshotCompositionCopyManifest: Codable, Equatable, Sendable {
     }
 }
 
+public struct ScreenshotCompositionCopyTemplateBuilder {
+    public init() {}
+
+    public func build(plan: ScreenshotPlan, locale: String? = nil, fileExtension: String = "png") -> ScreenshotCompositionCopyManifest {
+        let effectiveLocales = locale.map { [$0] } ?? plan.locales
+        let normalizedExtension = fileExtension.trimmingCharacters(in: CharacterSet(charactersIn: "."))
+        let items = effectiveLocales.flatMap { locale in
+            plan.platforms.flatMap { platform in
+                plan.items.sorted { $0.order < $1.order }.map { item in
+                    ScreenshotCompositionCopy(
+                        locale: locale,
+                        platform: platform,
+                        fileName: "\(String(format: "%02d", item.order))-\(item.id).\(normalizedExtension)",
+                        title: item.screenName,
+                        subtitle: item.purpose
+                    )
+                }
+            }
+        }
+        return ScreenshotCompositionCopyManifest(items: items)
+    }
+}
+
 public struct ScreenshotCompositionCopy: Codable, Equatable, Sendable {
     public var locale: String
     public var platform: ApplePlatform

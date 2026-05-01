@@ -266,6 +266,32 @@ struct ScreenshotTests {
         #expect(report.findings.isEmpty)
     }
 
+    @Test("creates screenshot copy template from plan")
+    func createsScreenshotCopyTemplateFromPlan() {
+        let plan = ScreenshotPlan(
+            inputPath: .uiTestCapture,
+            platforms: [.iOS, .iPadOS],
+            locales: ["en-US"],
+            items: [
+                ScreenshotPlanItem(id: "today", screenName: "Today", order: 1, purpose: "Show today focus"),
+                ScreenshotPlanItem(id: "history", screenName: "History", order: 2, purpose: "Show past entries")
+            ]
+        )
+
+        let copy = ScreenshotCompositionCopyTemplateBuilder().build(plan: plan, locale: "en-US")
+
+        #expect(copy.items.count == 4)
+        #expect(copy.items[0] == ScreenshotCompositionCopy(
+            locale: "en-US",
+            platform: .iOS,
+            fileName: "01-today.png",
+            title: "Today",
+            subtitle: "Show today focus"
+        ))
+        #expect(copy.items[2].platform == .iPadOS)
+        #expect(copy.items[3].fileName == "02-history.png")
+    }
+
     @Test("validates user-provided import directory structure and image counts")
     func validatesImportDirectoryStructure() throws {
         let root = try TemporaryDirectory()
