@@ -6,6 +6,14 @@ AscendKit follows [Semantic Versioning](https://semver.org/). During `0.y.z`, th
 
 No unreleased changes.
 
+## 0.5.0 - 2026-05-02
+
+### Added
+
+- `screenshots upload-status --workspace PATH [--json]` summarizes uploaded, failed, deleted, and retryable screenshot upload items without making network requests.
+- `asc metadata status --workspace PATH [--json]` summarizes metadata apply/diff freshness, blocking diffs, and release-notes-only diff state.
+- `workspace summary` now includes screenshot upload retry next actions and metadata sync next actions when relevant.
+
 ## 0.4.0 - 2026-05-02
 
 ### Added
