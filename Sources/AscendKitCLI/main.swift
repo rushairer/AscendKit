@@ -237,7 +237,7 @@ struct CLIRunner {
 
     private func screenshots(_ args: [String], json: Bool) async throws -> String {
         guard let subcommand = args.first else {
-            throw AscendKitError.invalidArguments("Usage: ascendkit screenshots destinations|plan|copy|capture-plan|capture|workflow|readiness|compose|upload-plan|upload --workspace PATH")
+            throw AscendKitError.invalidArguments("Usage: ascendkit screenshots destinations|plan|copy|capture-plan|capture|workflow|readiness|compose|upload-plan|upload|upload-status --workspace PATH")
         }
         let workspace = try loadWorkspace(from: args)
         let store = ReleaseWorkspaceStore(fileManager: fileManager)
@@ -474,6 +474,14 @@ struct CLIRunner {
                     ? "Screenshot upload completed with \(result.uploadedCount) uploaded screenshot(s)."
                     : "Screenshot upload was not executed: \(result.findings.joined(separator: " "))"
             }
+        case "upload-status":
+            let status = ScreenshotUploadStatusBuilder().build(
+                plan: try loadIfExists(ScreenshotUploadPlan.self, path: workspace.paths.screenshotUploadPlan),
+                result: try loadIfExists(ScreenshotUploadExecutionResult.self, path: workspace.paths.screenshotUploadResult)
+            )
+            return try render(status, json: json) {
+                renderScreenshotUploadStatusText(status)
+            }
         case "capture":
             let result = try executeScreenshotCapture(workspace: workspace, store: store)
             return try render(result, json: json) {
@@ -535,6 +543,28 @@ struct CLIRunner {
         }
         let lines = plan.findings.map { "- \($0)" }
         return ([header, "Upload planning finding(s):"] + lines).joined(separator: "\n")
+    }
+
+    private func renderScreenshotUploadStatusText(_ status: ScreenshotUploadStatusReport) -> String {
+        var lines = [
+            "Screenshot upload status: \(status.uploadedCount) uploaded, \(status.failedCount) failed, \(status.deletedCount) deleted",
+            "Planned screenshots: \(status.plannedCount.map(String.init) ?? "unknown")",
+            "Executed: \(status.executed.map { $0 ? "yes" : "no" } ?? "unknown")",
+            "Ready for retry: \(status.readyForRetry ? "yes" : "no")"
+        ]
+        if !status.retryPlanItemIDs.isEmpty {
+            lines.append("Retry plan item(s):")
+            lines.append(contentsOf: status.retryPlanItemIDs.map { "- \($0)" })
+        }
+        if !status.findings.isEmpty {
+            lines.append("Finding(s):")
+            lines.append(contentsOf: status.findings.map { "- \($0)" })
+        }
+        if !status.nextActions.isEmpty {
+            lines.append("Next action(s):")
+            lines.append(contentsOf: status.nextActions.map { "- \($0)" })
+        }
+        return lines.joined(separator: "\n")
     }
 
     private func renderScreenshotReadinessText(_ result: ScreenshotReadinessResult) -> String {
@@ -1889,6 +1919,7 @@ struct CLIRunner {
       ascendkit screenshots compose --workspace PATH [--mode storeReadyCopy|poster|deviceFrame|framedPoster] [--copy PATH] [--json]
       ascendkit screenshots upload-plan --workspace PATH [--display-type APP_IPHONE_67] [--replace-existing] [--json]
       ascendkit screenshots upload --workspace PATH [--replace-existing] --confirm-remote-mutation [--json]
+      ascendkit screenshots upload-status --workspace PATH [--json]
       ascendkit asc auth save-profile --name NAME --issuer-id ID --key-id ID --private-key-provider env|file|keychain --private-key-ref REF [--json]
       ascendkit asc auth profiles [--json]
       ascendkit asc auth init --workspace PATH --issuer-id ID --key-id ID --private-key-provider env|file|keychain --private-key-ref REF [--json]

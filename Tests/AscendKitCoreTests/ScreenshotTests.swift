@@ -271,6 +271,56 @@ struct ScreenshotTests {
         #expect(report.findings.isEmpty)
     }
 
+    @Test("summarizes screenshot upload retry status")
+    func summarizesScreenshotUploadRetryStatus() {
+        let plan = ScreenshotUploadPlan(
+            sourceKind: .composed,
+            items: [
+                ScreenshotUploadPlanItem(
+                    locale: "en-US",
+                    platform: .iOS,
+                    displayType: "APP_IPHONE_67",
+                    appStoreVersionLocalizationID: "version-loc-1",
+                    sourcePath: "/tmp/home.png",
+                    fileName: "home.png",
+                    order: 1
+                ),
+                ScreenshotUploadPlanItem(
+                    locale: "en-US",
+                    platform: .iOS,
+                    displayType: "APP_IPHONE_67",
+                    appStoreVersionLocalizationID: "version-loc-1",
+                    sourcePath: "/tmp/settings.png",
+                    fileName: "settings.png",
+                    order: 2
+                )
+            ]
+        )
+        let result = ScreenshotUploadExecutionResult(
+            executed: true,
+            uploadedCount: 1,
+            findings: ["Screenshot upload completed with 1 failure(s); inspect failedItems before retrying."],
+            failedItems: [
+                ScreenshotUploadFailure(
+                    phase: "upload",
+                    planItemID: "en-US:iOS:APP_IPHONE_67:2:settings.png",
+                    fileName: "settings.png",
+                    message: "fixture failure"
+                )
+            ]
+        )
+
+        let status = ScreenshotUploadStatusBuilder().build(plan: plan, result: result)
+
+        #expect(status.plannedCount == 2)
+        #expect(status.executed == true)
+        #expect(status.uploadedCount == 1)
+        #expect(status.failedCount == 1)
+        #expect(status.readyForRetry)
+        #expect(status.retryPlanItemIDs == ["en-US:iOS:APP_IPHONE_67:2:settings.png"])
+        #expect(status.nextActions.contains { $0.contains("rerun screenshots upload") })
+    }
+
     @Test("creates screenshot copy template from plan")
     func createsScreenshotCopyTemplateFromPlan() {
         let plan = ScreenshotPlan(

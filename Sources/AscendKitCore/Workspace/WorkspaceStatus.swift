@@ -179,6 +179,10 @@ public struct ReleaseWorkspaceSummaryReader {
             uploadPlan: load(ScreenshotUploadPlan.self, path: workspace.paths.screenshotUploadPlan),
             paths: workspace.paths
         )
+        let screenshotUploadStatus = ScreenshotUploadStatusBuilder().build(
+            plan: load(ScreenshotUploadPlan.self, path: workspace.paths.screenshotUploadPlan),
+            result: load(ScreenshotUploadExecutionResult.self, path: workspace.paths.screenshotUploadResult)
+        )
 
         var actions: [ReleaseActionItem] = []
 
@@ -243,6 +247,17 @@ public struct ReleaseWorkspaceSummaryReader {
                     id: "screenshots.workflow.finding.\(index + 1)",
                     title: "Screenshot workflow finding",
                     detail: finding,
+                    severity: .warning
+                ))
+            }
+        }
+
+        if screenshotUploadStatus.failedCount > 0 {
+            for (index, action) in screenshotUploadStatus.nextActions.enumerated() {
+                actions.append(.init(
+                    id: "screenshots.upload.next-action.\(index + 1)",
+                    title: "Screenshot upload next action",
+                    detail: action,
                     severity: .warning
                 ))
             }

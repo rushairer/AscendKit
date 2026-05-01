@@ -1503,6 +1503,95 @@ public struct ScreenshotUploadFailure: Codable, Equatable, Identifiable, Sendabl
     }
 }
 
+public struct ScreenshotUploadStatusReport: Codable, Equatable, Sendable {
+    public var generatedAt: Date
+    public var plannedCount: Int?
+    public var executed: Bool?
+    public var uploadedCount: Int
+    public var failedCount: Int
+    public var deletedCount: Int
+    public var readyForRetry: Bool
+    public var retryPlanItemIDs: [String]
+    public var findings: [String]
+    public var nextActions: [String]
+
+    public init(
+        generatedAt: Date = Date(),
+        plannedCount: Int?,
+        executed: Bool?,
+        uploadedCount: Int,
+        failedCount: Int,
+        deletedCount: Int,
+        readyForRetry: Bool,
+        retryPlanItemIDs: [String],
+        findings: [String],
+        nextActions: [String]
+    ) {
+        self.generatedAt = generatedAt
+        self.plannedCount = plannedCount
+        self.executed = executed
+        self.uploadedCount = uploadedCount
+        self.failedCount = failedCount
+        self.deletedCount = deletedCount
+        self.readyForRetry = readyForRetry
+        self.retryPlanItemIDs = retryPlanItemIDs
+        self.findings = findings
+        self.nextActions = nextActions
+    }
+}
+
+public struct ScreenshotUploadStatusBuilder {
+    public init() {}
+
+    public func build(
+        plan: ScreenshotUploadPlan?,
+        result: ScreenshotUploadExecutionResult?
+    ) -> ScreenshotUploadStatusReport {
+        guard let result else {
+            return ScreenshotUploadStatusReport(
+                plannedCount: plan?.items.count,
+                executed: nil,
+                uploadedCount: 0,
+                failedCount: 0,
+                deletedCount: 0,
+                readyForRetry: false,
+                retryPlanItemIDs: [],
+                findings: plan?.findings ?? [],
+                nextActions: ["Run screenshots upload --workspace PATH --confirm-remote-mutation after reviewing screenshots upload-plan."]
+            )
+        }
+
+        let failedItems = result.failedItems ?? []
+        let retryPlanItemIDs = failedItems.compactMap(\.planItemID).sorted()
+        var nextActions: [String] = []
+        if !failedItems.isEmpty {
+            nextActions.append("Inspect failedItems in screenshots/manifests/upload-result.json.")
+            if !retryPlanItemIDs.isEmpty {
+                nextActions.append("Fix the failed local assets or transient ASC issue, then rerun screenshots upload with the same workspace.")
+            }
+            if failedItems.contains(where: { $0.phase == "delete" }) {
+                nextActions.append("Resolve remote screenshot deletion failures before retrying replace-existing upload.")
+            }
+        } else if result.executed {
+            nextActions.append("Run screenshots workflow status or workspace summary to confirm no screenshot blockers remain.")
+        } else {
+            nextActions.append("Run screenshots upload --workspace PATH --confirm-remote-mutation when ready to mutate App Store Connect.")
+        }
+
+        return ScreenshotUploadStatusReport(
+            plannedCount: plan?.items.count,
+            executed: result.executed,
+            uploadedCount: result.uploadedCount,
+            failedCount: failedItems.count,
+            deletedCount: result.deletedScreenshots?.count ?? 0,
+            readyForRetry: !retryPlanItemIDs.isEmpty,
+            retryPlanItemIDs: retryPlanItemIDs,
+            findings: result.findings,
+            nextActions: nextActions
+        )
+    }
+}
+
 public struct ScreenshotUploadExecutionItem: Codable, Equatable, Identifiable, Sendable {
     public var id: String
     public var planItemID: String

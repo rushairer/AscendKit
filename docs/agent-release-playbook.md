@@ -146,6 +146,7 @@ Upload screenshots:
 ```bash
 swift run ascendkit screenshots upload-plan --workspace "$WORKSPACE" --display-type APP_IPHONE_67 --json
 swift run ascendkit screenshots upload --workspace "$WORKSPACE" --confirm-remote-mutation --json
+swift run ascendkit screenshots upload-status --workspace "$WORKSPACE" --json
 ```
 
 If replacing existing remote screenshots, explicitly opt in:
@@ -153,6 +154,7 @@ If replacing existing remote screenshots, explicitly opt in:
 ```bash
 swift run ascendkit screenshots upload-plan --workspace "$WORKSPACE" --display-type APP_IPHONE_67 --replace-existing --json
 swift run ascendkit screenshots upload --workspace "$WORKSPACE" --replace-existing --confirm-remote-mutation --json
+swift run ascendkit screenshots upload-status --workspace "$WORKSPACE" --json
 ```
 
 Handle App Privacy:
