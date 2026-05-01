@@ -227,6 +227,53 @@ struct ScreenshotTests {
         #expect(plan.findings.contains { $0.contains("old-home.png") })
     }
 
+    @Test("plans explicit remote screenshot deletion when replacing existing screenshots")
+    func plansRemoteScreenshotDeletionForReplacement() throws {
+        let importManifest = ScreenshotImportManifest(
+            sourceDirectory: "/tmp/screenshots",
+            artifacts: [
+                ScreenshotArtifact(
+                    locale: "en-US",
+                    platform: .iOS,
+                    path: "/tmp/screenshots/en-US/iOS/01-home.png",
+                    fileName: "01-home.png"
+                )
+            ]
+        )
+        let observed = MetadataObservedState(
+            metadataByLocale: [
+                "en-US": AppMetadata(locale: "en-US", name: "Demo", description: "Demo description")
+            ],
+            resourceIDsByLocale: [
+                "en-US": MetadataLocalizationResourceIDs(appStoreVersionLocalizationID: "version-loc-1")
+            ],
+            screenshotSetsByLocale: [
+                "en-US": [
+                    ObservedScreenshotSet(
+                        id: "set-1",
+                        displayType: "APP_IPHONE_67",
+                        screenshots: [
+                            ObservedScreenshot(id: "screenshot-1", fileName: "old-home.png", assetDeliveryState: "COMPLETE")
+                        ]
+                    )
+                ]
+            ]
+        )
+
+        let plan = ScreenshotUploadPlanBuilder().build(
+            importManifest: importManifest,
+            compositionManifest: nil,
+            observedState: observed,
+            replaceExistingRemoteScreenshots: true
+        )
+
+        #expect(plan.findings.isEmpty)
+        #expect(plan.replaceExistingRemoteScreenshots == true)
+        #expect(plan.remoteScreenshotsToDelete?.count == 1)
+        #expect(plan.remoteScreenshotsToDelete?.first?.appScreenshotID == "screenshot-1")
+        #expect(plan.remoteScreenshotsToDelete?.first?.fileName == "old-home.png")
+    }
+
     @Test("renders poster composition as a PNG artifact")
     func rendersPosterComposition() throws {
         let root = try TemporaryDirectory()

@@ -479,25 +479,55 @@ public struct ScreenshotUploadPlanItem: Codable, Equatable, Identifiable, Sendab
     }
 }
 
+public struct ScreenshotRemoteDeletion: Codable, Equatable, Identifiable, Sendable {
+    public var id: String
+    public var locale: String
+    public var displayType: String
+    public var appScreenshotSetID: String
+    public var appScreenshotID: String
+    public var fileName: String?
+
+    public init(
+        locale: String,
+        displayType: String,
+        appScreenshotSetID: String,
+        appScreenshotID: String,
+        fileName: String? = nil
+    ) {
+        self.locale = locale
+        self.displayType = displayType
+        self.appScreenshotSetID = appScreenshotSetID
+        self.appScreenshotID = appScreenshotID
+        self.fileName = fileName
+        self.id = [locale, displayType, appScreenshotSetID, appScreenshotID].joined(separator: ":")
+    }
+}
+
 public struct ScreenshotUploadPlan: Codable, Equatable, Sendable {
     public var generatedAt: Date
     public var sourceKind: ScreenshotUploadSourceKind
     public var dryRunOnly: Bool
     public var items: [ScreenshotUploadPlanItem]
     public var findings: [String]
+    public var replaceExistingRemoteScreenshots: Bool?
+    public var remoteScreenshotsToDelete: [ScreenshotRemoteDeletion]?
 
     public init(
         generatedAt: Date = Date(),
         sourceKind: ScreenshotUploadSourceKind,
         dryRunOnly: Bool = true,
         items: [ScreenshotUploadPlanItem],
-        findings: [String] = []
+        findings: [String] = [],
+        replaceExistingRemoteScreenshots: Bool = false,
+        remoteScreenshotsToDelete: [ScreenshotRemoteDeletion] = []
     ) {
         self.generatedAt = generatedAt
         self.sourceKind = sourceKind
         self.dryRunOnly = dryRunOnly
         self.items = items
         self.findings = findings
+        self.replaceExistingRemoteScreenshots = replaceExistingRemoteScreenshots
+        self.remoteScreenshotsToDelete = remoteScreenshotsToDelete
     }
 }
 
@@ -560,7 +590,8 @@ public struct ScreenshotUploadPlanBuilder {
         importManifest: ScreenshotImportManifest?,
         compositionManifest: ScreenshotCompositionManifest?,
         observedState: MetadataObservedState?,
-        displayTypeOverride: String? = nil
+        displayTypeOverride: String? = nil,
+        replaceExistingRemoteScreenshots: Bool = false
     ) -> ScreenshotUploadPlan {
         let composedArtifacts = compositionManifest?.artifacts ?? []
         let sourceKind: ScreenshotUploadSourceKind = composedArtifacts.isEmpty ? .imported : .composed
@@ -609,9 +640,19 @@ public struct ScreenshotUploadPlanBuilder {
                 return $0.order < $1.order
             }
 
-        findings.append(contentsOf: existingScreenshotFindings(items: items, observedState: observedState))
+        let remoteScreenshotsToDelete = existingRemoteScreenshots(items: items, observedState: observedState)
+        findings.append(contentsOf: localizationMismatchFindings(items: items, observedState: observedState))
+        if !replaceExistingRemoteScreenshots {
+            findings.append(contentsOf: existingScreenshotFindings(deletions: remoteScreenshotsToDelete))
+        }
 
-        return ScreenshotUploadPlan(sourceKind: sourceKind, items: items, findings: Array(Set(findings)).sorted())
+        return ScreenshotUploadPlan(
+            sourceKind: sourceKind,
+            items: items,
+            findings: Array(Set(findings)).sorted(),
+            replaceExistingRemoteScreenshots: replaceExistingRemoteScreenshots,
+            remoteScreenshotsToDelete: remoteScreenshotsToDelete
+        )
     }
 
     private func importArtifacts(from manifest: ScreenshotImportManifest?) -> [UploadSourceArtifact] {
@@ -642,7 +683,61 @@ public struct ScreenshotUploadPlanBuilder {
         }
     }
 
-    private func existingScreenshotFindings(
+    private func existingRemoteScreenshots(
+        items: [ScreenshotUploadPlanItem],
+        observedState: MetadataObservedState?
+    ) -> [ScreenshotRemoteDeletion] {
+        guard let observedState else {
+            return []
+        }
+
+        var deletions: [ScreenshotRemoteDeletion] = []
+        let targets = Set(items.map { "\($0.locale)|\($0.displayType)" })
+        for (locale, sets) in observedState.screenshotSetsByLocale ?? [:] {
+            for set in sets where !set.screenshots.isEmpty {
+                guard targets.contains("\(locale)|\(set.displayType)") else {
+                    continue
+                }
+                deletions.append(contentsOf: set.screenshots.map {
+                    ScreenshotRemoteDeletion(
+                        locale: locale,
+                        displayType: set.displayType,
+                        appScreenshotSetID: set.id,
+                        appScreenshotID: $0.id,
+                        fileName: $0.fileName
+                    )
+                })
+            }
+        }
+
+        return deletions.sorted {
+            if $0.locale != $1.locale { return $0.locale < $1.locale }
+            if $0.displayType != $1.displayType { return $0.displayType < $1.displayType }
+            return $0.appScreenshotID < $1.appScreenshotID
+        }
+    }
+
+    private func existingScreenshotFindings(deletions: [ScreenshotRemoteDeletion]) -> [String] {
+        var findings: [String] = []
+        let grouped = Dictionary(grouping: deletions.filter { !$0.appScreenshotID.isEmpty }) {
+            "\($0.locale)|\($0.displayType)"
+        }
+        for (_, deletions) in grouped {
+            guard let first = deletions.first else { continue }
+            let names = deletions
+                .compactMap(\.fileName)
+                .sorted()
+                .prefix(3)
+                .joined(separator: ", ")
+            let suffix = names.isEmpty ? "" : " Existing files include: \(names)."
+            findings.append(
+                "ASC already has \(deletions.count) screenshot(s) for \(first.locale)/\(first.displayType). Re-run upload-plan with --replace-existing to plan explicit deletion before upload, or clear existing screenshots in App Store Connect.\(suffix)"
+            )
+        }
+        return findings
+    }
+
+    private func localizationMismatchFindings(
         items: [ScreenshotUploadPlanItem],
         observedState: MetadataObservedState?
     ) -> [String] {
@@ -657,36 +752,15 @@ public struct ScreenshotUploadPlanBuilder {
             }
         }
 
-        var findings: [String] = []
-        let targets = Set(items.map { "\($0.locale)|\($0.displayType)" })
-        for (locale, sets) in observedState.screenshotSetsByLocale ?? [:] {
-            for set in sets where !set.screenshots.isEmpty {
-                guard targets.contains("\(locale)|\(set.displayType)") else {
-                    continue
-                }
-                let names = set.screenshots
-                    .compactMap(\.fileName)
-                    .sorted()
-                    .prefix(3)
-                    .joined(separator: ", ")
-                let suffix = names.isEmpty ? "" : " Existing files include: \(names)."
-                findings.append(
-                    "ASC already has \(set.screenshots.count) screenshot(s) for \(locale)/\(set.displayType). Native upload currently only supports safe append; clear or replace existing screenshots in App Store Connect before executing upload.\(suffix)"
-                )
-            }
-        }
-
-        for item in items {
+        return items.compactMap { item in
             guard let locale = localeByLocalizationID[item.appStoreVersionLocalizationID],
                   locale != item.locale else {
-                continue
+                return nil
             }
-            findings.append(
+            return (
                 "Screenshot item \(item.fileName) targets localization \(item.appStoreVersionLocalizationID), which observed state maps to \(locale), not \(item.locale)."
             )
         }
-
-        return findings
     }
 
     private struct UploadSourceArtifact {

@@ -27,7 +27,7 @@ Out of scope for the current MVP:
 - Xcode Cloud replacement.
 - Deep MCP integration.
 - Fully managed App Store Connect pricing/App Privacy abstractions for every Apple API edge case.
-- Automatic remote screenshot replacement/deletion. Native upload currently supports safe creation/append only and blocks when matching remote screenshots already exist.
+- Broad remote screenshot lifecycle management beyond guarded replace-existing deletion.
 
 ## Requirements
 
@@ -144,13 +144,19 @@ swift run ascendkit asc apps lookup --workspace "$WORKSPACE" --json
 swift run ascendkit asc metadata observe --workspace "$WORKSPACE" --json
 ```
 
-Plan and upload screenshots. The plan reads observed ASC screenshot sets and blocks execution when matching remote screenshots already exist, because automatic replacement/deletion is not implemented yet:
+Plan and upload screenshots. By default, the plan reads observed ASC screenshot sets and blocks execution when matching remote screenshots already exist. If you intend to replace existing screenshots, add `--replace-existing` to the plan and upload commands so AscendKit records and executes explicit screenshot deletions before uploading new assets:
 
 ```bash
 swift run ascendkit screenshots upload-plan --workspace "$WORKSPACE" --json
 
+swift run ascendkit screenshots upload-plan \
+  --workspace "$WORKSPACE" \
+  --replace-existing \
+  --json
+
 swift run ascendkit screenshots upload \
   --workspace "$WORKSPACE" \
+  --replace-existing \
   --confirm-remote-mutation \
   --json
 ```
@@ -375,13 +381,24 @@ Creates a dry-run App Store Connect screenshot upload plan from imported or comp
 The plan includes observed remote screenshot sets from `asc metadata observe` and reports a blocking finding when a matching locale/display type already has screenshots, preventing accidental duplicates.
 
 ```bash
+swift run ascendkit screenshots upload-plan \
+  --workspace "$WORKSPACE" \
+  --display-type APP_IPHONE_67 \
+  --replace-existing \
+  --json
+```
+
+Plans explicit deletion of matching remote screenshots before upload. This still does not mutate ASC; it only records `remoteScreenshotsToDelete` in the upload plan.
+
+```bash
 swift run ascendkit screenshots upload \
   --workspace "$WORKSPACE" \
+  --replace-existing \
   --confirm-remote-mutation \
   --json
 ```
 
-Executes native screenshot upload through App Store Connect by creating or reusing screenshot sets, reserving screenshots, uploading ASC asset parts, and committing checksums. This command mutates ASC only with `--confirm-remote-mutation`.
+Executes native screenshot upload through App Store Connect by optionally deleting planned remote screenshots, creating or reusing screenshot sets, reserving screenshots, uploading ASC asset parts, and committing checksums. This command mutates ASC only with `--confirm-remote-mutation`.
 If `screenshots upload-plan` has findings, execution refuses to proceed.
 
 ### `asc auth`
@@ -643,6 +660,7 @@ Remote mutation commands require explicit flags:
 
 - `asc metadata apply --confirm-remote-mutation`
 - `screenshots upload --confirm-remote-mutation`
+- `screenshots upload --replace-existing --confirm-remote-mutation` for planned remote screenshot replacement.
 - `submit execute --confirm-remote-submission`
 
 ## Maintainer Workflow
@@ -673,7 +691,7 @@ Release checklist:
 Fastlane removal roadmap:
 
 1. Keep `import-fastlane` commands only as migration helpers.
-2. Harden native ASC screenshot replacement/deletion with explicit dry-run and confirmation semantics.
+2. Harden native ASC screenshot replacement with ordering sync, retry/backoff, and partial-failure recovery.
 3. Formalize App Privacy declarations on official ASC API where available and explicit fallback paths where Apple exposes only private iris endpoints.
 4. Keep binary upload out of scope; Xcode Cloud remains the preferred binary delivery path.
 

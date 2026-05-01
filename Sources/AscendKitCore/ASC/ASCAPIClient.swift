@@ -418,6 +418,13 @@ public struct ASCAPIClient {
 
         var uploadedItems: [ScreenshotUploadExecutionItem] = []
         var setIDs: [String: String] = [:]
+        let deletions = plan.replaceExistingRemoteScreenshots == true
+            ? Array(Set((plan.remoteScreenshotsToDelete ?? []).map(\.appScreenshotID))).filter { !$0.isEmpty }.sorted()
+            : []
+
+        for screenshotID in deletions {
+            _ = try await deleteAppScreenshot(screenshotID: screenshotID, token: token)
+        }
 
         for item in plan.items {
             let setKey = "\(item.appStoreVersionLocalizationID)|\(item.displayType)"
@@ -473,7 +480,10 @@ public struct ASCAPIClient {
             executed: true,
             uploadedCount: uploadedItems.count,
             items: uploadedItems,
-            findings: ["Screenshot upload executed through the official App Store Connect screenshot asset API."]
+            findings: [
+                "Screenshot upload executed through the official App Store Connect screenshot asset API.",
+                deletions.isEmpty ? nil : "Deleted \(deletions.count) existing remote screenshot(s) before upload."
+            ].compactMap { $0 }
         )
     }
 
@@ -998,6 +1008,18 @@ public struct ASCAPIClient {
                     ]
                 ]
             ],
+            token: token
+        )
+    }
+
+    private func deleteAppScreenshot(
+        screenshotID: String,
+        token: String
+    ) async throws -> ReviewSubmissionExecutionResponse {
+        try await sendEmptyRequest(
+            id: "app-screenshot.delete",
+            method: "DELETE",
+            path: "/v1/appScreenshots/\(screenshotID)",
             token: token
         )
     }

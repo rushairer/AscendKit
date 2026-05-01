@@ -303,7 +303,8 @@ struct CLIRunner {
                 importManifest: importManifest,
                 compositionManifest: compositionManifest,
                 observedState: observedState,
-                displayTypeOverride: value(after: "--display-type", in: args)
+                displayTypeOverride: value(after: "--display-type", in: args),
+                replaceExistingRemoteScreenshots: args.contains("--replace-existing")
             )
             try store.save(plan, to: URL(fileURLWithPath: workspace.paths.screenshotUploadPlan))
             try store.appendAudit(
@@ -318,7 +319,12 @@ struct CLIRunner {
                 "Screenshot upload plan saved with \(plan.items.count) item(s) and \(plan.findings.count) finding(s); no ASC mutation was made."
             }
         case "upload":
-            let result = try await executeScreenshotUpload(workspace: workspace, store: store, confirmed: args.contains("--confirm-remote-mutation"))
+            let result = try await executeScreenshotUpload(
+                workspace: workspace,
+                store: store,
+                confirmed: args.contains("--confirm-remote-mutation"),
+                replaceExisting: args.contains("--replace-existing")
+            )
             return try render(result, json: json) {
                 result.executed
                     ? "Screenshot upload completed with \(result.uploadedCount) uploaded screenshot(s)."
@@ -334,14 +340,28 @@ struct CLIRunner {
     private func executeScreenshotUpload(
         workspace: ReleaseWorkspace,
         store: ReleaseWorkspaceStore,
-        confirmed: Bool
+        confirmed: Bool,
+        replaceExisting: Bool
     ) async throws -> ScreenshotUploadExecutionResult {
-        let plan = try loadIfExists(ScreenshotUploadPlan.self, path: workspace.paths.screenshotUploadPlan)
-            ?? ScreenshotUploadPlanBuilder().build(
+        let plan: ScreenshotUploadPlan
+        if replaceExisting {
+            let existingPlan = try loadIfExists(ScreenshotUploadPlan.self, path: workspace.paths.screenshotUploadPlan)
+            plan = ScreenshotUploadPlanBuilder().build(
                 importManifest: try loadIfExists(ScreenshotImportManifest.self, path: workspace.paths.screenshotImportManifest),
                 compositionManifest: try loadIfExists(ScreenshotCompositionManifest.self, path: workspace.paths.screenshotCompositionManifest),
-                observedState: try loadIfExists(MetadataObservedState.self, path: workspace.paths.ascObservedState)
+                observedState: try loadIfExists(MetadataObservedState.self, path: workspace.paths.ascObservedState),
+                displayTypeOverride: existingPlan?.items.first?.displayType,
+                replaceExistingRemoteScreenshots: true
             )
+        } else {
+            plan = try loadIfExists(ScreenshotUploadPlan.self, path: workspace.paths.screenshotUploadPlan)
+                ?? ScreenshotUploadPlanBuilder().build(
+                    importManifest: try loadIfExists(ScreenshotImportManifest.self, path: workspace.paths.screenshotImportManifest),
+                    compositionManifest: try loadIfExists(ScreenshotCompositionManifest.self, path: workspace.paths.screenshotCompositionManifest),
+                    observedState: try loadIfExists(MetadataObservedState.self, path: workspace.paths.ascObservedState)
+                )
+        }
+        try store.save(plan, to: URL(fileURLWithPath: workspace.paths.screenshotUploadPlan))
         guard confirmed else {
             let result = ScreenshotUploadExecutionResult(
                 executed: false,
@@ -1226,8 +1246,8 @@ struct CLIRunner {
       ascendkit screenshots import --workspace PATH --source PATH [--json]
       ascendkit screenshots import-fastlane --workspace PATH --source PATH [--locales en-US,zh-Hans] [--json]
       ascendkit screenshots compose --workspace PATH [--mode storeReadyCopy|poster|deviceFrame] [--json]
-      ascendkit screenshots upload-plan --workspace PATH [--display-type APP_IPHONE_67] [--json]
-      ascendkit screenshots upload --workspace PATH --confirm-remote-mutation [--json]
+      ascendkit screenshots upload-plan --workspace PATH [--display-type APP_IPHONE_67] [--replace-existing] [--json]
+      ascendkit screenshots upload --workspace PATH [--replace-existing] --confirm-remote-mutation [--json]
       ascendkit asc auth save-profile --name NAME --issuer-id ID --key-id ID --private-key-provider env|file|keychain --private-key-ref REF [--json]
       ascendkit asc auth profiles [--json]
       ascendkit asc auth init --workspace PATH --issuer-id ID --key-id ID --private-key-provider env|file|keychain --private-key-ref REF [--json]
