@@ -68,13 +68,13 @@ struct ScreenshotTests {
         let capturePlan = ScreenshotCapturePlanBuilder().build(
             manifest: manifest,
             screenshotPlan: screenshotPlan,
-            workspaceRoot: URL(fileURLWithPath: "/tmp/Demo/.ascendkit/releases/demo-1.0"),
-            destinationOverrides: ["platform=iOS Simulator,name=iPhone 16 Pro Max"]
+            workspaceRoot: URL(fileURLWithPath: "/tmp/Demo/.ascendkit/releases/demo-1.0")
         )
 
         #expect(capturePlan.scheme == "Demo")
         #expect(capturePlan.workspacePath == "/tmp/Demo/Demo.xcworkspace")
         #expect(capturePlan.commands.count == 2)
+        #expect(capturePlan.destinations.first?.name == "iPhone 17 Pro Max")
         #expect(capturePlan.commands[0].command.contains("-workspace"))
         #expect(capturePlan.commands[0].command.contains("-testLanguage"))
         #expect(capturePlan.commands[0].environment["ASCENDKIT_SCREENSHOT_OUTPUT_DIR"]?.hasSuffix("screenshots/raw/en-US/iOS") == true)

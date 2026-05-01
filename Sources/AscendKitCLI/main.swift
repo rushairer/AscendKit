@@ -1413,7 +1413,7 @@ struct CLIRunner {
       ascendkit metadata lint --workspace PATH [--locale en-US] [--json]
       ascendkit metadata diff --workspace PATH [--json]
       ascendkit screenshots plan --workspace PATH [--screens A,B] [--features A,B] [--platforms iOS,macOS] [--locales en-US] [--json]
-      ascendkit screenshots capture-plan --workspace PATH [--scheme SCHEME] [--configuration Debug] [--destination "platform=iOS Simulator,name=iPhone 16 Pro Max"] [--json]
+      ascendkit screenshots capture-plan --workspace PATH [--scheme SCHEME] [--configuration Debug] [--destination "platform=iOS Simulator,name=iPhone 17 Pro Max"] [--json]
       ascendkit screenshots readiness --workspace PATH [--source PATH] [--json]
       ascendkit screenshots import --workspace PATH --source PATH [--json]
       ascendkit screenshots import-fastlane --workspace PATH --source PATH [--locales en-US,zh-Hans] [--json]

@@ -277,14 +277,14 @@ public struct ScreenshotCapturePlanBuilder {
             case .iOS:
                 return ScreenshotCaptureDestination(
                     platform: .iOS,
-                    name: "iPhone 16 Pro Max",
-                    xcodebuildDestination: "platform=iOS Simulator,name=iPhone 16 Pro Max"
+                    name: "iPhone 17 Pro Max",
+                    xcodebuildDestination: "platform=iOS Simulator,name=iPhone 17 Pro Max"
                 )
             case .iPadOS:
                 return ScreenshotCaptureDestination(
                     platform: .iPadOS,
-                    name: "iPad Pro 13-inch (M4)",
-                    xcodebuildDestination: "platform=iOS Simulator,name=iPad Pro 13-inch (M4)"
+                    name: "iPad Pro 13-inch (M5)",
+                    xcodebuildDestination: "platform=iOS Simulator,name=iPad Pro 13-inch (M5)"
                 )
             case .macOS:
                 return ScreenshotCaptureDestination(

@@ -126,7 +126,7 @@ Plan local Xcode UI-test screenshot capture without fastlane:
 swift run ascendkit screenshots capture-plan \
   --workspace "$WORKSPACE" \
   --scheme MyApp \
-  --destination "platform=iOS Simulator,name=iPhone 16 Pro Max" \
+  --destination "platform=iOS Simulator,name=iPhone 17 Pro Max" \
   --json
 ```
 
@@ -354,7 +354,7 @@ swift run ascendkit screenshots capture-plan \
   --workspace "$WORKSPACE" \
   --scheme MyApp \
   --configuration Debug \
-  --destination "platform=iOS Simulator,name=iPhone 16 Pro Max" \
+  --destination "platform=iOS Simulator,name=iPhone 17 Pro Max" \
   --json
 ```
 

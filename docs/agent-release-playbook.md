@@ -85,7 +85,7 @@ If the app has UI-test screenshot flows, plan native local capture without fastl
 swift run ascendkit screenshots capture-plan \
   --workspace "$WORKSPACE" \
   --scheme APP_SCHEME \
-  --destination "platform=iOS Simulator,name=iPhone 16 Pro Max" \
+  --destination "platform=iOS Simulator,name=iPhone 17 Pro Max" \
   --json
 ```
 
