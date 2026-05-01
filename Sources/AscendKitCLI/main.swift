@@ -237,7 +237,7 @@ struct CLIRunner {
 
     private func screenshots(_ args: [String], json: Bool) async throws -> String {
         guard let subcommand = args.first else {
-            throw AscendKitError.invalidArguments("Usage: ascendkit screenshots destinations|plan|copy|capture-plan|capture|workflow|readiness|compose|upload-plan|upload|upload-status --workspace PATH")
+            throw AscendKitError.invalidArguments("Usage: ascendkit screenshots destinations|plan|copy|capture-plan|capture|workflow|readiness|compose|coverage|upload-plan|upload|upload-status --workspace PATH")
         }
         let workspace = try loadWorkspace(from: args)
         let store = ReleaseWorkspaceStore(fileManager: fileManager)
@@ -462,6 +462,16 @@ struct CLIRunner {
             return try render(plan, json: json) {
                 renderScreenshotUploadPlanText(plan)
             }
+        case "coverage":
+            let report = ScreenshotCoverageBuilder().build(
+                plan: try loadIfExists(ScreenshotPlan.self, path: workspace.paths.screenshotPlan),
+                importManifest: try loadIfExists(ScreenshotImportManifest.self, path: workspace.paths.screenshotImportManifest),
+                compositionManifest: try loadIfExists(ScreenshotCompositionManifest.self, path: workspace.paths.screenshotCompositionManifest),
+                uploadPlan: try loadIfExists(ScreenshotUploadPlan.self, path: workspace.paths.screenshotUploadPlan)
+            )
+            return try render(report, json: json) {
+                renderScreenshotCoverageText(report)
+            }
         case "upload":
             let result = try await executeScreenshotUpload(
                 workspace: workspace,
@@ -543,6 +553,18 @@ struct CLIRunner {
         }
         let lines = plan.findings.map { "- \($0)" }
         return ([header, "Upload planning finding(s):"] + lines).joined(separator: "\n")
+    }
+
+    private func renderScreenshotCoverageText(_ report: ScreenshotCoverageReport) -> String {
+        let header = "Screenshot coverage: \(report.complete ? "complete" : "incomplete")"
+        let entries = report.entries.map {
+            let displayType = $0.displayType.map { "/\($0)" } ?? ""
+            return "- \($0.locale)/\($0.platform.rawValue)\(displayType): expected \($0.expectedCount.map(String.init) ?? "unknown"), imported \($0.importedCount), composed \($0.composedCount), upload-plan \($0.uploadPlanCount)"
+        }
+        guard !report.findings.isEmpty else {
+            return ([header] + entries).joined(separator: "\n")
+        }
+        return ([header] + entries + ["Finding(s):"] + report.findings.map { "- \($0)" }).joined(separator: "\n")
     }
 
     private func renderScreenshotUploadStatusText(_ status: ScreenshotUploadStatusReport) -> String {
@@ -1946,6 +1968,7 @@ struct CLIRunner {
       ascendkit screenshots import --workspace PATH --source PATH [--json]
       ascendkit screenshots import-fastlane --workspace PATH --source PATH [--locales en-US,zh-Hans] [--json]
       ascendkit screenshots compose --workspace PATH [--mode storeReadyCopy|poster|deviceFrame|framedPoster] [--copy PATH] [--json]
+      ascendkit screenshots coverage --workspace PATH [--json]
       ascendkit screenshots upload-plan --workspace PATH [--display-type APP_IPHONE_67] [--replace-existing] [--json]
       ascendkit screenshots upload --workspace PATH [--replace-existing] --confirm-remote-mutation [--json]
       ascendkit screenshots upload-status --workspace PATH [--json]

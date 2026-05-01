@@ -321,6 +321,67 @@ struct ScreenshotTests {
         #expect(status.nextActions.contains { $0.contains("rerun screenshots upload") })
     }
 
+    @Test("summarizes screenshot locale and display type coverage")
+    func summarizesScreenshotCoverage() {
+        let plan = ScreenshotPlan(
+            inputPath: .uiTestCapture,
+            platforms: [.iOS],
+            locales: ["en-US", "zh-Hans"],
+            items: [
+                ScreenshotPlanItem(id: "home", screenName: "Home", order: 1, purpose: "Show home"),
+                ScreenshotPlanItem(id: "settings", screenName: "Settings", order: 2, purpose: "Show settings")
+            ]
+        )
+        let importManifest = ScreenshotImportManifest(
+            sourceDirectory: "/tmp/raw",
+            artifacts: [
+                ScreenshotArtifact(locale: "en-US", platform: .iOS, path: "/tmp/raw/en-US/01.png", fileName: "01.png"),
+                ScreenshotArtifact(locale: "en-US", platform: .iOS, path: "/tmp/raw/en-US/02.png", fileName: "02.png"),
+                ScreenshotArtifact(locale: "zh-Hans", platform: .iOS, path: "/tmp/raw/zh-Hans/01.png", fileName: "01.png")
+            ]
+        )
+        let compositionManifest = ScreenshotCompositionManifest(
+            mode: .framedPoster,
+            artifacts: [
+                ScreenshotCompositionArtifact(locale: "en-US", platform: .iOS, inputPath: "/tmp/raw/en-US/01.png", outputPath: "/tmp/out/en-US/01.png", mode: .framedPoster),
+                ScreenshotCompositionArtifact(locale: "en-US", platform: .iOS, inputPath: "/tmp/raw/en-US/02.png", outputPath: "/tmp/out/en-US/02.png", mode: .framedPoster),
+                ScreenshotCompositionArtifact(locale: "zh-Hans", platform: .iOS, inputPath: "/tmp/raw/zh-Hans/01.png", outputPath: "/tmp/out/zh-Hans/01.png", mode: .framedPoster)
+            ]
+        )
+        let uploadPlan = ScreenshotUploadPlan(
+            sourceKind: .composed,
+            items: [
+                ScreenshotUploadPlanItem(locale: "en-US", platform: .iOS, displayType: "APP_IPHONE_67", appStoreVersionLocalizationID: "loc-1", sourcePath: "/tmp/out/en-US/01.png", fileName: "01.png", order: 1),
+                ScreenshotUploadPlanItem(locale: "en-US", platform: .iOS, displayType: "APP_IPHONE_67", appStoreVersionLocalizationID: "loc-1", sourcePath: "/tmp/out/en-US/02.png", fileName: "02.png", order: 2)
+            ]
+        )
+
+        let report = ScreenshotCoverageBuilder().build(
+            plan: plan,
+            importManifest: importManifest,
+            compositionManifest: compositionManifest,
+            uploadPlan: uploadPlan
+        )
+
+        #expect(report.complete == false)
+        #expect(report.entries.contains {
+            $0.locale == "en-US" &&
+                $0.displayType == "APP_IPHONE_67" &&
+                $0.importedCount == 2 &&
+                $0.composedCount == 2 &&
+                $0.uploadPlanCount == 2 &&
+                $0.complete
+        })
+        #expect(report.entries.contains {
+            $0.locale == "zh-Hans" &&
+                $0.displayType == nil &&
+                $0.importedCount == 1 &&
+                $0.composedCount == 1 &&
+                !$0.complete
+        })
+        #expect(report.findings.contains { $0.contains("zh-Hans/iOS") })
+    }
+
     @Test("creates screenshot copy template from plan")
     func createsScreenshotCopyTemplateFromPlan() {
         let plan = ScreenshotPlan(

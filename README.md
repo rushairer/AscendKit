@@ -458,11 +458,15 @@ Optional framed poster copy file:
 ```
 
 ```bash
+swift run ascendkit screenshots coverage --workspace "$WORKSPACE" --json
+
 swift run ascendkit screenshots upload-plan \
   --workspace "$WORKSPACE" \
   --display-type APP_IPHONE_67 \
   --json
 ```
+
+Summarizes local screenshot coverage by locale, platform, and upload display type without making network requests.
 
 Creates a dry-run App Store Connect screenshot upload plan from imported or composed artifacts. This is the native upload foundation; it does not mutate ASC yet.
 The plan includes observed remote screenshot sets from `asc metadata observe` and reports a blocking finding when a matching locale/display type already has screenshots, preventing accidental duplicates.

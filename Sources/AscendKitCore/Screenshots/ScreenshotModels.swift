@@ -1592,6 +1592,126 @@ public struct ScreenshotUploadStatusBuilder {
     }
 }
 
+public struct ScreenshotCoverageEntry: Codable, Equatable, Identifiable, Sendable {
+    public var id: String { [locale, platform.rawValue, displayType ?? "none"].joined(separator: ":") }
+    public var locale: String
+    public var platform: ApplePlatform
+    public var displayType: String?
+    public var expectedCount: Int?
+    public var importedCount: Int
+    public var composedCount: Int
+    public var uploadPlanCount: Int
+    public var complete: Bool
+
+    public init(
+        locale: String,
+        platform: ApplePlatform,
+        displayType: String?,
+        expectedCount: Int?,
+        importedCount: Int,
+        composedCount: Int,
+        uploadPlanCount: Int
+    ) {
+        self.locale = locale
+        self.platform = platform
+        self.displayType = displayType
+        self.expectedCount = expectedCount
+        self.importedCount = importedCount
+        self.composedCount = composedCount
+        self.uploadPlanCount = uploadPlanCount
+        self.complete = expectedCount.map {
+            if displayType == nil {
+                return importedCount >= $0 && composedCount >= $0
+            }
+            return importedCount >= $0 && composedCount >= $0 && uploadPlanCount >= $0
+        } ?? (importedCount > 0 || composedCount > 0 || uploadPlanCount > 0)
+    }
+}
+
+public struct ScreenshotCoverageReport: Codable, Equatable, Sendable {
+    public var generatedAt: Date
+    public var complete: Bool
+    public var entries: [ScreenshotCoverageEntry]
+    public var findings: [String]
+
+    public init(generatedAt: Date = Date(), entries: [ScreenshotCoverageEntry], findings: [String]) {
+        self.generatedAt = generatedAt
+        self.entries = entries
+        self.findings = findings
+        self.complete = entries.allSatisfy(\.complete) && findings.isEmpty
+    }
+}
+
+public struct ScreenshotCoverageBuilder {
+    public init() {}
+
+    public func build(
+        plan: ScreenshotPlan?,
+        importManifest: ScreenshotImportManifest?,
+        compositionManifest: ScreenshotCompositionManifest?,
+        uploadPlan: ScreenshotUploadPlan?
+    ) -> ScreenshotCoverageReport {
+        let expectedCount = plan?.items.count
+        var keys = Set<CoverageKey>()
+        if let plan {
+            for locale in plan.locales {
+                for platform in plan.platforms {
+                    keys.insert(CoverageKey(locale: locale, platform: platform, displayType: nil))
+                }
+            }
+        }
+        keys.formUnion((importManifest?.artifacts ?? []).map { CoverageKey(locale: $0.locale, platform: $0.platform, displayType: nil) })
+        keys.formUnion((compositionManifest?.artifacts ?? []).map { CoverageKey(locale: $0.locale, platform: $0.platform, displayType: nil) })
+        keys.formUnion((uploadPlan?.items ?? []).map { CoverageKey(locale: $0.locale, platform: $0.platform, displayType: $0.displayType) })
+
+        let imported = Dictionary(grouping: importManifest?.artifacts ?? []) {
+            CoverageKey(locale: $0.locale, platform: $0.platform, displayType: nil)
+        }
+        let composed = Dictionary(grouping: compositionManifest?.artifacts ?? []) {
+            CoverageKey(locale: $0.locale, platform: $0.platform, displayType: nil)
+        }
+        let uploadItems = Dictionary(grouping: uploadPlan?.items ?? []) {
+            CoverageKey(locale: $0.locale, platform: $0.platform, displayType: $0.displayType)
+        }
+
+        var findings: [String] = []
+        if plan == nil {
+            findings.append("Screenshot plan is missing; expected coverage cannot be fully evaluated.")
+        }
+
+        let entries = keys.sorted().map { key in
+            let baseKey = CoverageKey(locale: key.locale, platform: key.platform, displayType: nil)
+            let entry = ScreenshotCoverageEntry(
+                locale: key.locale,
+                platform: key.platform,
+                displayType: key.displayType,
+                expectedCount: expectedCount,
+                importedCount: imported[baseKey]?.count ?? 0,
+                composedCount: composed[baseKey]?.count ?? 0,
+                uploadPlanCount: uploadItems[key]?.count ?? 0
+            )
+            if let expectedCount, !entry.complete {
+                findings.append("Incomplete screenshot coverage for \(key.locale)/\(key.platform.rawValue)\(key.displayType.map { "/\($0)" } ?? ""): expected \(expectedCount), imported \(entry.importedCount), composed \(entry.composedCount), upload-plan \(entry.uploadPlanCount).")
+            }
+            return entry
+        }
+
+        return ScreenshotCoverageReport(entries: entries, findings: findings)
+    }
+
+    private struct CoverageKey: Hashable, Comparable {
+        var locale: String
+        var platform: ApplePlatform
+        var displayType: String?
+
+        static func < (lhs: CoverageKey, rhs: CoverageKey) -> Bool {
+            if lhs.locale != rhs.locale { return lhs.locale < rhs.locale }
+            if lhs.platform.rawValue != rhs.platform.rawValue { return lhs.platform.rawValue < rhs.platform.rawValue }
+            return (lhs.displayType ?? "") < (rhs.displayType ?? "")
+        }
+    }
+}
+
 public struct ScreenshotUploadExecutionItem: Codable, Equatable, Identifiable, Sendable {
     public var id: String
     public var planItemID: String

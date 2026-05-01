@@ -145,6 +145,7 @@ swift run ascendkit asc pricing set-free --workspace "$WORKSPACE" --confirm-remo
 Upload screenshots:
 
 ```bash
+swift run ascendkit screenshots coverage --workspace "$WORKSPACE" --json
 swift run ascendkit screenshots upload-plan --workspace "$WORKSPACE" --display-type APP_IPHONE_67 --json
 swift run ascendkit screenshots upload --workspace "$WORKSPACE" --confirm-remote-mutation --json
 swift run ascendkit screenshots upload-status --workspace "$WORKSPACE" --json
