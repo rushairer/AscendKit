@@ -58,7 +58,7 @@ Inspect and initialize:
 
 ```bash
 cd "$ASCENDKIT_ROOT"
-git checkout v0.1.0
+git checkout v0.2.0
 swift run ascendkit --version
 swift run ascendkit intake inspect --root "$APP_ROOT" --release-id "$RELEASE_ID" --save --json
 swift run ascendkit doctor release --workspace "$WORKSPACE" --json
