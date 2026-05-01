@@ -182,6 +182,206 @@ public struct ScreenshotCapturePlan: Codable, Equatable, Sendable {
     }
 }
 
+public struct ScreenshotCaptureExecutionItem: Codable, Equatable, Identifiable, Sendable {
+    public var id: String
+    public var commandID: String
+    public var locale: String
+    public var platform: ApplePlatform
+    public var destinationName: String
+    public var exitCode: Int32
+    public var succeeded: Bool
+    public var resultBundlePath: String
+    public var rawOutputDirectory: String
+    public var stdoutLogPath: String?
+    public var stderrLogPath: String?
+    public var outputFiles: [String]
+    public var durationSeconds: Double
+
+    public init(
+        commandID: String,
+        locale: String,
+        platform: ApplePlatform,
+        destinationName: String,
+        exitCode: Int32,
+        resultBundlePath: String,
+        rawOutputDirectory: String,
+        stdoutLogPath: String? = nil,
+        stderrLogPath: String? = nil,
+        outputFiles: [String] = [],
+        durationSeconds: Double
+    ) {
+        self.commandID = commandID
+        self.locale = locale
+        self.platform = platform
+        self.destinationName = destinationName
+        self.exitCode = exitCode
+        self.succeeded = exitCode == 0
+        self.resultBundlePath = resultBundlePath
+        self.rawOutputDirectory = rawOutputDirectory
+        self.stdoutLogPath = stdoutLogPath
+        self.stderrLogPath = stderrLogPath
+        self.outputFiles = outputFiles
+        self.durationSeconds = durationSeconds
+        self.id = commandID
+    }
+}
+
+public struct ScreenshotCaptureExecutionResult: Codable, Equatable, Sendable {
+    public var generatedAt: Date
+    public var executed: Bool
+    public var succeeded: Bool
+    public var succeededCount: Int
+    public var failedCount: Int
+    public var items: [ScreenshotCaptureExecutionItem]
+    public var findings: [String]
+
+    public init(
+        generatedAt: Date = Date(),
+        executed: Bool,
+        items: [ScreenshotCaptureExecutionItem] = [],
+        findings: [String] = []
+    ) {
+        self.generatedAt = generatedAt
+        self.executed = executed
+        self.items = items
+        self.findings = findings
+        self.succeededCount = items.filter(\.succeeded).count
+        self.failedCount = items.filter { !$0.succeeded }.count
+        self.succeeded = executed && failedCount == 0 && findings.isEmpty
+    }
+}
+
+public struct ScreenshotCaptureExecutor {
+    public let fileManager: FileManager
+
+    public init(fileManager: FileManager = .default) {
+        self.fileManager = fileManager
+    }
+
+    public func execute(plan: ScreenshotCapturePlan, logsDirectory: URL) throws -> ScreenshotCaptureExecutionResult {
+        guard plan.findings.isEmpty else {
+            return ScreenshotCaptureExecutionResult(
+                executed: false,
+                findings: plan.findings.map { "Capture plan is not executable: \($0)" }
+            )
+        }
+        guard !plan.commands.isEmpty else {
+            return ScreenshotCaptureExecutionResult(
+                executed: false,
+                findings: ["Capture plan has no commands."]
+            )
+        }
+
+        try fileManager.createDirectory(at: logsDirectory, withIntermediateDirectories: true)
+        var items: [ScreenshotCaptureExecutionItem] = []
+        for command in plan.commands {
+            items.append(try execute(command: command, logsDirectory: logsDirectory))
+        }
+
+        let failed = items.filter { !$0.succeeded }
+        let findings = failed.map {
+            "Capture command \($0.commandID) failed with exit code \($0.exitCode). See \($0.stderrLogPath ?? "stderr log")."
+        }
+        return ScreenshotCaptureExecutionResult(executed: true, items: items, findings: findings)
+    }
+
+    private func execute(command: ScreenshotCaptureCommand, logsDirectory: URL) throws -> ScreenshotCaptureExecutionItem {
+        try fileManager.createDirectory(at: URL(fileURLWithPath: command.rawOutputDirectory), withIntermediateDirectories: true)
+        let resultBundleURL = URL(fileURLWithPath: command.resultBundlePath)
+        if fileManager.fileExists(atPath: resultBundleURL.path) {
+            try fileManager.removeItem(at: resultBundleURL)
+        }
+        try fileManager.createDirectory(
+            at: resultBundleURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+
+        let stdoutURL = logsDirectory.appendingPathComponent("\(safeFileName(command.id)).stdout.log")
+        let stderrURL = logsDirectory.appendingPathComponent("\(safeFileName(command.id)).stderr.log")
+        let start = Date()
+        let exitCode: Int32
+
+        if command.command.isEmpty {
+            try Data("Capture command is empty.\n".utf8).write(to: stderrURL, options: [.atomic])
+            exitCode = 127
+        } else {
+            exitCode = try runProcess(command: command.command, environment: command.environment, stdoutURL: stdoutURL, stderrURL: stderrURL)
+        }
+
+        return ScreenshotCaptureExecutionItem(
+            commandID: command.id,
+            locale: command.locale,
+            platform: command.platform,
+            destinationName: command.destinationName,
+            exitCode: exitCode,
+            resultBundlePath: command.resultBundlePath,
+            rawOutputDirectory: command.rawOutputDirectory,
+            stdoutLogPath: stdoutURL.path,
+            stderrLogPath: stderrURL.path,
+            outputFiles: imageFiles(in: URL(fileURLWithPath: command.rawOutputDirectory), modifiedSince: start).map(\.path),
+            durationSeconds: Date().timeIntervalSince(start)
+        )
+    }
+
+    private func runProcess(command: [String], environment: [String: String], stdoutURL: URL, stderrURL: URL) throws -> Int32 {
+        let process = Process()
+        if command[0].contains("/") {
+            process.executableURL = URL(fileURLWithPath: command[0])
+            process.arguments = Array(command.dropFirst())
+        } else {
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+            process.arguments = command
+        }
+        process.environment = ProcessInfo.processInfo.environment.merging(environment) { _, new in new }
+
+        fileManager.createFile(atPath: stdoutURL.path, contents: nil)
+        fileManager.createFile(atPath: stderrURL.path, contents: nil)
+        let stdoutHandle = try FileHandle(forWritingTo: stdoutURL)
+        let stderrHandle = try FileHandle(forWritingTo: stderrURL)
+        process.standardOutput = stdoutHandle
+        process.standardError = stderrHandle
+
+        do {
+            try process.run()
+            process.waitUntilExit()
+            try stdoutHandle.close()
+            try stderrHandle.close()
+            return process.terminationStatus
+        } catch {
+            let message = "Failed to launch capture command: \(error)\n"
+            try? stderrHandle.write(contentsOf: Data(message.utf8))
+            try stdoutHandle.close()
+            try stderrHandle.close()
+            return 127
+        }
+    }
+
+    private func imageFiles(in directory: URL, modifiedSince start: Date) -> [URL] {
+        guard let contents = try? fileManager.contentsOfDirectory(at: directory, includingPropertiesForKeys: [.isRegularFileKey, .contentModificationDateKey]) else {
+            return []
+        }
+        let supported = Set(["png", "jpg", "jpeg", "heic", "tif", "tiff"])
+        return contents
+            .filter { url in
+                guard supported.contains(url.pathExtension.lowercased()) else {
+                    return false
+                }
+                let modified = try? url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate
+                return modified.map { $0 >= start } ?? true
+            }
+            .sorted { $0.lastPathComponent < $1.lastPathComponent }
+    }
+
+    private func safeFileName(_ value: String) -> String {
+        let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-_."))
+        return value.unicodeScalars
+            .map { allowed.contains($0) ? String($0) : "-" }
+            .joined()
+            .split(separator: "-")
+            .joined(separator: "-")
+    }
+}
+
 public struct ScreenshotCapturePlanBuilder {
     public init() {}
 

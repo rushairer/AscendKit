@@ -87,9 +87,10 @@ swift run ascendkit screenshots capture-plan \
   --scheme APP_SCHEME \
   --destination "platform=iOS Simulator,name=iPhone 17 Pro Max" \
   --json
+swift run ascendkit screenshots capture --workspace "$WORKSPACE" --json
 ```
 
-Use the generated `screenshots/manifests/capture-plan.json` commands as the deterministic local capture contract. Do not treat capture planning as App Store Connect mutation or binary upload.
+Use the generated `screenshots/manifests/capture-plan.json` commands as the deterministic local capture contract. `screenshots capture` executes only local Xcode UI tests, writes `screenshots/manifests/capture-result.json`, and refreshes the import manifest when successful. Do not treat capture as App Store Connect mutation or binary upload.
 
 Use framed screenshots when desired:
 

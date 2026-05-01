@@ -81,6 +81,51 @@ struct ScreenshotTests {
         #expect(capturePlan.findings.isEmpty)
     }
 
+    @Test("executes screenshot capture command and records output files")
+    func executesScreenshotCaptureCommand() throws {
+        let root = try TemporaryDirectory()
+        let rawDirectory = root.url.appendingPathComponent("screenshots/raw/en-US/iOS")
+        let plan = ScreenshotCapturePlan(
+            scheme: "Demo",
+            projectPath: "/tmp/Demo.xcodeproj",
+            destinations: [
+                ScreenshotCaptureDestination(
+                    platform: .iOS,
+                    name: "Test Device",
+                    xcodebuildDestination: "platform=iOS Simulator,name=Test Device"
+                )
+            ],
+            locales: ["en-US"],
+            commands: [
+                ScreenshotCaptureCommand(
+                    locale: "en-US",
+                    platform: .iOS,
+                    destinationName: "Test Device",
+                    resultBundlePath: root.url.appendingPathComponent("capture/result.xcresult").path,
+                    rawOutputDirectory: rawDirectory.path,
+                    environment: ["ASCENDKIT_SCREENSHOT_OUTPUT_DIR": rawDirectory.path],
+                    command: [
+                        "/bin/sh",
+                        "-c",
+                        "mkdir -p \"$ASCENDKIT_SCREENSHOT_OUTPUT_DIR\" && printf fake > \"$ASCENDKIT_SCREENSHOT_OUTPUT_DIR/01-home.png\""
+                    ]
+                )
+            ]
+        )
+
+        let result = try ScreenshotCaptureExecutor().execute(
+            plan: plan,
+            logsDirectory: root.url.appendingPathComponent("logs")
+        )
+
+        #expect(result.executed)
+        #expect(result.succeeded)
+        #expect(result.succeededCount == 1)
+        #expect(result.items.first?.outputFiles.map { URL(fileURLWithPath: $0).lastPathComponent } == ["01-home.png"])
+        #expect(FileManager.default.fileExists(atPath: result.items[0].stdoutLogPath ?? ""))
+        #expect(FileManager.default.fileExists(atPath: result.items[0].stderrLogPath ?? ""))
+    }
+
     @Test("validates user-provided import directory structure and image counts")
     func validatesImportDirectoryStructure() throws {
         let root = try TemporaryDirectory()

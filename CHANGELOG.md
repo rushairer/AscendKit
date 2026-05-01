@@ -9,6 +9,7 @@ AscendKit follows [Semantic Versioning](https://semver.org/). During `0.y.z`, th
 - Agent release playbook for handing AscendKit to another AI agent without relying on a long one-off prompt.
 - App Privacy workspace status, manual Data Not Collected confirmation, and submission readiness gating.
 - Local screenshot capture planning that writes deterministic `xcodebuild test` commands without fastlane.
+- Local screenshot capture execution with persisted result logs and automatic import manifest refresh.
 
 ## 0.1.0 - 2026-05-01
 

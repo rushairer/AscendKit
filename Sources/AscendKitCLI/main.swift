@@ -363,10 +363,55 @@ struct CLIRunner {
                     : "Screenshot upload was not executed: \(result.findings.joined(separator: " "))"
             }
         case "capture":
-            throw AscendKitError.unsupported("screenshots capture execution is deferred. Run screenshots capture-plan to write deterministic local xcodebuild capture commands first.")
+            let result = try executeScreenshotCapture(workspace: workspace, store: store)
+            return try render(result, json: json) {
+                result.succeeded
+                    ? "Screenshot capture completed with \(result.succeededCount) successful command(s)."
+                    : "Screenshot capture finished with \(result.failedCount) failed command(s): \(result.findings.joined(separator: " "))"
+            }
         default:
             throw AscendKitError.invalidArguments("Unknown screenshots command: \(subcommand)")
         }
+    }
+
+    private func executeScreenshotCapture(workspace: ReleaseWorkspace, store: ReleaseWorkspaceStore) throws -> ScreenshotCaptureExecutionResult {
+        guard let plan = try loadIfExists(ScreenshotCapturePlan.self, path: workspace.paths.screenshotCapturePlan) else {
+            throw AscendKitError.fileNotFound(workspace.paths.screenshotCapturePlan)
+        }
+        let result = try ScreenshotCaptureExecutor(fileManager: fileManager).execute(
+            plan: plan,
+            logsDirectory: URL(fileURLWithPath: workspace.paths.root).appendingPathComponent("screenshots/capture/logs")
+        )
+        try store.save(result, to: URL(fileURLWithPath: workspace.paths.screenshotCaptureResult))
+        if result.succeeded,
+           let screenshotPlan = try loadIfExists(ScreenshotPlan.self, path: workspace.paths.screenshotPlan),
+           let firstCommand = plan.commands.first {
+            let sourceRoot = URL(fileURLWithPath: firstCommand.rawOutputDirectory)
+                .deletingLastPathComponent()
+                .deletingLastPathComponent()
+            let manifest = ScreenshotImporter(fileManager: fileManager).makeManifest(
+                plan: screenshotPlan,
+                sourceDirectory: sourceRoot
+            )
+            try store.save(manifest, to: URL(fileURLWithPath: workspace.paths.screenshotImportManifest))
+            try store.appendAudit(
+                .init(
+                    action: .screenshotImportManifestSaved,
+                    summary: "Refreshed screenshot import manifest after capture",
+                    details: ["artifacts": "\(manifest.artifacts.count)"]
+                ),
+                to: workspace
+            )
+        }
+        try store.appendAudit(
+            .init(
+                action: .screenshotCaptureExecuted,
+                summary: "Executed local screenshot capture",
+                details: ["succeeded": "\(result.succeededCount)", "failed": "\(result.failedCount)"]
+            ),
+            to: workspace
+        )
+        return result
     }
 
     private func executeScreenshotUpload(
@@ -1414,6 +1459,7 @@ struct CLIRunner {
       ascendkit metadata diff --workspace PATH [--json]
       ascendkit screenshots plan --workspace PATH [--screens A,B] [--features A,B] [--platforms iOS,macOS] [--locales en-US] [--json]
       ascendkit screenshots capture-plan --workspace PATH [--scheme SCHEME] [--configuration Debug] [--destination "platform=iOS Simulator,name=iPhone 17 Pro Max"] [--json]
+      ascendkit screenshots capture --workspace PATH [--json]
       ascendkit screenshots readiness --workspace PATH [--source PATH] [--json]
       ascendkit screenshots import --workspace PATH --source PATH [--json]
       ascendkit screenshots import-fastlane --workspace PATH --source PATH [--locales en-US,zh-Hans] [--json]
