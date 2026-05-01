@@ -201,7 +201,14 @@ public struct ReviewSubmissionPlanBuilder {
             findings.append("releaseNotes/whatsNew remains unsynced because App Store Connect rejected edits in the current version state.")
         }
         if appPrivacyStatus?.readyForSubmission != true {
-            findings.append("App Privacy answers are not recorded as published. Complete App Privacy in App Store Connect UI or run asc privacy confirm-manual after publishing.")
+            if let appPrivacyStatus {
+                let statusFindings = appPrivacyStatus.findings.isEmpty
+                    ? ""
+                    : " Findings: \(appPrivacyStatus.findings.joined(separator: " "))"
+                findings.append("App Privacy answers are not recorded as published. Current state: \(appPrivacyStatus.state.rawValue) via \(appPrivacyStatus.source).\(statusFindings) Run asc privacy status, then complete App Privacy in App Store Connect UI or run asc privacy confirm-manual after publishing.")
+            } else {
+                findings.append("App Privacy answers are not recorded as published. Run asc privacy status, then complete App Privacy in App Store Connect UI or run asc privacy confirm-manual after publishing.")
+            }
         }
         findings.append("Remote review submission execution is intentionally disabled in this MVP boundary.")
 
@@ -212,6 +219,7 @@ public struct ReviewSubmissionPlanBuilder {
             selectedBuild != nil &&
             metadataApplied &&
             metadataDiffFresh &&
+            appPrivacyStatus?.readyForSubmission == true &&
             (blockingMetadataDiffs?.isEmpty == true)
 
         return ReviewSubmissionPlan(

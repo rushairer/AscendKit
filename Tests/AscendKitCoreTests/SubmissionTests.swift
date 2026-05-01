@@ -490,6 +490,41 @@ struct SubmissionTests {
         #expect(plan.findings.contains { $0.contains("metadata diff is older") })
     }
 
+    @Test("review plan includes app privacy handoff state")
+    func reviewPlanIncludesAppPrivacyHandoffState() {
+        let plan = ReviewSubmissionPlanBuilder().build(
+            manifest: readyManifest(),
+            reviewInfo: readyReviewInfo(),
+            readiness: SubmissionReadinessReport(items: [
+                SubmissionChecklistItem(id: "ready", title: "Ready", satisfied: true)
+            ]),
+            screenshotCompositionManifest: readyScreenshotComposition(),
+            appsLookupReport: ASCAppsLookupReport(
+                bundleIDs: ["com.example.demo"],
+                apps: [ASCObservedApp(id: "app-1", name: "Demo", bundleID: "com.example.demo")]
+            ),
+            metadataApplyResult: ASCMetadataApplyResult(
+                generatedAt: Date(timeIntervalSince1970: 100),
+                applied: true
+            ),
+            metadataDiffReport: MetadataDiffReport(
+                generatedAt: Date(timeIntervalSince1970: 101),
+                diffs: []
+            ),
+            appPrivacyStatus: AppPrivacyStatus(
+                state: .requiresManualAppStoreConnect,
+                source: "apple-iris-api-key-unauthorized",
+                findings: ["Complete App Privacy in App Store Connect UI."]
+            ),
+            buildCandidatesReport: readyBuildCandidates()
+        )
+
+        #expect(plan.readyForManualReviewSubmission == false)
+        #expect(plan.findings.contains { $0.contains("requiresManualAppStoreConnect") })
+        #expect(plan.findings.contains { $0.contains("apple-iris-api-key-unauthorized") })
+        #expect(plan.findings.contains { $0.contains("asc privacy status") })
+    }
+
     @Test("renders review handoff markdown with explicit MVP boundary")
     func rendersReviewHandoffMarkdown() {
         let plan = ReviewSubmissionPlan(

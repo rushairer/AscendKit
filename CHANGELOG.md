@@ -8,6 +8,8 @@ AscendKit follows [Semantic Versioning](https://semver.org/). During `0.y.z`, th
 
 - Text App Privacy status output now lists source and findings for manual handoff.
 - Submission readiness App Privacy blocker now points agents to `asc privacy status`.
+- Review handoff findings now include App Privacy state/source for manual completion.
+- Review submission planning now requires App Privacy to be recorded as published before marking manual submission ready.
 
 ## 0.3.0 - 2026-05-01
 
