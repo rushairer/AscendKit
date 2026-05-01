@@ -1404,12 +1404,19 @@ struct CLIRunner {
     }
 
     private func renderAppPrivacyStatusText(_ status: AppPrivacyStatus) -> String {
-        let header = "ASC App Privacy status: \(status.state.rawValue) via \(status.source)"
-        guard !status.findings.isEmpty else {
-            return header
+        var lines = [
+            "ASC App Privacy status: \(status.state.rawValue) via \(status.source)",
+            "Ready for submission: \(status.readyForSubmission ? "yes" : "no")"
+        ]
+        if !status.findings.isEmpty {
+            lines.append("App Privacy finding(s):")
+            lines.append(contentsOf: status.findings.map { "- \($0)" })
         }
-        let lines = status.findings.map { "- \($0)" }
-        return ([header, "App Privacy finding(s):"] + lines).joined(separator: "\n")
+        if !status.nextActions.isEmpty {
+            lines.append("Next action(s):")
+            lines.append(contentsOf: status.nextActions.map { "- \($0)" })
+        }
+        return lines.joined(separator: "\n")
     }
 
     private func submit(_ args: [String], json: Bool) async throws -> String {

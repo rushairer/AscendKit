@@ -644,7 +644,7 @@ swift run ascendkit asc privacy set-not-collected \
 swift run ascendkit asc privacy status --workspace "$WORKSPACE" --json
 ```
 
-Attempts to publish App Privacy as Data Not Collected and records the result in `asc/privacy-status.json`. If Apple rejects API-key auth for the App Privacy endpoint, complete App Privacy in App Store Connect UI and then record the manual handoff:
+Attempts to publish App Privacy as Data Not Collected and records the result in `asc/privacy-status.json`. The status JSON includes `readyForSubmission` and `nextActions` so agents can make the final readiness decision without parsing prose. If Apple rejects API-key auth for the App Privacy endpoint, complete App Privacy in App Store Connect UI and then record the manual handoff:
 
 ```bash
 swift run ascendkit asc privacy confirm-manual \

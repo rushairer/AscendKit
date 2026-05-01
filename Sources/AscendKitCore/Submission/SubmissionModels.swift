@@ -55,6 +55,50 @@ public struct AppPrivacyStatus: Codable, Equatable, Sendable {
     public var readyForSubmission: Bool {
         state == .publishedDataNotCollected
     }
+
+    public var nextActions: [String] {
+        switch state {
+        case .publishedDataNotCollected:
+            return []
+        case .requiresManualAppStoreConnect:
+            return [
+                "Complete App Privacy in App Store Connect UI.",
+                "After publishing, run asc privacy confirm-manual --data-not-collected."
+            ]
+        case .unknown:
+            return [
+                "Run asc privacy status to inspect the recorded state.",
+                "Run asc privacy set-not-collected --confirm-remote-mutation, or complete App Privacy in App Store Connect UI and run asc privacy confirm-manual --data-not-collected."
+            ]
+        }
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case generatedAt
+        case state
+        case source
+        case findings
+        case readyForSubmission
+        case nextActions
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.generatedAt = try container.decode(Date.self, forKey: .generatedAt)
+        self.state = try container.decode(AppPrivacyState.self, forKey: .state)
+        self.source = try container.decode(String.self, forKey: .source)
+        self.findings = try container.decodeIfPresent([String].self, forKey: .findings) ?? []
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(generatedAt, forKey: .generatedAt)
+        try container.encode(state, forKey: .state)
+        try container.encode(source, forKey: .source)
+        try container.encode(findings, forKey: .findings)
+        try container.encode(readyForSubmission, forKey: .readyForSubmission)
+        try container.encode(nextActions, forKey: .nextActions)
+    }
 }
 
 public struct SubmissionReadinessEvaluator {

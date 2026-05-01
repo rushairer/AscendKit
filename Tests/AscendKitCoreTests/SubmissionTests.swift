@@ -131,6 +131,25 @@ struct SubmissionTests {
         #expect(report.items.first { $0.id == "app-privacy.published" }?.note?.contains("confirm-manual") == true)
     }
 
+    @Test("serializes App Privacy readiness and next actions")
+    func serializesAppPrivacyReadinessAndNextActions() throws {
+        let status = AppPrivacyStatus(
+            generatedAt: Date(timeIntervalSince1970: 1_700_000_000),
+            state: .requiresManualAppStoreConnect,
+            source: "apple-iris-api-key-unauthorized",
+            findings: ["Apple IRIS rejected API key auth."]
+        )
+
+        let output = try AscendKitJSON.encodeString(status)
+        let decoded = try AscendKitJSON.decoder.decode(AppPrivacyStatus.self, from: Data(output.utf8))
+
+        #expect(output.contains("\"readyForSubmission\" : false"))
+        #expect(output.contains("\"nextActions\""))
+        #expect(output.contains("asc privacy confirm-manual --data-not-collected"))
+        #expect(decoded.readyForSubmission == false)
+        #expect(decoded.nextActions.contains { $0.contains("App Store Connect UI") })
+    }
+
     @Test("requires ASC lookup dry-run plan")
     func requiresASCLookupPlan() {
         let manifest = ReleaseManifest(
