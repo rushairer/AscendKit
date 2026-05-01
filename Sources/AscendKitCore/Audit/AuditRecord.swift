@@ -9,6 +9,7 @@ public enum AuditAction: String, Codable, Equatable, Sendable {
     case metadataInitialized
     case metadataLinted
     case screenshotPlanSaved
+    case screenshotCapturePlanned
     case screenshotImportManifestSaved
     case screenshotCompositionManifestSaved
     case screenshotUploadPlanned

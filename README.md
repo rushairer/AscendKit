@@ -120,6 +120,16 @@ swift run ascendkit screenshots compose --workspace "$WORKSPACE" --mode deviceFr
 swift run ascendkit screenshots compose --workspace "$WORKSPACE" --mode poster
 ```
 
+Plan local Xcode UI-test screenshot capture without fastlane:
+
+```bash
+swift run ascendkit screenshots capture-plan \
+  --workspace "$WORKSPACE" \
+  --scheme MyApp \
+  --destination "platform=iOS Simulator,name=iPhone 16 Pro Max" \
+  --json
+```
+
 Save an ASC auth profile. The profile stores only a reference to the private key file, not the key content:
 
 ```bash
@@ -338,6 +348,17 @@ swift run ascendkit screenshots plan \
 ```
 
 Creates a deterministic screenshot plan with coverage warnings.
+
+```bash
+swift run ascendkit screenshots capture-plan \
+  --workspace "$WORKSPACE" \
+  --scheme MyApp \
+  --configuration Debug \
+  --destination "platform=iOS Simulator,name=iPhone 16 Pro Max" \
+  --json
+```
+
+Writes `screenshots/manifests/capture-plan.json` with deterministic `xcodebuild test` commands, locale flags, result bundle paths, and `ASCENDKIT_SCREENSHOT_OUTPUT_DIR` environment values for UI tests. This is a local capture plan only; it does not execute Xcode or mutate App Store Connect.
 
 ```bash
 swift run ascendkit screenshots readiness \
@@ -675,6 +696,7 @@ Important files:
 - `metadata/localized/*.json`: imported or localized metadata.
 - `metadata/lint/*.json`: lint results.
 - `screenshots/manifests/*.json`: screenshot import/composition manifests.
+- `screenshots/manifests/capture-plan.json`: local Xcode UI-test screenshot capture command plan.
 - `screenshots/manifests/upload.json`: dry-run native ASC screenshot upload plan.
 - `screenshots/manifests/upload-result.json`: native ASC screenshot upload execution result, including uploaded items, asset delivery state, delivery poll attempts, deleted remote screenshots, and per-item failures.
 - `asc/auth.json`: ASC auth config with secret references only.

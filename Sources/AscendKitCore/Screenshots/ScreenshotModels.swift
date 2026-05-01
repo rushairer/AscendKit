@@ -106,6 +106,285 @@ public struct ScreenshotPlan: Codable, Equatable, Sendable {
     }
 }
 
+public struct ScreenshotCaptureDestination: Codable, Equatable, Sendable {
+    public var platform: ApplePlatform
+    public var name: String
+    public var xcodebuildDestination: String
+
+    public init(platform: ApplePlatform, name: String, xcodebuildDestination: String) {
+        self.platform = platform
+        self.name = name
+        self.xcodebuildDestination = xcodebuildDestination
+    }
+}
+
+public struct ScreenshotCaptureCommand: Codable, Equatable, Identifiable, Sendable {
+    public var id: String
+    public var locale: String
+    public var platform: ApplePlatform
+    public var destinationName: String
+    public var resultBundlePath: String
+    public var rawOutputDirectory: String
+    public var environment: [String: String]
+    public var command: [String]
+
+    public init(
+        locale: String,
+        platform: ApplePlatform,
+        destinationName: String,
+        resultBundlePath: String,
+        rawOutputDirectory: String,
+        environment: [String: String],
+        command: [String]
+    ) {
+        self.locale = locale
+        self.platform = platform
+        self.destinationName = destinationName
+        self.resultBundlePath = resultBundlePath
+        self.rawOutputDirectory = rawOutputDirectory
+        self.environment = environment
+        self.command = command
+        self.id = [locale, platform.rawValue, destinationName].joined(separator: ":")
+    }
+}
+
+public struct ScreenshotCapturePlan: Codable, Equatable, Sendable {
+    public var generatedAt: Date
+    public var scheme: String
+    public var projectPath: String?
+    public var workspacePath: String?
+    public var configuration: String
+    public var destinations: [ScreenshotCaptureDestination]
+    public var locales: [String]
+    public var commands: [ScreenshotCaptureCommand]
+    public var findings: [String]
+
+    public init(
+        generatedAt: Date = Date(),
+        scheme: String,
+        projectPath: String? = nil,
+        workspacePath: String? = nil,
+        configuration: String = "Debug",
+        destinations: [ScreenshotCaptureDestination],
+        locales: [String],
+        commands: [ScreenshotCaptureCommand],
+        findings: [String] = []
+    ) {
+        self.generatedAt = generatedAt
+        self.scheme = scheme
+        self.projectPath = projectPath
+        self.workspacePath = workspacePath
+        self.configuration = configuration
+        self.destinations = destinations
+        self.locales = locales
+        self.commands = commands
+        self.findings = findings
+    }
+}
+
+public struct ScreenshotCapturePlanBuilder {
+    public init() {}
+
+    public func build(
+        manifest: ReleaseManifest,
+        screenshotPlan: ScreenshotPlan,
+        workspaceRoot: URL,
+        scheme: String? = nil,
+        configuration: String = "Debug",
+        destinationOverrides: [String] = []
+    ) -> ScreenshotCapturePlan {
+        var findings: [String] = []
+        let projectReference = preferredProjectReference(from: manifest.projects)
+        if projectReference == nil {
+            findings.append("No .xcworkspace or .xcodeproj was found in the release manifest.")
+        }
+
+        let effectiveScheme = scheme ?? manifest.targets.first(where: \.isAppStoreApplication)?.name
+        if effectiveScheme == nil {
+            findings.append("No scheme was supplied and no App Store application target was found to use as the default scheme.")
+        }
+
+        let destinations = destinationOverrides.isEmpty
+            ? defaultDestinations(for: screenshotPlan.platforms)
+            : destinationOverrides.map(parseDestination)
+        if destinations.isEmpty {
+            findings.append("No screenshot capture destinations were supplied or inferred.")
+        }
+
+        let locales = screenshotPlan.locales.isEmpty ? ["en-US"] : screenshotPlan.locales
+        let rawRoot = workspaceRoot.appendingPathComponent("screenshots/raw")
+        let resultRoot = workspaceRoot.appendingPathComponent("screenshots/capture/xcresult")
+        let projectPath = projectReference?.kind == .xcodeproj ? projectReference?.path : nil
+        let xcodeWorkspacePath = projectReference?.kind == .xcworkspace ? projectReference?.path : nil
+        let schemeValue = effectiveScheme ?? ""
+
+        let commands = destinations.flatMap { destination in
+            locales.map { locale in
+                let rawOutputDirectory = rawRoot
+                    .appendingPathComponent(locale)
+                    .appendingPathComponent(destination.platform.rawValue)
+                let resultBundlePath = resultRoot
+                    .appendingPathComponent(locale)
+                    .appendingPathComponent(safeFileName(destination.name))
+                    .appendingPathExtension("xcresult")
+                let environment = [
+                    "ASCENDKIT_SCREENSHOT_OUTPUT_DIR": rawOutputDirectory.path,
+                    "ASCENDKIT_SCREENSHOT_LOCALE": locale
+                ]
+                return ScreenshotCaptureCommand(
+                    locale: locale,
+                    platform: destination.platform,
+                    destinationName: destination.name,
+                    resultBundlePath: resultBundlePath.path,
+                    rawOutputDirectory: rawOutputDirectory.path,
+                    environment: environment,
+                    command: makeCommand(
+                        projectReference: projectReference,
+                        scheme: schemeValue,
+                        configuration: configuration,
+                        locale: locale,
+                        destination: destination,
+                        resultBundlePath: resultBundlePath
+                    )
+                )
+            }
+        }
+
+        return ScreenshotCapturePlan(
+            scheme: schemeValue,
+            projectPath: projectPath,
+            workspacePath: xcodeWorkspacePath,
+            configuration: configuration,
+            destinations: destinations,
+            locales: locales,
+            commands: commands,
+            findings: findings
+        )
+    }
+
+    private func preferredProjectReference(from projects: [ProjectReference]) -> ProjectReference? {
+        projects.first { $0.kind == .xcworkspace } ?? projects.first { $0.kind == .xcodeproj }
+    }
+
+    private func defaultDestinations(for platforms: [ApplePlatform]) -> [ScreenshotCaptureDestination] {
+        var seen: [ApplePlatform] = []
+        for platform in platforms where !seen.contains(platform) {
+            seen.append(platform)
+        }
+        let uniquePlatforms = seen.sorted { $0.rawValue < $1.rawValue }
+        return uniquePlatforms.compactMap { platform in
+            switch platform {
+            case .iOS:
+                return ScreenshotCaptureDestination(
+                    platform: .iOS,
+                    name: "iPhone 16 Pro Max",
+                    xcodebuildDestination: "platform=iOS Simulator,name=iPhone 16 Pro Max"
+                )
+            case .iPadOS:
+                return ScreenshotCaptureDestination(
+                    platform: .iPadOS,
+                    name: "iPad Pro 13-inch (M4)",
+                    xcodebuildDestination: "platform=iOS Simulator,name=iPad Pro 13-inch (M4)"
+                )
+            case .macOS:
+                return ScreenshotCaptureDestination(
+                    platform: .macOS,
+                    name: "Mac",
+                    xcodebuildDestination: "platform=macOS"
+                )
+            default:
+                return nil
+            }
+        }
+    }
+
+    private func parseDestination(_ rawValue: String) -> ScreenshotCaptureDestination {
+        let name = destinationComponent(named: "name", in: rawValue)
+            ?? destinationComponent(named: "platform", in: rawValue)
+            ?? rawValue
+        return ScreenshotCaptureDestination(
+            platform: inferPlatform(from: rawValue),
+            name: name,
+            xcodebuildDestination: rawValue
+        )
+    }
+
+    private func inferPlatform(from destination: String) -> ApplePlatform {
+        if destination.localizedCaseInsensitiveContains("iphone") {
+            return .iOS
+        }
+        if destination.localizedCaseInsensitiveContains("ipad") {
+            return .iPadOS
+        }
+        if destination.localizedCaseInsensitiveContains("macos") {
+            return .macOS
+        }
+        return .unknown
+    }
+
+    private func destinationComponent(named name: String, in destination: String) -> String? {
+        destination
+            .split(separator: ",")
+            .compactMap { component -> String? in
+                let parts = component.split(separator: "=", maxSplits: 1).map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                guard parts.count == 2, parts[0] == name else { return nil }
+                return parts[1]
+            }
+            .first
+    }
+
+    private func makeCommand(
+        projectReference: ProjectReference?,
+        scheme: String,
+        configuration: String,
+        locale: String,
+        destination: ScreenshotCaptureDestination,
+        resultBundlePath: URL
+    ) -> [String] {
+        var command = ["xcodebuild"]
+        if let projectReference {
+            switch projectReference.kind {
+            case .xcworkspace:
+                command.append(contentsOf: ["-workspace", projectReference.path])
+            case .xcodeproj:
+                command.append(contentsOf: ["-project", projectReference.path])
+            }
+        }
+        command.append(contentsOf: [
+            "-scheme", scheme,
+            "-configuration", configuration,
+            "-destination", destination.xcodebuildDestination,
+            "-resultBundlePath", resultBundlePath.path
+        ])
+        if let language = localeLanguage(locale) {
+            command.append(contentsOf: ["-testLanguage", language])
+        }
+        if let region = localeRegion(locale) {
+            command.append(contentsOf: ["-testRegion", region])
+        }
+        command.append("test")
+        return command
+    }
+
+    private func localeLanguage(_ locale: String) -> String? {
+        locale.split(separator: "-").first.map(String.init)
+    }
+
+    private func localeRegion(_ locale: String) -> String? {
+        let parts = locale.split(separator: "-")
+        guard parts.count > 1 else { return nil }
+        return String(parts[1])
+    }
+
+    private func safeFileName(_ value: String) -> String {
+        let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-_."))
+        let scalars = value.unicodeScalars.map { scalar in
+            allowed.contains(scalar) ? String(scalar) : "-"
+        }
+        return scalars.joined().split(separator: "-").joined(separator: "-")
+    }
+}
+
 public enum ScreenshotReadinessSeverity: String, Codable, Equatable, Sendable {
     case blocker
     case warning

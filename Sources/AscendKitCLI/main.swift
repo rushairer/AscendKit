@@ -211,7 +211,7 @@ struct CLIRunner {
 
     private func screenshots(_ args: [String], json: Bool) async throws -> String {
         guard let subcommand = args.first else {
-            throw AscendKitError.invalidArguments("Usage: ascendkit screenshots plan|readiness|upload-plan|upload --workspace PATH")
+            throw AscendKitError.invalidArguments("Usage: ascendkit screenshots plan|capture-plan|readiness|upload-plan|upload --workspace PATH")
         }
         let workspace = try loadWorkspace(from: args)
         let store = ReleaseWorkspaceStore(fileManager: fileManager)
@@ -245,6 +245,32 @@ struct CLIRunner {
             let result = ScreenshotReadinessEvaluator(fileManager: fileManager).evaluate(plan: plan, sourceDirectory: source)
             try store.appendAudit(.init(action: .screenshotReadinessChecked, summary: "Checked screenshot readiness"), to: workspace)
             return try render(result, json: json) { "Screenshot readiness: \(result.ready ? "ready" : "not ready") with \(result.findings.count) finding(s)" }
+        case "capture-plan":
+            guard fileManager.fileExists(atPath: planURL.path) else {
+                throw AscendKitError.fileNotFound(planURL.path)
+            }
+            let manifest = try store.loadManifest(from: workspace)
+            let plan = try AscendKitJSON.decoder.decode(ScreenshotPlan.self, from: Data(contentsOf: planURL))
+            let capturePlan = ScreenshotCapturePlanBuilder().build(
+                manifest: manifest,
+                screenshotPlan: plan,
+                workspaceRoot: URL(fileURLWithPath: workspace.paths.root),
+                scheme: value(after: "--scheme", in: args),
+                configuration: value(after: "--configuration", in: args) ?? "Debug",
+                destinationOverrides: repeatedValues(after: "--destination", in: args)
+            )
+            try store.save(capturePlan, to: URL(fileURLWithPath: workspace.paths.screenshotCapturePlan))
+            try store.appendAudit(
+                .init(
+                    action: .screenshotCapturePlanned,
+                    summary: "Planned local screenshot capture",
+                    details: ["commands": "\(capturePlan.commands.count)"]
+                ),
+                to: workspace
+            )
+            return try render(capturePlan, json: json) {
+                "Screenshot capture plan saved with \(capturePlan.commands.count) xcodebuild command(s) and \(capturePlan.findings.count) finding(s)."
+            }
         case "import":
             guard fileManager.fileExists(atPath: planURL.path) else {
                 throw AscendKitError.fileNotFound(planURL.path)
@@ -337,7 +363,7 @@ struct CLIRunner {
                     : "Screenshot upload was not executed: \(result.findings.joined(separator: " "))"
             }
         case "capture":
-            throw AscendKitError.unsupported("screenshots capture is deferred; first wave supports planning, import readiness, import manifests, and local composition organization.")
+            throw AscendKitError.unsupported("screenshots capture execution is deferred. Run screenshots capture-plan to write deterministic local xcodebuild capture commands first.")
         default:
             throw AscendKitError.invalidArguments("Unknown screenshots command: \(subcommand)")
         }
@@ -1340,6 +1366,15 @@ struct CLIRunner {
             .filter { !$0.isEmpty }
     }
 
+    private func repeatedValues(after flag: String, in args: [String]) -> [String] {
+        args.indices.compactMap { index in
+            guard args[index] == flag, args.indices.contains(index + 1) else {
+                return nil
+            }
+            return args[index + 1]
+        }
+    }
+
     private func platformList(after flag: String, in args: [String], default defaultValue: [ApplePlatform]) -> [ApplePlatform] {
         let values = list(after: flag, in: args)
         guard !values.isEmpty else {
@@ -1378,6 +1413,7 @@ struct CLIRunner {
       ascendkit metadata lint --workspace PATH [--locale en-US] [--json]
       ascendkit metadata diff --workspace PATH [--json]
       ascendkit screenshots plan --workspace PATH [--screens A,B] [--features A,B] [--platforms iOS,macOS] [--locales en-US] [--json]
+      ascendkit screenshots capture-plan --workspace PATH [--scheme SCHEME] [--configuration Debug] [--destination "platform=iOS Simulator,name=iPhone 16 Pro Max"] [--json]
       ascendkit screenshots readiness --workspace PATH [--source PATH] [--json]
       ascendkit screenshots import --workspace PATH --source PATH [--json]
       ascendkit screenshots import-fastlane --workspace PATH --source PATH [--locales en-US,zh-Hans] [--json]

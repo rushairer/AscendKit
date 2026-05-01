@@ -53,6 +53,7 @@ public struct WorkspaceStatusReader {
             ("metadata-source", "English metadata source", workspace.paths.metadataSource),
             ("metadata-lint", "Metadata lint report", workspace.paths.metadataLint),
             ("screenshot-plan", "Screenshot plan", workspace.paths.screenshotPlan),
+            ("screenshot-capture-plan", "Screenshot capture plan", workspace.paths.screenshotCapturePlan),
             ("screenshot-import", "Screenshot import manifest", workspace.paths.screenshotImportManifest),
             ("screenshot-composition", "Screenshot composition manifest", workspace.paths.screenshotCompositionManifest),
             ("screenshot-upload-plan", "Screenshot upload plan", workspace.paths.screenshotUploadPlan),

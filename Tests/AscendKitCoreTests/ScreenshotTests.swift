@@ -39,6 +39,48 @@ struct ScreenshotTests {
         #expect(plan.coverageGaps == ["Export"])
     }
 
+    @Test("builds deterministic local xcodebuild screenshot capture plan")
+    func buildsScreenshotCapturePlan() {
+        let manifest = ReleaseManifest(
+            releaseID: "demo-1.0",
+            appSlug: "Demo",
+            projects: [
+                ProjectReference(kind: .xcworkspace, path: "/tmp/Demo/Demo.xcworkspace")
+            ],
+            targets: [
+                BundleTarget(
+                    name: "Demo",
+                    platform: .iOS,
+                    bundleIdentifier: "com.example.demo",
+                    productType: "com.apple.product-type.application"
+                )
+            ]
+        )
+        let screenshotPlan = ScreenshotPlan(
+            inputPath: .uiTestCapture,
+            platforms: [.iOS],
+            locales: ["en-US", "zh-Hans"],
+            items: [
+                ScreenshotPlanItem(id: "home", screenName: "Home", order: 1, purpose: "Show home")
+            ]
+        )
+
+        let capturePlan = ScreenshotCapturePlanBuilder().build(
+            manifest: manifest,
+            screenshotPlan: screenshotPlan,
+            workspaceRoot: URL(fileURLWithPath: "/tmp/Demo/.ascendkit/releases/demo-1.0"),
+            destinationOverrides: ["platform=iOS Simulator,name=iPhone 16 Pro Max"]
+        )
+
+        #expect(capturePlan.scheme == "Demo")
+        #expect(capturePlan.workspacePath == "/tmp/Demo/Demo.xcworkspace")
+        #expect(capturePlan.commands.count == 2)
+        #expect(capturePlan.commands[0].command.contains("-workspace"))
+        #expect(capturePlan.commands[0].command.contains("-testLanguage"))
+        #expect(capturePlan.commands[0].environment["ASCENDKIT_SCREENSHOT_OUTPUT_DIR"]?.hasSuffix("screenshots/raw/en-US/iOS") == true)
+        #expect(capturePlan.findings.isEmpty)
+    }
+
     @Test("validates user-provided import directory structure and image counts")
     func validatesImportDirectoryStructure() throws {
         let root = try TemporaryDirectory()
