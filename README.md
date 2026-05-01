@@ -698,7 +698,7 @@ Builds a review submission plan from local readiness, ASC state, metadata apply 
 swift run ascendkit submit handoff --workspace "$WORKSPACE"
 ```
 
-Writes a human-readable review handoff Markdown file.
+Writes a human-readable review handoff Markdown file, including App Privacy state, readiness, and next actions.
 
 ```bash
 swift run ascendkit submit execute \

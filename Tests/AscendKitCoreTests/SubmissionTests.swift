@@ -539,9 +539,45 @@ struct SubmissionTests {
         )
 
         #expect(plan.readyForManualReviewSubmission == false)
+        #expect(plan.appPrivacyState == "requiresManualAppStoreConnect")
+        #expect(plan.appPrivacySource == "apple-iris-api-key-unauthorized")
+        #expect(plan.appPrivacyReadyForSubmission == false)
+        #expect(plan.appPrivacyNextActions?.contains { $0.contains("confirm-manual") } == true)
         #expect(plan.findings.contains { $0.contains("requiresManualAppStoreConnect") })
         #expect(plan.findings.contains { $0.contains("apple-iris-api-key-unauthorized") })
         #expect(plan.findings.contains { $0.contains("asc privacy status") })
+    }
+
+    @Test("review plan includes next actions when App Privacy status is missing")
+    func reviewPlanIncludesMissingAppPrivacyNextActions() {
+        let plan = ReviewSubmissionPlanBuilder().build(
+            manifest: readyManifest(),
+            reviewInfo: readyReviewInfo(),
+            readiness: SubmissionReadinessReport(items: [
+                SubmissionChecklistItem(id: "ready", title: "Ready", satisfied: true)
+            ]),
+            screenshotCompositionManifest: readyScreenshotComposition(),
+            appsLookupReport: ASCAppsLookupReport(
+                bundleIDs: ["com.example.demo"],
+                apps: [ASCObservedApp(id: "app-1", name: "Demo", bundleID: "com.example.demo")]
+            ),
+            metadataApplyResult: ASCMetadataApplyResult(
+                generatedAt: Date(timeIntervalSince1970: 100),
+                applied: true
+            ),
+            metadataDiffReport: MetadataDiffReport(
+                generatedAt: Date(timeIntervalSince1970: 101),
+                diffs: []
+            ),
+            appPrivacyStatus: nil,
+            buildCandidatesReport: readyBuildCandidates()
+        )
+
+        #expect(plan.appPrivacyState == "unknown")
+        #expect(plan.appPrivacySource == "workspace")
+        #expect(plan.appPrivacyReadyForSubmission == false)
+        #expect(plan.appPrivacyNextActions?.contains { $0.contains("asc privacy set-not-collected") } == true)
+        #expect(plan.readyForManualReviewSubmission == false)
     }
 
     @Test("renders review handoff markdown with explicit MVP boundary")
@@ -559,6 +595,10 @@ struct SubmissionTests {
             metadataRemainingBlockingDiffCount: 0,
             metadataApplyFindings: [],
             screenshotArtifactCount: 3,
+            appPrivacyState: "publishedDataNotCollected",
+            appPrivacySource: "manual-app-store-connect",
+            appPrivacyReadyForSubmission: true,
+            appPrivacyNextActions: [],
             readinessReady: true,
             readyForManualReviewSubmission: true,
             findings: ["Remote review submission execution is intentionally disabled in this MVP boundary."]
@@ -569,6 +609,9 @@ struct SubmissionTests {
         #expect(markdown.contains("Manual review submission readiness: ready"))
         #expect(markdown.contains("- Selected build: 1.0 (7)"))
         #expect(markdown.contains("- Composed screenshot artifacts: 3"))
+        #expect(markdown.contains("## App Privacy"))
+        #expect(markdown.contains("- State: publishedDataNotCollected"))
+        #expect(markdown.contains("- Ready for submission: yes"))
         #expect(markdown.contains("AscendKit MVP does not execute remote review submission."))
     }
 

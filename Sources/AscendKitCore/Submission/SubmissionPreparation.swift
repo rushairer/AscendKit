@@ -102,6 +102,10 @@ public struct ReviewSubmissionPlan: Codable, Equatable, Sendable {
     public var metadataRemainingBlockingDiffCount: Int?
     public var metadataApplyFindings: [String]
     public var screenshotArtifactCount: Int
+    public var appPrivacyState: String?
+    public var appPrivacySource: String?
+    public var appPrivacyReadyForSubmission: Bool?
+    public var appPrivacyNextActions: [String]?
     public var readinessReady: Bool
     public var readyForManualReviewSubmission: Bool
     public var remoteSubmissionExecutionAllowed: Bool
@@ -121,6 +125,10 @@ public struct ReviewSubmissionPlan: Codable, Equatable, Sendable {
         metadataRemainingBlockingDiffCount: Int? = nil,
         metadataApplyFindings: [String] = [],
         screenshotArtifactCount: Int,
+        appPrivacyState: String? = nil,
+        appPrivacySource: String? = nil,
+        appPrivacyReadyForSubmission: Bool? = nil,
+        appPrivacyNextActions: [String]? = nil,
         readinessReady: Bool,
         readyForManualReviewSubmission: Bool,
         remoteSubmissionExecutionAllowed: Bool = false,
@@ -139,6 +147,10 @@ public struct ReviewSubmissionPlan: Codable, Equatable, Sendable {
         self.metadataRemainingBlockingDiffCount = metadataRemainingBlockingDiffCount
         self.metadataApplyFindings = metadataApplyFindings
         self.screenshotArtifactCount = screenshotArtifactCount
+        self.appPrivacyState = appPrivacyState
+        self.appPrivacySource = appPrivacySource
+        self.appPrivacyReadyForSubmission = appPrivacyReadyForSubmission
+        self.appPrivacyNextActions = appPrivacyNextActions
         self.readinessReady = readinessReady
         self.readyForManualReviewSubmission = readyForManualReviewSubmission
         self.remoteSubmissionExecutionAllowed = remoteSubmissionExecutionAllowed
@@ -174,6 +186,11 @@ public struct ReviewSubmissionPlanBuilder {
             metadataApplyResult: metadataApplyResult,
             metadataDiffReport: metadataDiffReport
         )
+        let effectiveAppPrivacyStatus = appPrivacyStatus ?? AppPrivacyStatus(
+            state: .unknown,
+            source: "workspace",
+            findings: ["No App Privacy status has been recorded."]
+        )
 
         var findings: [String] = []
         if !readiness.ready {
@@ -200,12 +217,12 @@ public struct ReviewSubmissionPlanBuilder {
         if remainingDiffs?.contains(where: { $0.field == "releaseNotes" }) == true {
             findings.append("releaseNotes/whatsNew remains unsynced because App Store Connect rejected edits in the current version state.")
         }
-        if appPrivacyStatus?.readyForSubmission != true {
-            if let appPrivacyStatus {
-                let statusFindings = appPrivacyStatus.findings.isEmpty
+        if !effectiveAppPrivacyStatus.readyForSubmission {
+            if appPrivacyStatus != nil {
+                let statusFindings = effectiveAppPrivacyStatus.findings.isEmpty
                     ? ""
-                    : " Findings: \(appPrivacyStatus.findings.joined(separator: " "))"
-                findings.append("App Privacy answers are not recorded as published. Current state: \(appPrivacyStatus.state.rawValue) via \(appPrivacyStatus.source).\(statusFindings) Run asc privacy status, then complete App Privacy in App Store Connect UI or run asc privacy confirm-manual after publishing.")
+                    : " Findings: \(effectiveAppPrivacyStatus.findings.joined(separator: " "))"
+                findings.append("App Privacy answers are not recorded as published. Current state: \(effectiveAppPrivacyStatus.state.rawValue) via \(effectiveAppPrivacyStatus.source).\(statusFindings) Run asc privacy status, then complete App Privacy in App Store Connect UI or run asc privacy confirm-manual after publishing.")
             } else {
                 findings.append("App Privacy answers are not recorded as published. Run asc privacy status, then complete App Privacy in App Store Connect UI or run asc privacy confirm-manual after publishing.")
             }
@@ -219,7 +236,7 @@ public struct ReviewSubmissionPlanBuilder {
             selectedBuild != nil &&
             metadataApplied &&
             metadataDiffFresh &&
-            appPrivacyStatus?.readyForSubmission == true &&
+            effectiveAppPrivacyStatus.readyForSubmission &&
             (blockingMetadataDiffs?.isEmpty == true)
 
         return ReviewSubmissionPlan(
@@ -235,6 +252,10 @@ public struct ReviewSubmissionPlanBuilder {
             metadataRemainingBlockingDiffCount: blockingMetadataDiffs?.count,
             metadataApplyFindings: metadataApplyResult?.findings ?? [],
             screenshotArtifactCount: screenshotCompositionManifest?.artifacts.count ?? 0,
+            appPrivacyState: effectiveAppPrivacyStatus.state.rawValue,
+            appPrivacySource: effectiveAppPrivacyStatus.source,
+            appPrivacyReadyForSubmission: effectiveAppPrivacyStatus.readyForSubmission,
+            appPrivacyNextActions: effectiveAppPrivacyStatus.nextActions,
             readinessReady: readiness.ready,
             readyForManualReviewSubmission: readyForManualReviewSubmission,
             findings: findings
@@ -330,6 +351,13 @@ public struct ReviewHandoffMarkdown {
         let metadataFindings = plan.metadataApplyFindings.isEmpty
             ? "- None"
             : plan.metadataApplyFindings.map { "- \($0)" }.joined(separator: "\n")
+        let appPrivacyReady = plan.appPrivacyReadyForSubmission.map { $0 ? "yes" : "no" } ?? "unknown"
+        let appPrivacyNextActions: String
+        if let nextActions = plan.appPrivacyNextActions, !nextActions.isEmpty {
+            appPrivacyNextActions = nextActions.map { "- \($0)" }.joined(separator: "\n")
+        } else {
+            appPrivacyNextActions = "- None"
+        }
 
         return """
         # AscendKit Review Handoff
@@ -356,6 +384,16 @@ public struct ReviewHandoffMarkdown {
         - Blocking metadata diffs: \(plan.metadataRemainingBlockingDiffCount.map(String.init) ?? "unknown")
         - Composed screenshot artifacts: \(plan.screenshotArtifactCount)
         - Readiness checklist: \(plan.readinessReady ? "ready" : "not ready")
+
+        ## App Privacy
+
+        - State: \(plan.appPrivacyState ?? "unknown")
+        - Source: \(plan.appPrivacySource ?? "unknown")
+        - Ready for submission: \(appPrivacyReady)
+
+        Next action(s):
+
+        \(appPrivacyNextActions)
 
         ## Metadata Notes
 
