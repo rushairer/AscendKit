@@ -257,7 +257,7 @@ struct CLIRunner {
             let source = value(after: "--source", in: args).map { URL(fileURLWithPath: $0) }
             let result = ScreenshotReadinessEvaluator(fileManager: fileManager).evaluate(plan: plan, sourceDirectory: source)
             try store.appendAudit(.init(action: .screenshotReadinessChecked, summary: "Checked screenshot readiness"), to: workspace)
-            return try render(result, json: json) { "Screenshot readiness: \(result.ready ? "ready" : "not ready") with \(result.findings.count) finding(s)" }
+            return try render(result, json: json) { renderScreenshotReadinessText(result) }
         case "copy":
             switch args.dropFirst().first {
             case "init":
@@ -498,6 +498,17 @@ struct CLIRunner {
         }
         let lines = plan.findings.map { "- \($0)" }
         return ([header, "Upload planning finding(s):"] + lines).joined(separator: "\n")
+    }
+
+    private func renderScreenshotReadinessText(_ result: ScreenshotReadinessResult) -> String {
+        let header = "Screenshot readiness: \(result.ready ? "ready" : "not ready") with \(result.findings.count) finding(s)"
+        guard !result.findings.isEmpty else {
+            return header
+        }
+        let lines = result.findings.map { finding in
+            "- \(finding.severity.rawValue) \(finding.id): \(finding.message) Next: \(finding.nextAction)"
+        }
+        return ([header, "Screenshot readiness finding(s):"] + lines).joined(separator: "\n")
     }
 
     private func defaultScreenshotCopyPath(workspace: ReleaseWorkspace, locale: String) -> String {

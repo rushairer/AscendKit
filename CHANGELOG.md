@@ -15,6 +15,7 @@ AscendKit follows [Semantic Versioning](https://semver.org/). During `0.y.z`, th
 - Submission readiness gating for framed poster screenshot copy lint.
 - Text submission readiness output now lists unsatisfied checklist items.
 - Text screenshot upload-plan output now lists planning findings.
+- Text screenshot readiness output now lists readiness findings and next actions.
 
 ## 0.2.0 - 2026-05-01
 
