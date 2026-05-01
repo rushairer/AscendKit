@@ -434,7 +434,7 @@ struct CLIRunner {
                 to: workspace
             )
             return try render(plan, json: json) {
-                "Screenshot upload plan saved with \(plan.items.count) item(s) and \(plan.findings.count) finding(s); no ASC mutation was made."
+                renderScreenshotUploadPlanText(plan)
             }
         case "upload":
             let result = try await executeScreenshotUpload(
@@ -489,6 +489,15 @@ struct CLIRunner {
             uploadPlan: loadIfExists(ScreenshotUploadPlan.self, path: workspace.paths.screenshotUploadPlan),
             paths: workspace.paths
         )
+    }
+
+    private func renderScreenshotUploadPlanText(_ plan: ScreenshotUploadPlan) -> String {
+        let header = "Screenshot upload plan saved with \(plan.items.count) item(s) and \(plan.findings.count) finding(s); no ASC mutation was made."
+        guard !plan.findings.isEmpty else {
+            return header
+        }
+        let lines = plan.findings.map { "- \($0)" }
+        return ([header, "Upload planning finding(s):"] + lines).joined(separator: "\n")
     }
 
     private func defaultScreenshotCopyPath(workspace: ReleaseWorkspace, locale: String) -> String {
