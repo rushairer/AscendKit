@@ -44,7 +44,7 @@ struct CLIRunner {
         case "metadata":
             return try metadata(tail, json: json)
         case "screenshots":
-            return try screenshots(tail, json: json)
+            return try await screenshots(tail, json: json)
         case "asc":
             return try await asc(tail, json: json)
         case "submit":
@@ -205,9 +205,9 @@ struct CLIRunner {
         }
     }
 
-    private func screenshots(_ args: [String], json: Bool) throws -> String {
+    private func screenshots(_ args: [String], json: Bool) async throws -> String {
         guard let subcommand = args.first else {
-            throw AscendKitError.invalidArguments("Usage: ascendkit screenshots plan|readiness|upload-plan --workspace PATH")
+            throw AscendKitError.invalidArguments("Usage: ascendkit screenshots plan|readiness|upload-plan|upload --workspace PATH")
         }
         let workspace = try loadWorkspace(from: args)
         let store = ReleaseWorkspaceStore(fileManager: fileManager)
@@ -317,11 +317,63 @@ struct CLIRunner {
             return try render(plan, json: json) {
                 "Screenshot upload plan saved with \(plan.items.count) item(s) and \(plan.findings.count) finding(s); no ASC mutation was made."
             }
+        case "upload":
+            let result = try await executeScreenshotUpload(workspace: workspace, store: store, confirmed: args.contains("--confirm-remote-mutation"))
+            return try render(result, json: json) {
+                result.executed
+                    ? "Screenshot upload completed with \(result.uploadedCount) uploaded screenshot(s)."
+                    : "Screenshot upload was not executed: \(result.findings.joined(separator: " "))"
+            }
         case "capture":
             throw AscendKitError.unsupported("screenshots capture is deferred; first wave supports planning, import readiness, import manifests, and local composition organization.")
         default:
             throw AscendKitError.invalidArguments("Unknown screenshots command: \(subcommand)")
         }
+    }
+
+    private func executeScreenshotUpload(
+        workspace: ReleaseWorkspace,
+        store: ReleaseWorkspaceStore,
+        confirmed: Bool
+    ) async throws -> ScreenshotUploadExecutionResult {
+        let plan = try loadIfExists(ScreenshotUploadPlan.self, path: workspace.paths.screenshotUploadPlan)
+            ?? ScreenshotUploadPlanBuilder().build(
+                importManifest: try loadIfExists(ScreenshotImportManifest.self, path: workspace.paths.screenshotImportManifest),
+                compositionManifest: try loadIfExists(ScreenshotCompositionManifest.self, path: workspace.paths.screenshotCompositionManifest),
+                observedState: try loadIfExists(MetadataObservedState.self, path: workspace.paths.ascObservedState)
+            )
+        guard confirmed else {
+            let result = ScreenshotUploadExecutionResult(
+                executed: false,
+                findings: ["Missing --confirm-remote-mutation. No screenshot upload request was executed."]
+            )
+            try store.save(result, to: URL(fileURLWithPath: workspace.paths.screenshotUploadResult))
+            return result
+        }
+        guard let authConfig = try loadIfExists(ASCAuthConfig.self, path: workspace.paths.ascAuthConfig) else {
+            throw AscendKitError.invalidState("ASC auth config is missing. Run asc auth init first.")
+        }
+        let authStatus = ASCAuthStatus(config: authConfig)
+        guard authStatus.configured else {
+            throw AscendKitError.invalidState("ASC auth config is not ready: \(authStatus.findings.joined(separator: " "))")
+        }
+        let privateKey = try ASCSecretResolver(fileManager: fileManager).resolve(authConfig.privateKey)
+        let token = try ASCJWTSigner().token(config: authConfig, privateKeyPEM: privateKey)
+        let result = try await ASCAPIClient().executeScreenshotUpload(
+            plan: plan,
+            confirmRemoteMutation: confirmed,
+            token: token
+        )
+        try store.save(result, to: URL(fileURLWithPath: workspace.paths.screenshotUploadResult))
+        try store.appendAudit(
+            .init(
+                action: .screenshotUploadExecuted,
+                summary: "Executed ASC screenshot upload",
+                details: ["uploaded": "\(result.uploadedCount)"]
+            ),
+            to: workspace
+        )
+        return result
     }
 
     private func asc(_ args: [String], json: Bool) async throws -> String {
@@ -1175,6 +1227,7 @@ struct CLIRunner {
       ascendkit screenshots import-fastlane --workspace PATH --source PATH [--locales en-US,zh-Hans] [--json]
       ascendkit screenshots compose --workspace PATH [--mode storeReadyCopy|poster|deviceFrame] [--json]
       ascendkit screenshots upload-plan --workspace PATH [--display-type APP_IPHONE_67] [--json]
+      ascendkit screenshots upload --workspace PATH --confirm-remote-mutation [--json]
       ascendkit asc auth save-profile --name NAME --issuer-id ID --key-id ID --private-key-provider env|file|keychain --private-key-ref REF [--json]
       ascendkit asc auth profiles [--json]
       ascendkit asc auth init --workspace PATH --issuer-id ID --key-id ID --private-key-provider env|file|keychain --private-key-ref REF [--json]

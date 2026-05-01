@@ -251,6 +251,70 @@ struct ASCTests {
         #expect(decoded.responses.first?.id == "app-pricing.set-free")
     }
 
+    @Test("serializes screenshot upload execution result")
+    func serializesScreenshotUploadExecutionResult() throws {
+        let result = ScreenshotUploadExecutionResult(
+            generatedAt: Date(timeIntervalSince1970: 1_700_000_000),
+            executed: true,
+            uploadedCount: 1,
+            items: [
+                ScreenshotUploadExecutionItem(
+                    planItemID: "en-US:iOS:APP_IPHONE_67:1:home.png",
+                    appScreenshotSetID: "set-1",
+                    appScreenshotID: "screenshot-1",
+                    fileName: "home.png",
+                    checksum: "d41d8cd98f00b204e9800998ecf8427e",
+                    assetDeliveryState: "COMPLETE",
+                    responses: [
+                        ReviewSubmissionExecutionResponse(
+                            id: "app-screenshot.commit",
+                            method: "PATCH",
+                            path: "/v1/appScreenshots/screenshot-1",
+                            statusCode: 200,
+                            resourceID: "screenshot-1"
+                        )
+                    ]
+                )
+            ],
+            findings: ["Screenshot upload executed through the official App Store Connect screenshot asset API."]
+        )
+
+        let data = try AscendKitJSON.encoder.encode(result)
+        let decoded = try AscendKitJSON.decoder.decode(ScreenshotUploadExecutionResult.self, from: data)
+
+        #expect(decoded.executed)
+        #expect(decoded.uploadedCount == 1)
+        #expect(decoded.items.first?.appScreenshotSetID == "set-1")
+        #expect(decoded.items.first?.checksum == "d41d8cd98f00b204e9800998ecf8427e")
+    }
+
+    @Test("screenshot upload execution requires explicit confirmation")
+    func screenshotUploadRequiresConfirmation() async throws {
+        let plan = ScreenshotUploadPlan(
+            sourceKind: .imported,
+            items: [
+                ScreenshotUploadPlanItem(
+                    locale: "en-US",
+                    platform: .iOS,
+                    displayType: "APP_IPHONE_67",
+                    appStoreVersionLocalizationID: "version-loc-1",
+                    sourcePath: "/tmp/home.png",
+                    fileName: "home.png",
+                    order: 1
+                )
+            ]
+        )
+
+        let result = try await ASCAPIClient().executeScreenshotUpload(
+            plan: plan,
+            confirmRemoteMutation: false,
+            token: "unused"
+        )
+
+        #expect(result.executed == false)
+        #expect(result.findings.contains("Missing --confirm-remote-mutation. No screenshot upload request was executed."))
+    }
+
     @Test("serializes review submission execution result")
     func serializesReviewSubmissionExecutionResult() throws {
         let result = ReviewSubmissionExecutionResult(

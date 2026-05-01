@@ -501,6 +501,58 @@ public struct ScreenshotUploadPlan: Codable, Equatable, Sendable {
     }
 }
 
+public struct ScreenshotUploadExecutionResult: Codable, Equatable, Sendable {
+    public var generatedAt: Date
+    public var executed: Bool
+    public var uploadedCount: Int
+    public var items: [ScreenshotUploadExecutionItem]
+    public var findings: [String]
+
+    public init(
+        generatedAt: Date = Date(),
+        executed: Bool,
+        uploadedCount: Int = 0,
+        items: [ScreenshotUploadExecutionItem] = [],
+        findings: [String] = []
+    ) {
+        self.generatedAt = generatedAt
+        self.executed = executed
+        self.uploadedCount = uploadedCount
+        self.items = items
+        self.findings = findings
+    }
+}
+
+public struct ScreenshotUploadExecutionItem: Codable, Equatable, Identifiable, Sendable {
+    public var id: String
+    public var planItemID: String
+    public var appScreenshotSetID: String
+    public var appScreenshotID: String
+    public var fileName: String
+    public var checksum: String
+    public var assetDeliveryState: String?
+    public var responses: [ReviewSubmissionExecutionResponse]
+
+    public init(
+        planItemID: String,
+        appScreenshotSetID: String,
+        appScreenshotID: String,
+        fileName: String,
+        checksum: String,
+        assetDeliveryState: String? = nil,
+        responses: [ReviewSubmissionExecutionResponse] = []
+    ) {
+        self.planItemID = planItemID
+        self.appScreenshotSetID = appScreenshotSetID
+        self.appScreenshotID = appScreenshotID
+        self.fileName = fileName
+        self.checksum = checksum
+        self.assetDeliveryState = assetDeliveryState
+        self.responses = responses
+        self.id = appScreenshotID
+    }
+}
+
 public struct ScreenshotUploadPlanBuilder {
     public init() {}
 

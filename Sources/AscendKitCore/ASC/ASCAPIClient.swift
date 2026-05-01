@@ -386,6 +386,91 @@ public struct ASCAPIClient {
         )
     }
 
+    public func executeScreenshotUpload(
+        plan: ScreenshotUploadPlan,
+        confirmRemoteMutation: Bool,
+        token: String
+    ) async throws -> ScreenshotUploadExecutionResult {
+        guard confirmRemoteMutation else {
+            return ScreenshotUploadExecutionResult(
+                executed: false,
+                findings: ["Missing --confirm-remote-mutation. No screenshot upload request was executed."]
+            )
+        }
+        guard plan.findings.isEmpty else {
+            return ScreenshotUploadExecutionResult(
+                executed: false,
+                findings: plan.findings + ["Screenshot upload plan has findings. Resolve them before executing remote upload."]
+            )
+        }
+        guard !plan.items.isEmpty else {
+            return ScreenshotUploadExecutionResult(
+                executed: false,
+                findings: ["Screenshot upload plan has no items."]
+            )
+        }
+
+        var uploadedItems: [ScreenshotUploadExecutionItem] = []
+        var setIDs: [String: String] = [:]
+
+        for item in plan.items {
+            let setKey = "\(item.appStoreVersionLocalizationID)|\(item.displayType)"
+            let setID: String
+            if let cached = setIDs[setKey] {
+                setID = cached
+            } else {
+                setID = try await findOrCreateScreenshotSet(
+                    appStoreVersionLocalizationID: item.appStoreVersionLocalizationID,
+                    displayType: item.displayType,
+                    token: token
+                )
+                setIDs[setKey] = setID
+            }
+
+            let fileURL = URL(fileURLWithPath: item.sourcePath)
+            let data = try Data(contentsOf: fileURL)
+            let checksum = Insecure.MD5.hash(data: data).map { String(format: "%02hhx", $0) }.joined()
+            let reservation = try await createAppScreenshotReservation(
+                appScreenshotSetID: setID,
+                fileName: item.fileName,
+                fileSize: data.count,
+                token: token
+            )
+            try await uploadAssetParts(
+                uploadOperations: reservation.uploadOperations,
+                data: data
+            )
+            let commitResponse = try await commitAppScreenshot(
+                screenshotID: reservation.id,
+                checksum: checksum,
+                token: token
+            )
+            let deliveryState = try await pollAppScreenshotDeliveryState(
+                screenshotID: reservation.id,
+                token: token
+            )
+            uploadedItems.append(ScreenshotUploadExecutionItem(
+                planItemID: item.id,
+                appScreenshotSetID: setID,
+                appScreenshotID: reservation.id,
+                fileName: item.fileName,
+                checksum: checksum,
+                assetDeliveryState: deliveryState,
+                responses: [
+                    reservation.response,
+                    commitResponse
+                ]
+            ))
+        }
+
+        return ScreenshotUploadExecutionResult(
+            executed: true,
+            uploadedCount: uploadedItems.count,
+            items: uploadedItems,
+            findings: ["Screenshot upload executed through the official App Store Connect screenshot asset API."]
+        )
+    }
+
     public func executeReviewSubmission(
         appID: String,
         appInfoID: String?,
@@ -687,6 +772,26 @@ public struct ASCAPIClient {
         return try JSONDecoder().decode(ListResponseWithIncluded<Resource, Included>.self, from: data)
     }
 
+    private func getResource<Resource: Decodable>(
+        path: String,
+        token: String,
+        as type: Resource.Type
+    ) async throws -> Resource {
+        var request = URLRequest(url: baseURL.appendingPathComponent(path))
+        request.httpMethod = "GET"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+
+        let (data, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse else {
+            throw AscendKitError.invalidState("ASC request did not return an HTTP response for \(path).")
+        }
+        guard (200..<300).contains(http.statusCode) else {
+            throw AscendKitError.invalidState("ASC request failed for \(path) with HTTP \(http.statusCode): \(String(decoding: data.prefix(512), as: UTF8.self))")
+        }
+        return try JSONDecoder().decode(SingleResponse<Resource>.self, from: data).data
+    }
+
     private func getRelationshipResourceID(path: String, token: String, requestBaseURL: URL? = nil) async throws -> String? {
         let rootURL = requestBaseURL ?? baseURL
         var request = URLRequest(url: rootURL.appendingPathComponent(path))
@@ -705,6 +810,168 @@ public struct ASCAPIClient {
             throw AscendKitError.invalidState("ASC request failed for \(path) with HTTP \(http.statusCode): \(String(decoding: data.prefix(512), as: UTF8.self))")
         }
         return try JSONDecoder().decode(OptionalResourceResponse.self, from: data).data?.id
+    }
+
+    private func findOrCreateScreenshotSet(
+        appStoreVersionLocalizationID: String,
+        displayType: String,
+        token: String
+    ) async throws -> String {
+        let existingSets = try await getList(
+            path: "v1/appStoreVersionLocalizations/\(appStoreVersionLocalizationID)/appScreenshotSets",
+            query: ["limit": "200"],
+            token: token,
+            as: AppScreenshotSetResource.self
+        )
+        if let existing = existingSets.first(where: { $0.attributes.screenshotDisplayType == displayType }) {
+            return existing.id
+        }
+
+        let response = try await sendJSONAPIRequest(
+            id: "app-screenshot-set.create",
+            method: "POST",
+            path: "/v1/appScreenshotSets",
+            payload: [
+                "data": [
+                    "type": "appScreenshotSets",
+                    "attributes": [
+                        "screenshotDisplayType": displayType
+                    ],
+                    "relationships": [
+                        "appStoreVersionLocalization": [
+                            "data": [
+                                "type": "appStoreVersionLocalizations",
+                                "id": appStoreVersionLocalizationID
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            token: token
+        )
+        guard let setID = response.resourceID else {
+            throw AscendKitError.invalidState("ASC did not return an appScreenshotSet id.")
+        }
+        return setID
+    }
+
+    private func createAppScreenshotReservation(
+        appScreenshotSetID: String,
+        fileName: String,
+        fileSize: Int,
+        token: String
+    ) async throws -> AppScreenshotReservation {
+        let payload: [String: Any] = [
+            "data": [
+                "type": "appScreenshots",
+                "attributes": [
+                    "fileName": fileName,
+                    "fileSize": fileSize
+                ],
+                "relationships": [
+                    "appScreenshotSet": [
+                        "data": [
+                            "type": "appScreenshotSets",
+                            "id": appScreenshotSetID
+                        ]
+                    ]
+                ]
+            ]
+        ]
+        let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
+        var request = URLRequest(url: baseURL.appendingPathComponent("v1/appScreenshots"))
+        request.httpMethod = "POST"
+        request.httpBody = data
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let (responseData, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse else {
+            throw AscendKitError.invalidState("ASC app-screenshot.create request did not return an HTTP response.")
+        }
+        guard (200..<300).contains(http.statusCode) else {
+            throw AscendKitError.invalidState("ASC app-screenshot.create failed with HTTP \(http.statusCode): \(String(decoding: responseData.prefix(8192), as: UTF8.self))")
+        }
+        let decoded = try JSONDecoder().decode(AppScreenshotResponse.self, from: responseData)
+        return AppScreenshotReservation(
+            id: decoded.data.id,
+            uploadOperations: decoded.data.attributes.uploadOperations ?? [],
+            response: ReviewSubmissionExecutionResponse(
+                id: "app-screenshot.create",
+                method: "POST",
+                path: "/v1/appScreenshots",
+                statusCode: http.statusCode,
+                resourceID: decoded.data.id
+            )
+        )
+    }
+
+    private func uploadAssetParts(uploadOperations: [UploadOperation], data: Data) async throws {
+        guard !uploadOperations.isEmpty else {
+            throw AscendKitError.invalidState("ASC app screenshot reservation did not include upload operations.")
+        }
+
+        for operation in uploadOperations {
+            guard let url = URL(string: operation.url) else {
+                throw AscendKitError.invalidState("ASC upload operation has an invalid URL: \(operation.url)")
+            }
+            let lowerBound = operation.offset ?? 0
+            let length = operation.length ?? (data.count - lowerBound)
+            guard lowerBound >= 0, length >= 0, lowerBound + length <= data.count else {
+                throw AscendKitError.invalidState("ASC upload operation range is outside local screenshot data.")
+            }
+
+            var request = URLRequest(url: url)
+            request.httpMethod = operation.method
+            for header in operation.requestHeaders {
+                request.setValue(header.value, forHTTPHeaderField: header.name)
+            }
+            request.httpBody = data.subdata(in: lowerBound..<(lowerBound + length))
+
+            let (responseData, response) = try await session.data(for: request)
+            guard let http = response as? HTTPURLResponse else {
+                throw AscendKitError.invalidState("ASC upload operation did not return an HTTP response.")
+            }
+            guard (200..<300).contains(http.statusCode) else {
+                throw AscendKitError.invalidState("ASC upload operation failed with HTTP \(http.statusCode): \(String(decoding: responseData.prefix(1024), as: UTF8.self))")
+            }
+        }
+    }
+
+    private func commitAppScreenshot(
+        screenshotID: String,
+        checksum: String,
+        token: String
+    ) async throws -> ReviewSubmissionExecutionResponse {
+        try await sendJSONAPIRequest(
+            id: "app-screenshot.commit",
+            method: "PATCH",
+            path: "/v1/appScreenshots/\(screenshotID)",
+            payload: [
+                "data": [
+                    "type": "appScreenshots",
+                    "id": screenshotID,
+                    "attributes": [
+                        "uploaded": true,
+                        "sourceFileChecksum": checksum
+                    ]
+                ]
+            ],
+            token: token
+        )
+    }
+
+    private func pollAppScreenshotDeliveryState(
+        screenshotID: String,
+        token: String
+    ) async throws -> String? {
+        let resource = try await getResource(
+            path: "v1/appScreenshots/\(screenshotID)",
+            token: token,
+            as: AppScreenshotResource.self
+        )
+        return resource.attributes.assetDeliveryState?.state
     }
 
     private func upsertReviewDetail(
@@ -1122,6 +1389,10 @@ public struct ASCAPIClient {
         var data: [Resource]
     }
 
+    private struct SingleResponse<Resource: Decodable>: Decodable {
+        var data: Resource
+    }
+
     private struct ListResponseWithIncluded<Resource: Decodable, Included: Decodable>: Decodable {
         var data: [Resource]
         var included: [Included]
@@ -1157,6 +1428,72 @@ public struct ASCAPIClient {
 
     private struct AppPricePointAttributes: Decodable {
         var customerPrice: String
+    }
+
+    private struct AppScreenshotSetResource: Decodable {
+        var id: String
+        var attributes: AppScreenshotSetAttributes
+    }
+
+    private struct AppScreenshotSetAttributes: Decodable {
+        var screenshotDisplayType: String
+    }
+
+    private struct AppScreenshotReservation {
+        var id: String
+        var uploadOperations: [UploadOperation]
+        var response: ReviewSubmissionExecutionResponse
+    }
+
+    private struct AppScreenshotResponse: Decodable {
+        var data: AppScreenshotResource
+    }
+
+    private struct AppScreenshotResource: Decodable {
+        var id: String
+        var attributes: AppScreenshotAttributes
+    }
+
+    private struct AppScreenshotAttributes: Decodable {
+        var uploadOperations: [UploadOperation]?
+        var assetDeliveryState: AssetDeliveryState?
+    }
+
+    private struct AssetDeliveryState: Decodable {
+        var state: String?
+    }
+
+    private struct UploadOperation: Decodable {
+        var method: String
+        var url: String
+        var offset: Int?
+        var length: Int?
+        var requestHeaders: [UploadOperationHeader]
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            self.method = try container.decodeIfPresent(String.self, forKey: .method) ?? "PUT"
+            self.url = try container.decode(String.self, forKey: .url)
+            self.offset = try container.decodeIfPresent(Int.self, forKey: .offset)
+            self.length = try container.decodeIfPresent(Int.self, forKey: .length)
+            self.requestHeaders = try container.decodeIfPresent([UploadOperationHeader].self, forKey: .requestHeaders)
+                ?? container.decodeIfPresent([UploadOperationHeader].self, forKey: .headers)
+                ?? []
+        }
+
+        private enum CodingKeys: String, CodingKey {
+            case method
+            case url
+            case offset
+            case length
+            case requestHeaders
+            case headers
+        }
+    }
+
+    private struct UploadOperationHeader: Decodable {
+        var name: String
+        var value: String
     }
 
     private struct AppInfoResource: Decodable {
