@@ -177,6 +177,7 @@ public struct ASCAPIClient {
             )
         }
         let selectedVersion = selectVersion(from: versions, versionString: versionString, platform: platform)
+        var screenshotSetsByLocale: [String: [ObservedScreenshotSet]] = [:]
         if let version = selectedVersion {
             let versionLocalizations = try await getList(
                 path: "v1/appStoreVersions/\(version.id)/appStoreVersionLocalizations",
@@ -203,6 +204,10 @@ public struct ASCAPIClient {
                     marketingURL: resource.attributes.marketingUrl,
                     privacyPolicyURL: existing?.privacyPolicyURL
                 )
+                screenshotSetsByLocale[locale] = try await observeScreenshotSets(
+                    appStoreVersionLocalizationID: resource.id,
+                    token: token
+                )
             }
         }
 
@@ -212,7 +217,8 @@ public struct ASCAPIClient {
             appStoreVersionID: selectedVersion?.id,
             appStoreVersionPlatform: selectedVersion?.attributes.platform,
             metadataByLocale: metadataByLocale,
-            resourceIDsByLocale: resourceIDsByLocale
+            resourceIDsByLocale: resourceIDsByLocale,
+            screenshotSetsByLocale: screenshotSetsByLocale.isEmpty ? nil : screenshotSetsByLocale
         )
     }
 
@@ -855,6 +861,40 @@ public struct ASCAPIClient {
         return setID
     }
 
+    private func observeScreenshotSets(
+        appStoreVersionLocalizationID: String,
+        token: String
+    ) async throws -> [ObservedScreenshotSet] {
+        let existingSets = try await getList(
+            path: "v1/appStoreVersionLocalizations/\(appStoreVersionLocalizationID)/appScreenshotSets",
+            query: ["limit": "200"],
+            token: token,
+            as: AppScreenshotSetResource.self
+        )
+
+        var observedSets: [ObservedScreenshotSet] = []
+        for set in existingSets {
+            let screenshots = try await getList(
+                path: "v1/appScreenshotSets/\(set.id)/appScreenshots",
+                query: ["limit": "200"],
+                token: token,
+                as: AppScreenshotResource.self
+            )
+            observedSets.append(ObservedScreenshotSet(
+                id: set.id,
+                displayType: set.attributes.screenshotDisplayType,
+                screenshots: screenshots.map {
+                    ObservedScreenshot(
+                        id: $0.id,
+                        fileName: $0.attributes.fileName,
+                        assetDeliveryState: $0.attributes.assetDeliveryState?.state
+                    )
+                }
+            ))
+        }
+        return observedSets.sorted { $0.displayType < $1.displayType }
+    }
+
     private func createAppScreenshotReservation(
         appScreenshotSetID: String,
         fileName: String,
@@ -1455,6 +1495,7 @@ public struct ASCAPIClient {
     }
 
     private struct AppScreenshotAttributes: Decodable {
+        var fileName: String?
         var uploadOperations: [UploadOperation]?
         var assetDeliveryState: AssetDeliveryState?
     }

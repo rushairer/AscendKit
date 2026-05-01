@@ -179,6 +179,54 @@ struct ScreenshotTests {
         #expect(plan.findings.isEmpty)
     }
 
+    @Test("blocks screenshot upload plan when ASC already has screenshots for target set")
+    func blocksScreenshotUploadPlanWithExistingRemoteScreenshots() throws {
+        let importManifest = ScreenshotImportManifest(
+            sourceDirectory: "/tmp/screenshots",
+            artifacts: [
+                ScreenshotArtifact(
+                    locale: "en-US",
+                    platform: .iOS,
+                    path: "/tmp/screenshots/en-US/iOS/01-home.png",
+                    fileName: "01-home.png"
+                )
+            ]
+        )
+        let observed = MetadataObservedState(
+            metadataByLocale: [
+                "en-US": AppMetadata(
+                    locale: "en-US",
+                    name: "Demo",
+                    description: "Demo description"
+                )
+            ],
+            resourceIDsByLocale: [
+                "en-US": MetadataLocalizationResourceIDs(appStoreVersionLocalizationID: "version-loc-1")
+            ],
+            screenshotSetsByLocale: [
+                "en-US": [
+                    ObservedScreenshotSet(
+                        id: "set-1",
+                        displayType: "APP_IPHONE_67",
+                        screenshots: [
+                            ObservedScreenshot(id: "screenshot-1", fileName: "old-home.png", assetDeliveryState: "COMPLETE")
+                        ]
+                    )
+                ]
+            ]
+        )
+
+        let plan = ScreenshotUploadPlanBuilder().build(
+            importManifest: importManifest,
+            compositionManifest: nil,
+            observedState: observed
+        )
+
+        #expect(plan.items.count == 1)
+        #expect(plan.findings.contains { $0.contains("ASC already has 1 screenshot(s) for en-US/APP_IPHONE_67") })
+        #expect(plan.findings.contains { $0.contains("old-home.png") })
+    }
+
     @Test("renders poster composition as a PNG artifact")
     func rendersPosterComposition() throws {
         let root = try TemporaryDirectory()

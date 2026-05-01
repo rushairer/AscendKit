@@ -38,6 +38,16 @@ struct ASCTests {
                 description: "Remote description",
                 releaseNotes: "Bug fixes"
             )
+        ], screenshotSetsByLocale: [
+            "en-US": [
+                ObservedScreenshotSet(
+                    id: "set-1",
+                    displayType: "APP_IPHONE_67",
+                    screenshots: [
+                        ObservedScreenshot(id: "screenshot-1", fileName: "01-home.png", assetDeliveryState: "COMPLETE")
+                    ]
+                )
+            ]
         ])
 
         let data = try AscendKitJSON.encoder.encode(observed)
@@ -45,6 +55,7 @@ struct ASCTests {
 
         #expect(decoded.metadataByLocale["en-US"]?.name == "Demo")
         #expect(decoded.source == "local-observation")
+        #expect(decoded.screenshotSetsByLocale?["en-US"]?.first?.screenshots.first?.fileName == "01-home.png")
     }
 
     @Test("reports redacted ASC auth config status")

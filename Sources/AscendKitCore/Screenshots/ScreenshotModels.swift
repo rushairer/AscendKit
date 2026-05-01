@@ -609,6 +609,8 @@ public struct ScreenshotUploadPlanBuilder {
                 return $0.order < $1.order
             }
 
+        findings.append(contentsOf: existingScreenshotFindings(items: items, observedState: observedState))
+
         return ScreenshotUploadPlan(sourceKind: sourceKind, items: items, findings: Array(Set(findings)).sorted())
     }
 
@@ -638,6 +640,53 @@ public struct ScreenshotUploadPlanBuilder {
         case .iOS, .unknown:
             return "APP_IPHONE_67"
         }
+    }
+
+    private func existingScreenshotFindings(
+        items: [ScreenshotUploadPlanItem],
+        observedState: MetadataObservedState?
+    ) -> [String] {
+        guard let observedState else {
+            return []
+        }
+
+        var localeByLocalizationID: [String: String] = [:]
+        for (locale, resourceIDs) in observedState.resourceIDsByLocale ?? [:] {
+            if let appStoreVersionLocalizationID = resourceIDs.appStoreVersionLocalizationID {
+                localeByLocalizationID[appStoreVersionLocalizationID] = locale
+            }
+        }
+
+        var findings: [String] = []
+        let targets = Set(items.map { "\($0.locale)|\($0.displayType)" })
+        for (locale, sets) in observedState.screenshotSetsByLocale ?? [:] {
+            for set in sets where !set.screenshots.isEmpty {
+                guard targets.contains("\(locale)|\(set.displayType)") else {
+                    continue
+                }
+                let names = set.screenshots
+                    .compactMap(\.fileName)
+                    .sorted()
+                    .prefix(3)
+                    .joined(separator: ", ")
+                let suffix = names.isEmpty ? "" : " Existing files include: \(names)."
+                findings.append(
+                    "ASC already has \(set.screenshots.count) screenshot(s) for \(locale)/\(set.displayType). Native upload currently only supports safe append; clear or replace existing screenshots in App Store Connect before executing upload.\(suffix)"
+                )
+            }
+        }
+
+        for item in items {
+            guard let locale = localeByLocalizationID[item.appStoreVersionLocalizationID],
+                  locale != item.locale else {
+                continue
+            }
+            findings.append(
+                "Screenshot item \(item.fileName) targets localization \(item.appStoreVersionLocalizationID), which observed state maps to \(locale), not \(item.locale)."
+            )
+        }
+
+        return findings
     }
 
     private struct UploadSourceArtifact {

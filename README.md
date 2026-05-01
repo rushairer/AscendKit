@@ -14,7 +14,7 @@ Implemented today:
 - Durable release workspaces under `.ascendkit/releases/<release-id>`.
 - Project intake and release doctor checks.
 - Metadata templates, fastlane metadata import, linting, diffing, and ASC request planning.
-- Screenshot planning, import manifests, fastlane screenshot import, and local composition outputs.
+- Screenshot planning, import manifests, fastlane screenshot import, local composition outputs, guarded ASC upload planning, and native screenshot upload execution.
 - App Store Connect auth profiles using secret references.
 - ASC app lookup, build lookup, metadata observation, metadata apply, and guarded review submission.
 - Reviewer information, readiness checks, review handoff, and submission result persistence.
@@ -23,11 +23,11 @@ Implemented today:
 Out of scope for the current MVP:
 
 - Binary upload.
-- Direct screenshot upload to App Store Connect.
 - Archive/sign/export replacement.
 - Xcode Cloud replacement.
 - Deep MCP integration.
 - Fully managed App Store Connect pricing/App Privacy abstractions for every Apple API edge case.
+- Automatic remote screenshot replacement/deletion. Native upload currently supports safe creation/append only and blocks when matching remote screenshots already exist.
 
 ## Requirements
 
@@ -55,7 +55,7 @@ The typical flow is:
 5. Observe remote ASC state.
 6. Plan and apply metadata.
 7. Select a build.
-8. Upload screenshots outside AscendKit if they are not already in App Store Connect.
+8. Plan and upload screenshots with explicit confirmation, or use App Store Connect UI when replacing existing screenshots.
 9. Add reviewer information.
 10. Run readiness checks.
 11. Submit for review with explicit confirmation.
@@ -113,13 +113,6 @@ Compose local screenshot artifacts:
 swift run ascendkit screenshots compose --workspace "$WORKSPACE" --mode storeReadyCopy
 swift run ascendkit screenshots compose --workspace "$WORKSPACE" --mode deviceFrame
 swift run ascendkit screenshots compose --workspace "$WORKSPACE" --mode poster
-swift run ascendkit screenshots upload-plan --workspace "$WORKSPACE" --json
-```
-
-Upload screenshots to App Store Connect before final submission. The current MVP does not include direct screenshot upload, so use App Store Connect UI for now. Native screenshot upload is the next major fastlane-removal milestone.
-
-```bash
-open https://appstoreconnect.apple.com/
 ```
 
 Save an ASC auth profile. The profile stores only a reference to the private key file, not the key content:
@@ -149,6 +142,17 @@ Observe the app and remote metadata:
 swift run ascendkit asc lookup plan --workspace "$WORKSPACE" --json
 swift run ascendkit asc apps lookup --workspace "$WORKSPACE" --json
 swift run ascendkit asc metadata observe --workspace "$WORKSPACE" --json
+```
+
+Plan and upload screenshots. The plan reads observed ASC screenshot sets and blocks execution when matching remote screenshots already exist, because automatic replacement/deletion is not implemented yet:
+
+```bash
+swift run ascendkit screenshots upload-plan --workspace "$WORKSPACE" --json
+
+swift run ascendkit screenshots upload \
+  --workspace "$WORKSPACE" \
+  --confirm-remote-mutation \
+  --json
 ```
 
 Plan and apply metadata changes:
@@ -368,6 +372,17 @@ swift run ascendkit screenshots upload-plan \
 ```
 
 Creates a dry-run App Store Connect screenshot upload plan from imported or composed artifacts. This is the native upload foundation; it does not mutate ASC yet.
+The plan includes observed remote screenshot sets from `asc metadata observe` and reports a blocking finding when a matching locale/display type already has screenshots, preventing accidental duplicates.
+
+```bash
+swift run ascendkit screenshots upload \
+  --workspace "$WORKSPACE" \
+  --confirm-remote-mutation \
+  --json
+```
+
+Executes native screenshot upload through App Store Connect by creating or reusing screenshot sets, reserving screenshots, uploading ASC asset parts, and committing checksums. This command mutates ASC only with `--confirm-remote-mutation`.
+If `screenshots upload-plan` has findings, execution refuses to proceed.
 
 ### `asc auth`
 
@@ -597,6 +612,7 @@ Important files:
 - `metadata/lint/*.json`: lint results.
 - `screenshots/manifests/*.json`: screenshot import/composition manifests.
 - `screenshots/manifests/upload.json`: dry-run native ASC screenshot upload plan.
+- `screenshots/manifests/upload-result.json`: native ASC screenshot upload execution result.
 - `asc/auth.json`: ASC auth config with secret references only.
 - `asc/apps.json`: ASC app lookup result.
 - `asc/observed-state.json`: observed ASC metadata state.
@@ -626,6 +642,7 @@ AscendKit's core rule is: commit configuration and references, not secrets.
 Remote mutation commands require explicit flags:
 
 - `asc metadata apply --confirm-remote-mutation`
+- `screenshots upload --confirm-remote-mutation`
 - `submit execute --confirm-remote-submission`
 
 ## Maintainer Workflow
@@ -656,7 +673,7 @@ Release checklist:
 Fastlane removal roadmap:
 
 1. Keep `import-fastlane` commands only as migration helpers.
-2. Implement native ASC screenshot upload execution on top of the current upload plan.
+2. Harden native ASC screenshot replacement/deletion with explicit dry-run and confirmation semantics.
 3. Formalize App Privacy declarations on official ASC API where available and explicit fallback paths where Apple exposes only private iris endpoints.
 4. Keep binary upload out of scope; Xcode Cloud remains the preferred binary delivery path.
 

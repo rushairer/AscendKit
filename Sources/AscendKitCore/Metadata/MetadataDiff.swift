@@ -8,6 +8,7 @@ public struct MetadataObservedState: Codable, Equatable, Sendable {
     public var appStoreVersionPlatform: String?
     public var metadataByLocale: [String: AppMetadata]
     public var resourceIDsByLocale: [String: MetadataLocalizationResourceIDs]?
+    public var screenshotSetsByLocale: [String: [ObservedScreenshotSet]]?
 
     public init(
         generatedAt: Date = Date(),
@@ -16,7 +17,8 @@ public struct MetadataObservedState: Codable, Equatable, Sendable {
         appStoreVersionID: String? = nil,
         appStoreVersionPlatform: String? = nil,
         metadataByLocale: [String: AppMetadata],
-        resourceIDsByLocale: [String: MetadataLocalizationResourceIDs]? = nil
+        resourceIDsByLocale: [String: MetadataLocalizationResourceIDs]? = nil,
+        screenshotSetsByLocale: [String: [ObservedScreenshotSet]]? = nil
     ) {
         self.generatedAt = generatedAt
         self.source = source
@@ -25,6 +27,31 @@ public struct MetadataObservedState: Codable, Equatable, Sendable {
         self.appStoreVersionPlatform = appStoreVersionPlatform
         self.metadataByLocale = metadataByLocale
         self.resourceIDsByLocale = resourceIDsByLocale
+        self.screenshotSetsByLocale = screenshotSetsByLocale
+    }
+}
+
+public struct ObservedScreenshotSet: Codable, Equatable, Sendable {
+    public var id: String
+    public var displayType: String
+    public var screenshots: [ObservedScreenshot]
+
+    public init(id: String, displayType: String, screenshots: [ObservedScreenshot] = []) {
+        self.id = id
+        self.displayType = displayType
+        self.screenshots = screenshots
+    }
+}
+
+public struct ObservedScreenshot: Codable, Equatable, Sendable {
+    public var id: String
+    public var fileName: String?
+    public var assetDeliveryState: String?
+
+    public init(id: String, fileName: String? = nil, assetDeliveryState: String? = nil) {
+        self.id = id
+        self.fileName = fileName
+        self.assetDeliveryState = assetDeliveryState
     }
 }
 
