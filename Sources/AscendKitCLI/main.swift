@@ -415,8 +415,11 @@ struct CLIRunner {
         if domain == "pricing" {
             return try await ascPricing(args, json: json)
         }
+        if domain == "privacy" {
+            return try await ascPrivacy(args, json: json)
+        }
         guard domain == "builds" else {
-            throw AscendKitError.invalidArguments("Usage: ascendkit asc auth init|check OR ascendkit asc lookup plan|apps OR ascendkit asc apps lookup OR ascendkit asc builds list|import OR ascendkit asc metadata import OR ascendkit asc pricing set-free")
+            throw AscendKitError.invalidArguments("Usage: ascendkit asc auth init|check OR ascendkit asc lookup plan|apps OR ascendkit asc apps lookup OR ascendkit asc builds list|import OR ascendkit asc metadata import OR ascendkit asc pricing set-free OR ascendkit asc privacy set-not-collected")
         }
         switch args.dropFirst().first {
         case "observe":
@@ -861,6 +864,70 @@ struct CLIRunner {
         }
     }
 
+    private func ascPrivacy(_ args: [String], json: Bool) async throws -> String {
+        guard args.dropFirst().first == "set-not-collected" else {
+            throw AscendKitError.invalidArguments("Usage: ascendkit asc privacy set-not-collected --workspace PATH [--app-id ID] --confirm-remote-mutation [--json]")
+        }
+        guard args.contains("--confirm-remote-mutation") else {
+            let responses: [ReviewSubmissionExecutionResponse] = []
+            return try render(responses, json: json) {
+                "ASC app privacy was not changed: pass --confirm-remote-mutation to publish Data Not Collected answers."
+            }
+        }
+
+        let workspace = try loadWorkspace(from: args)
+        let store = ReleaseWorkspaceStore(fileManager: fileManager)
+        guard let authConfig = try loadIfExists(ASCAuthConfig.self, path: workspace.paths.ascAuthConfig) else {
+            throw AscendKitError.invalidState("ASC auth config is missing. Run asc auth init first.")
+        }
+        let authStatus = ASCAuthStatus(config: authConfig)
+        guard authStatus.configured else {
+            throw AscendKitError.invalidState("ASC auth config is not ready: \(authStatus.findings.joined(separator: " "))")
+        }
+
+        let appID: String
+        if let explicitAppID = value(after: "--app-id", in: args), !explicitAppID.isEmpty {
+            appID = explicitAppID
+        } else {
+            guard let appsReport = try loadIfExists(ASCAppsLookupReport.self, path: workspace.paths.ascApps),
+                  let observedAppID = appsReport.apps.first?.id else {
+                throw AscendKitError.invalidState("ASC app ID is missing. Run asc apps lookup first or pass --app-id.")
+            }
+            appID = observedAppID
+        }
+
+        let privateKey = try ASCSecretResolver(fileManager: fileManager).resolve(authConfig.privateKey)
+        let token = try ASCJWTSigner().token(config: authConfig, privateKeyPEM: privateKey)
+        let responses: [ReviewSubmissionExecutionResponse]
+        do {
+            responses = try await ASCAPIClient().publishDataNotCollectedPrivacyAnswers(appID: appID, token: token)
+        } catch AscendKitError.invalidState(let message) where message.contains("HTTP 401") || message.contains("NOT_AUTHORIZED") {
+            responses = [
+                ReviewSubmissionExecutionResponse(
+                    id: "app-privacy.data-not-collected.skip-iris-unauthorized",
+                    method: "SKIP",
+                    path: "/iris/v1/apps/\(appID)/dataUsages",
+                    statusCode: 401
+                )
+            ]
+        }
+        try store.appendAudit(
+            .init(
+                action: .reviewSubmissionPlanned,
+                summary: responses.contains(where: { $0.statusCode == 401 })
+                    ? "Skipped ASC app privacy publish because IRIS rejected API key auth"
+                    : "Published ASC app privacy Data Not Collected answers",
+                details: ["appID": appID, "responses": "\(responses.count)"]
+            ),
+            to: workspace
+        )
+        return try render(responses, json: json) {
+            responses.contains(where: { $0.statusCode == 401 })
+                ? "ASC app privacy could not be published with API key auth; use App Store Connect UI or Apple ID web session support."
+                : "ASC app privacy Data Not Collected answers published with \(responses.count) response(s)."
+        }
+    }
+
     private func submit(_ args: [String], json: Bool) async throws -> String {
         guard args.first == "readiness" || args.first == "prepare" || args.first == "review-plan" || args.first == "handoff" || args.first == "execute" else {
             if args.first == "review-info", args.dropFirst().first == "init" {
@@ -1265,6 +1332,7 @@ struct CLIRunner {
       ascendkit asc metadata requests --workspace PATH [--json]
       ascendkit asc metadata apply --workspace PATH --confirm-remote-mutation [--json]
       ascendkit asc pricing set-free --workspace PATH [--app-id ID] [--base-territory USA] [--confirm-remote-mutation] [--json]
+      ascendkit asc privacy set-not-collected --workspace PATH [--app-id ID] --confirm-remote-mutation [--json]
       ascendkit submit readiness --workspace PATH [--json]
       ascendkit submit prepare --workspace PATH [--json]
       ascendkit submit review-plan --workspace PATH [--json]

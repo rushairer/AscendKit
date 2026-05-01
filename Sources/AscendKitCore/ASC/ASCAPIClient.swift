@@ -566,6 +566,23 @@ public struct ASCAPIClient {
         )
         responses.append(buildResponse)
 
+        let buildEncryptionResponse = try await sendJSONAPIRequest(
+            id: "build.export-compliance.update",
+            method: "PATCH",
+            path: "/v1/builds/\(buildID)",
+            payload: [
+                "data": [
+                    "type": "builds",
+                    "id": buildID,
+                    "attributes": [
+                        "usesNonExemptEncryption": false
+                    ]
+                ]
+            ],
+            token: token
+        )
+        responses.append(buildEncryptionResponse)
+
         let appInfoResponse = try await updateAppInfo(appInfoID: appInfoID, token: token)
         if let appInfoResponse {
             responses.append(appInfoResponse)
@@ -1206,7 +1223,7 @@ public struct ASCAPIClient {
         )
     }
 
-    private func publishDataNotCollectedPrivacyAnswers(appID: String, token: String) async throws -> [ReviewSubmissionExecutionResponse] {
+    public func publishDataNotCollectedPrivacyAnswers(appID: String, token: String) async throws -> [ReviewSubmissionExecutionResponse] {
         let existingUsages = try await getList(
             path: "v1/apps/\(appID)/dataUsages",
             query: ["limit": "500"],
