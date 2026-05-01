@@ -409,6 +409,142 @@ public struct ScreenshotLocalWorkflowResult: Codable, Equatable, Sendable {
     }
 }
 
+public enum ScreenshotWorkflowStepState: String, Codable, Equatable, Sendable {
+    case complete
+    case missing
+    case blocked
+}
+
+public struct ScreenshotWorkflowStepStatus: Codable, Equatable, Identifiable, Sendable {
+    public var id: String
+    public var title: String
+    public var state: ScreenshotWorkflowStepState
+    public var detail: String?
+    public var path: String?
+
+    public init(
+        id: String,
+        title: String,
+        state: ScreenshotWorkflowStepState,
+        detail: String? = nil,
+        path: String? = nil
+    ) {
+        self.id = id
+        self.title = title
+        self.state = state
+        self.detail = detail
+        self.path = path
+    }
+}
+
+public struct ScreenshotWorkflowStatusReport: Codable, Equatable, Sendable {
+    public var generatedAt: Date
+    public var readyForUploadPlan: Bool
+    public var steps: [ScreenshotWorkflowStepStatus]
+    public var findings: [String]
+
+    public init(
+        generatedAt: Date = Date(),
+        steps: [ScreenshotWorkflowStepStatus],
+        findings: [String] = []
+    ) {
+        self.generatedAt = generatedAt
+        self.steps = steps
+        self.findings = findings
+        self.readyForUploadPlan = steps.allSatisfy { $0.state == .complete } && findings.isEmpty
+    }
+}
+
+public struct ScreenshotWorkflowStatusBuilder {
+    public init() {}
+
+    public func build(
+        capturePlan: ScreenshotCapturePlan?,
+        captureResult: ScreenshotCaptureExecutionResult?,
+        importManifest: ScreenshotImportManifest?,
+        compositionManifest: ScreenshotCompositionManifest?,
+        workflowResult: ScreenshotLocalWorkflowResult?,
+        uploadPlan: ScreenshotUploadPlan? = nil,
+        paths: ReleaseWorkspacePaths? = nil
+    ) -> ScreenshotWorkflowStatusReport {
+        var findings: [String] = []
+        var steps: [ScreenshotWorkflowStepStatus] = []
+
+        steps.append(.init(
+            id: "capture-plan",
+            title: "Capture plan",
+            state: capturePlan == nil ? .missing : (capturePlan?.findings.isEmpty == true ? .complete : .blocked),
+            detail: capturePlan.map { "\($0.commands.count) command(s), \($0.destinations.count) destination(s)" },
+            path: paths?.screenshotCapturePlan
+        ))
+
+        if let capturePlan, !capturePlan.findings.isEmpty {
+            findings.append(contentsOf: capturePlan.findings)
+        }
+
+        let captureState: ScreenshotWorkflowStepState
+        if let captureResult {
+            captureState = captureResult.succeeded ? .complete : .blocked
+            findings.append(contentsOf: captureResult.findings)
+        } else {
+            captureState = .missing
+        }
+        steps.append(.init(
+            id: "capture-result",
+            title: "Capture execution",
+            state: captureState,
+            detail: captureResult.map { "\($0.succeededCount) succeeded, \($0.failedCount) failed" },
+            path: paths?.screenshotCaptureResult
+        ))
+
+        steps.append(.init(
+            id: "import-manifest",
+            title: "Import manifest",
+            state: importManifest == nil ? .missing : (importManifest?.artifacts.isEmpty == false ? .complete : .blocked),
+            detail: importManifest.map { "\($0.artifacts.count) artifact(s)" },
+            path: paths?.screenshotImportManifest
+        ))
+        if importManifest?.artifacts.isEmpty == true {
+            findings.append("Screenshot import manifest has no artifacts.")
+        }
+
+        steps.append(.init(
+            id: "composition-manifest",
+            title: "Composition manifest",
+            state: compositionManifest == nil ? .missing : (compositionManifest?.artifacts.isEmpty == false ? .complete : .blocked),
+            detail: compositionManifest.map { "\($0.artifacts.count) artifact(s), mode \($0.mode.rawValue)" },
+            path: paths?.screenshotCompositionManifest
+        ))
+        if compositionManifest?.artifacts.isEmpty == true {
+            findings.append("Screenshot composition manifest has no artifacts.")
+        }
+
+        steps.append(.init(
+            id: "workflow-result",
+            title: "Local workflow result",
+            state: workflowResult == nil ? .missing : (workflowResult?.succeeded == true ? .complete : .blocked),
+            detail: workflowResult.map { "\($0.capturedFileCount) captured, \($0.composedArtifactCount) composed" },
+            path: paths?.screenshotWorkflowResult
+        ))
+        if let workflowResult, !workflowResult.succeeded {
+            findings.append(contentsOf: workflowResult.findings)
+        }
+
+        if let uploadPlan {
+            steps.append(.init(
+                id: "upload-plan",
+                title: "Upload plan",
+                state: uploadPlan.findings.isEmpty ? .complete : .blocked,
+                detail: "\(uploadPlan.items.count) item(s), \(uploadPlan.findings.count) finding(s)",
+                path: paths?.screenshotUploadPlan
+            ))
+            findings.append(contentsOf: uploadPlan.findings)
+        }
+
+        return ScreenshotWorkflowStatusReport(steps: steps, findings: findings)
+    }
+}
+
 public struct ScreenshotCaptureExecutor {
     public let fileManager: FileManager
 

@@ -380,18 +380,38 @@ struct CLIRunner {
                     : "Screenshot capture finished with \(result.failedCount) failed command(s): \(result.findings.joined(separator: " "))"
             }
         case "workflow":
-            guard args.dropFirst().first == "run" else {
-                throw AscendKitError.invalidArguments("Usage: ascendkit screenshots workflow run --workspace PATH [--scheme SCHEME] [--configuration Debug] [--destination DESTINATION] [--mode storeReadyCopy|poster|deviceFrame|framedPoster] [--copy PATH] [--json]")
-            }
-            let result = try runScreenshotWorkflow(workspace: workspace, store: store, args: args)
-            return try render(result, json: json) {
-                result.succeeded
-                    ? "Screenshot workflow completed with \(result.capturedFileCount) captured file(s) and \(result.composedArtifactCount) composed artifact(s)."
-                    : "Screenshot workflow failed: \(result.findings.joined(separator: " "))"
+            switch args.dropFirst().first {
+            case "run":
+                let result = try runScreenshotWorkflow(workspace: workspace, store: store, args: args)
+                return try render(result, json: json) {
+                    result.succeeded
+                        ? "Screenshot workflow completed with \(result.capturedFileCount) captured file(s) and \(result.composedArtifactCount) composed artifact(s)."
+                        : "Screenshot workflow failed: \(result.findings.joined(separator: " "))"
+                }
+            case "status":
+                let status = try screenshotWorkflowStatus(workspace: workspace)
+                return try render(status, json: json) {
+                    let lines = status.steps.map { "\($0.id): \($0.state.rawValue)\($0.detail.map { " (\($0))" } ?? "")" }
+                    return ([status.readyForUploadPlan ? "Screenshot workflow ready for upload-plan." : "Screenshot workflow is not ready for upload-plan."] + lines).joined(separator: "\n")
+                }
+            default:
+                throw AscendKitError.invalidArguments("Usage: ascendkit screenshots workflow run|status --workspace PATH [--scheme SCHEME] [--configuration Debug] [--destination DESTINATION] [--mode storeReadyCopy|poster|deviceFrame|framedPoster] [--copy PATH] [--json]")
             }
         default:
             throw AscendKitError.invalidArguments("Unknown screenshots command: \(subcommand)")
         }
+    }
+
+    private func screenshotWorkflowStatus(workspace: ReleaseWorkspace) throws -> ScreenshotWorkflowStatusReport {
+        try ScreenshotWorkflowStatusBuilder().build(
+            capturePlan: loadIfExists(ScreenshotCapturePlan.self, path: workspace.paths.screenshotCapturePlan),
+            captureResult: loadIfExists(ScreenshotCaptureExecutionResult.self, path: workspace.paths.screenshotCaptureResult),
+            importManifest: loadIfExists(ScreenshotImportManifest.self, path: workspace.paths.screenshotImportManifest),
+            compositionManifest: loadIfExists(ScreenshotCompositionManifest.self, path: workspace.paths.screenshotCompositionManifest),
+            workflowResult: loadIfExists(ScreenshotLocalWorkflowResult.self, path: workspace.paths.screenshotWorkflowResult),
+            uploadPlan: loadIfExists(ScreenshotUploadPlan.self, path: workspace.paths.screenshotUploadPlan),
+            paths: workspace.paths
+        )
     }
 
     private func runScreenshotWorkflow(workspace: ReleaseWorkspace, store: ReleaseWorkspaceStore, args: [String]) throws -> ScreenshotLocalWorkflowResult {
@@ -1593,6 +1613,7 @@ struct CLIRunner {
       ascendkit screenshots capture-plan --workspace PATH [--scheme SCHEME] [--configuration Debug] [--destination DESTINATION] [--json]
       ascendkit screenshots capture --workspace PATH [--json]
       ascendkit screenshots workflow run --workspace PATH [--scheme SCHEME] [--configuration Debug] [--destination DESTINATION] [--mode storeReadyCopy|poster|deviceFrame|framedPoster] [--copy PATH] [--json]
+      ascendkit screenshots workflow status --workspace PATH [--json]
       ascendkit screenshots readiness --workspace PATH [--source PATH] [--json]
       ascendkit screenshots import --workspace PATH --source PATH [--json]
       ascendkit screenshots import-fastlane --workspace PATH --source PATH [--locales en-US,zh-Hans] [--json]

@@ -208,6 +208,64 @@ struct ScreenshotTests {
         #expect(decoded.composedArtifactCount == 3)
     }
 
+    @Test("summarizes screenshot workflow status")
+    func summarizesScreenshotWorkflowStatus() {
+        let report = ScreenshotWorkflowStatusBuilder().build(
+            capturePlan: ScreenshotCapturePlan(
+                scheme: "Demo",
+                destinations: [ScreenshotCaptureDestination(platform: .iOS, name: "iPhone", xcodebuildDestination: "platform=iOS Simulator,name=iPhone")],
+                locales: ["en-US"],
+                commands: []
+            ),
+            captureResult: ScreenshotCaptureExecutionResult(
+                executed: true,
+                items: [
+                    ScreenshotCaptureExecutionItem(
+                        commandID: "en-US:iOS:iPhone",
+                        locale: "en-US",
+                        platform: .iOS,
+                        destinationName: "iPhone",
+                        exitCode: 0,
+                        resultBundlePath: "/tmp/result.xcresult",
+                        rawOutputDirectory: "/tmp/raw",
+                        outputFiles: ["/tmp/raw/01.png"],
+                        durationSeconds: 1
+                    )
+                ]
+            ),
+            importManifest: ScreenshotImportManifest(
+                sourceDirectory: "/tmp/raw",
+                artifacts: [ScreenshotArtifact(locale: "en-US", platform: .iOS, path: "/tmp/raw/01.png", fileName: "01.png")]
+            ),
+            compositionManifest: ScreenshotCompositionManifest(
+                mode: .framedPoster,
+                artifacts: [
+                    ScreenshotCompositionArtifact(
+                        locale: "en-US",
+                        platform: .iOS,
+                        inputPath: "/tmp/raw/01.png",
+                        outputPath: "/tmp/composed/01.png",
+                        mode: .framedPoster
+                    )
+                ]
+            ),
+            workflowResult: ScreenshotLocalWorkflowResult(
+                succeeded: true,
+                capturePlanPath: "/tmp/capture-plan.json",
+                captureResultPath: "/tmp/capture-result.json",
+                importManifestPath: "/tmp/import.json",
+                compositionManifestPath: "/tmp/composition.json",
+                compositionMode: .framedPoster,
+                capturedFileCount: 1,
+                composedArtifactCount: 1
+            )
+        )
+
+        #expect(report.readyForUploadPlan)
+        #expect(report.steps.map(\.state).allSatisfy { $0 == .complete })
+        #expect(report.findings.isEmpty)
+    }
+
     @Test("validates user-provided import directory structure and image counts")
     func validatesImportDirectoryStructure() throws {
         let root = try TemporaryDirectory()

@@ -131,6 +131,8 @@ swift run ascendkit screenshots workflow run \
   --mode framedPoster \
   --copy "$WORKSPACE/screenshots/copy/en-US.json" \
   --json
+
+swift run ascendkit screenshots workflow status --workspace "$WORKSPACE" --json
 ```
 
 Save an ASC auth profile. The profile stores only a reference to the private key file, not the key content:
@@ -384,6 +386,12 @@ swift run ascendkit screenshots workflow run \
 ```
 
 Runs the local screenshot workflow end to end: recommends local simulator destinations, writes a fresh capture plan, executes local Xcode UI tests, refreshes the import manifest, composes final screenshots, and writes `screenshots/manifests/workflow-result.json`. The default workflow composition mode is `framedPoster`.
+
+```bash
+swift run ascendkit screenshots workflow status --workspace "$WORKSPACE" --json
+```
+
+Summarizes capture plan, capture execution, import manifest, composition manifest, workflow result, and upload plan readiness in one report.
 
 ```bash
 swift run ascendkit screenshots readiness \

@@ -89,9 +89,10 @@ swift run ascendkit screenshots workflow run \
   --mode framedPoster \
   --copy "$WORKSPACE/screenshots/copy/en-US.json" \
   --json
+swift run ascendkit screenshots workflow status --workspace "$WORKSPACE" --json
 ```
 
-Use `screenshots workflow run` as the default local capture path when the app has UI-test screenshot flows. It recommends available local simulator destinations, writes a fresh capture plan, executes only local Xcode UI tests, refreshes the import manifest, composes final screenshots, and writes `screenshots/manifests/workflow-result.json`. Do not treat capture as App Store Connect mutation or binary upload.
+Use `screenshots workflow run` as the default local capture path when the app has UI-test screenshot flows. It recommends available local simulator destinations, writes a fresh capture plan, executes only local Xcode UI tests, refreshes the import manifest, composes final screenshots, and writes `screenshots/manifests/workflow-result.json`. Use `screenshots workflow status` before upload planning. Do not treat capture as App Store Connect mutation or binary upload.
 
 Use framed screenshots when desired:
 
