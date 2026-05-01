@@ -4,12 +4,24 @@ AscendKit follows [Semantic Versioning](https://semver.org/). During `0.y.z`, th
 
 ## Unreleased
 
+No unreleased changes.
+
+## 0.4.0 - 2026-05-02
+
 ### Added
 
 - Text App Privacy status output now lists source and findings for manual handoff.
 - Submission readiness App Privacy blocker now points agents to `asc privacy status`.
 - Review handoff findings now include App Privacy state/source for manual completion.
 - Review submission planning now requires App Privacy to be recorded as published before marking manual submission ready.
+- App Privacy status JSON now includes `readyForSubmission` and `nextActions`.
+- Review handoff now includes App Privacy state, source, readiness, and next actions.
+- `workspace summary --workspace PATH [--json]` now summarizes final release readiness and deduplicated next actions for agents.
+
+### Changed
+
+- `submit execute --confirm-remote-submission` is boundary-disabled by default and records a non-executed result instead of attempting remote App Review submission.
+- Review-plan findings classify remote submission execution as an explicit boundary rather than an actionable blocker.
 
 ## 0.3.0 - 2026-05-01
 

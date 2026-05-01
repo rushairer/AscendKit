@@ -8,7 +8,7 @@ The project is designed for AI-assisted release work without handing raw secrets
 
 AscendKit is versioned from `v0.1.0` and follows [Semantic Versioning](https://semver.org/). The `0.y.z` line is usable but still evolving: each tagged release should build, test, and support the documented workflow, while minor versions may still refine command shapes before `1.0.0`.
 
-AscendKit is an MVP. It has been used end-to-end on a real iOS app release workflow covering local screenshot preparation, metadata, pricing, reviewer information, build selection, screenshot upload, and guarded App Review submission. App Privacy publishing is currently documented as a boundary where Apple's IRIS endpoint may require App Store Connect UI or future Apple ID web-session support.
+AscendKit is an MVP. It has been used end-to-end on a real iOS app release workflow covering local screenshot preparation, metadata, pricing, reviewer information, build selection, screenshot upload, and guarded App Review handoff. App Privacy publishing is currently documented as a boundary where Apple's IRIS endpoint may require App Store Connect UI or future Apple ID web-session support.
 
 Implemented today:
 
@@ -18,7 +18,7 @@ Implemented today:
 - Metadata templates, fastlane metadata import, linting, diffing, and ASC request planning.
 - Screenshot planning, import manifests, fastlane screenshot import, local composition outputs, guarded ASC upload planning, and native screenshot upload execution.
 - App Store Connect auth profiles using secret references.
-- ASC app lookup, build lookup, metadata observation, metadata apply, and guarded review submission.
+- ASC app lookup, build lookup, metadata observation, metadata apply, and guarded review handoff.
 - Reviewer information, readiness checks, review handoff, and submission result persistence.
 - Local IAP subscription template validation.
 
@@ -63,7 +63,7 @@ The typical flow is:
 8. Plan and upload screenshots with explicit confirmation, or use App Store Connect UI when replacing existing screenshots.
 9. Add reviewer information.
 10. Run readiness checks.
-11. Submit for review with explicit confirmation.
+11. Generate a review handoff and complete final submission manually in App Store Connect.
 
 Set a few shell variables first:
 
