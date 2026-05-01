@@ -446,3 +446,34 @@ public struct ASCAppsLookupReport: Codable, Equatable, Sendable {
         self.findings = findings
     }
 }
+
+public struct ASCAppPricingResult: Codable, Equatable, Sendable {
+    public var generatedAt: Date
+    public var executed: Bool
+    public var appID: String
+    public var baseTerritory: String
+    public var pricePointID: String?
+    public var priceScheduleID: String?
+    public var responses: [ReviewSubmissionExecutionResponse]
+    public var findings: [String]
+
+    public init(
+        generatedAt: Date = Date(),
+        executed: Bool,
+        appID: String,
+        baseTerritory: String,
+        pricePointID: String? = nil,
+        priceScheduleID: String? = nil,
+        responses: [ReviewSubmissionExecutionResponse] = [],
+        findings: [String] = []
+    ) {
+        self.generatedAt = generatedAt
+        self.executed = executed
+        self.appID = appID
+        self.baseTerritory = baseTerritory
+        self.pricePointID = pricePointID
+        self.priceScheduleID = priceScheduleID
+        self.responses = responses
+        self.findings = findings
+    }
+}

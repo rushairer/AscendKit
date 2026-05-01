@@ -35,7 +35,7 @@ Out of scope for the current MVP:
 - Swift 6.1 or later.
 - Xcode command line tools.
 - An App Store Connect API key for remote ASC operations.
-- Optional: `fastlane` if you want to reuse existing fastlane metadata or screenshot folders.
+- Optional: `fastlane` only if you are migrating existing metadata or screenshot folders. It is not required for the core workflow.
 
 Build and test:
 
@@ -115,13 +115,10 @@ swift run ascendkit screenshots compose --workspace "$WORKSPACE" --mode deviceFr
 swift run ascendkit screenshots compose --workspace "$WORKSPACE" --mode poster
 ```
 
-Upload screenshots to App Store Connect before final submission. The current MVP does not include direct screenshot upload, so use App Store Connect UI or a focused fastlane command for this step:
+Upload screenshots to App Store Connect before final submission. The current MVP does not include direct screenshot upload, so use App Store Connect UI for now. Native screenshot upload is the next major fastlane-removal milestone.
 
 ```bash
-bundle exec fastlane deliver \
-  --skip_metadata true \
-  --skip_binary_upload true \
-  --submit_for_review false
+open https://appstoreconnect.apple.com/
 ```
 
 Save an ASC auth profile. The profile stores only a reference to the private key file, not the key content:
@@ -161,6 +158,17 @@ swift run ascendkit asc metadata plan --workspace "$WORKSPACE" --json
 swift run ascendkit asc metadata requests --workspace "$WORKSPACE" --json
 
 swift run ascendkit asc metadata apply \
+  --workspace "$WORKSPACE" \
+  --confirm-remote-mutation \
+  --json
+```
+
+Set the app price to free through the official App Store Connect API:
+
+```bash
+swift run ascendkit asc pricing set-free --workspace "$WORKSPACE" --json
+
+swift run ascendkit asc pricing set-free \
   --workspace "$WORKSPACE" \
   --confirm-remote-mutation \
   --json
@@ -475,6 +483,26 @@ swift run ascendkit asc metadata apply \
 
 Applies remote metadata mutations. The confirmation flag is required by design.
 
+### `asc pricing`
+
+Plan or apply App Store pricing without fastlane.
+
+```bash
+swift run ascendkit asc pricing set-free --workspace "$WORKSPACE" --json
+```
+
+Finds the free app price point for the base territory and writes `asc/pricing-result.json` without mutating remote state.
+
+```bash
+swift run ascendkit asc pricing set-free \
+  --workspace "$WORKSPACE" \
+  --base-territory USA \
+  --confirm-remote-mutation \
+  --json
+```
+
+Creates an App Store Connect `appPriceSchedules` resource that sets the app to free. This uses the official ASC API and does not depend on fastlane.
+
 ### `submit`
 
 Prepare and execute App Review submission.
@@ -564,6 +592,7 @@ Important files:
 - `asc/metadata-plan.json`: metadata mutation dry-run plan.
 - `asc/metadata-requests.json`: JSON:API request plan.
 - `asc/metadata-apply-result.json`: remote metadata apply result.
+- `asc/pricing-result.json`: pricing plan or apply result.
 - `build/candidates.json`: build candidates.
 - `review/reviewer-info.json`: reviewer contact and access notes.
 - `review/submission-plan.json`: planned review submission.
@@ -612,6 +641,13 @@ Release checklist:
 3. Update `docs/mvp-roadmap.md` and `docs/automation-boundaries.md` when scope changes.
 4. Never commit real app release workspaces, screenshots, API keys, or reviewer credentials.
 5. Prefer small, deterministic command outputs that can be consumed by scripts and agents.
+
+Fastlane removal roadmap:
+
+1. Keep `import-fastlane` commands only as migration helpers.
+2. Implement native ASC screenshot upload next.
+3. Formalize App Privacy declarations on official ASC API where available and explicit fallback paths where Apple exposes only private iris endpoints.
+4. Keep binary upload out of scope; Xcode Cloud remains the preferred binary delivery path.
 
 ## Contributing
 

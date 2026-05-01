@@ -318,8 +318,11 @@ struct CLIRunner {
         if domain == "apps" {
             return try await ascApps(args, json: json)
         }
+        if domain == "pricing" {
+            return try await ascPricing(args, json: json)
+        }
         guard domain == "builds" else {
-            throw AscendKitError.invalidArguments("Usage: ascendkit asc auth init|check OR ascendkit asc lookup plan|apps OR ascendkit asc apps lookup OR ascendkit asc builds list|import OR ascendkit asc metadata import")
+            throw AscendKitError.invalidArguments("Usage: ascendkit asc auth init|check OR ascendkit asc lookup plan|apps OR ascendkit asc apps lookup OR ascendkit asc builds list|import OR ascendkit asc metadata import OR ascendkit asc pricing set-free")
         }
         switch args.dropFirst().first {
         case "observe":
@@ -708,6 +711,60 @@ struct CLIRunner {
             to: workspace
         )
         return observed
+    }
+
+    private func ascPricing(_ args: [String], json: Bool) async throws -> String {
+        guard args.dropFirst().first == "set-free" else {
+            throw AscendKitError.invalidArguments("Usage: ascendkit asc pricing set-free --workspace PATH [--app-id ID] [--base-territory USA] [--confirm-remote-mutation] [--json]")
+        }
+        let workspace = try loadWorkspace(from: args)
+        let store = ReleaseWorkspaceStore(fileManager: fileManager)
+        guard let authConfig = try loadIfExists(ASCAuthConfig.self, path: workspace.paths.ascAuthConfig) else {
+            throw AscendKitError.invalidState("ASC auth config is missing. Run asc auth init first.")
+        }
+        let authStatus = ASCAuthStatus(config: authConfig)
+        guard authStatus.configured else {
+            throw AscendKitError.invalidState("ASC auth config is not ready: \(authStatus.findings.joined(separator: " "))")
+        }
+
+        let appID: String
+        if let explicitAppID = value(after: "--app-id", in: args), !explicitAppID.isEmpty {
+            appID = explicitAppID
+        } else {
+            guard let appsReport = try loadIfExists(ASCAppsLookupReport.self, path: workspace.paths.ascApps),
+                  let observedAppID = appsReport.apps.first?.id else {
+                throw AscendKitError.invalidState("ASC app ID is missing. Run asc apps lookup first or pass --app-id.")
+            }
+            appID = observedAppID
+        }
+
+        let baseTerritory = value(after: "--base-territory", in: args) ?? "USA"
+        let privateKey = try ASCSecretResolver(fileManager: fileManager).resolve(authConfig.privateKey)
+        let token = try ASCJWTSigner().token(config: authConfig, privateKeyPEM: privateKey)
+        let result = try await ASCAPIClient().setFreeAppPricing(
+            appID: appID,
+            baseTerritory: baseTerritory,
+            confirmRemoteMutation: args.contains("--confirm-remote-mutation"),
+            token: token
+        )
+        try store.save(result, to: URL(fileURLWithPath: workspace.paths.ascPricingResult))
+        try store.appendAudit(
+            .init(
+                action: .ascPricingApplied,
+                summary: result.executed ? "Set ASC app pricing to free" : "Planned ASC app pricing mutation",
+                details: [
+                    "appID": appID,
+                    "baseTerritory": baseTerritory,
+                    "executed": "\(result.executed)"
+                ]
+            ),
+            to: workspace
+        )
+        return try render(result, json: json) {
+            result.executed
+                ? "ASC free pricing was set for app \(appID)."
+                : "ASC free pricing was planned but not executed; pass --confirm-remote-mutation to apply it."
+        }
     }
 
     private func submit(_ args: [String], json: Bool) async throws -> String {
@@ -1111,6 +1168,7 @@ struct CLIRunner {
       ascendkit asc metadata plan --workspace PATH [--json]
       ascendkit asc metadata requests --workspace PATH [--json]
       ascendkit asc metadata apply --workspace PATH --confirm-remote-mutation [--json]
+      ascendkit asc pricing set-free --workspace PATH [--app-id ID] [--base-territory USA] [--confirm-remote-mutation] [--json]
       ascendkit submit readiness --workspace PATH [--json]
       ascendkit submit prepare --workspace PATH [--json]
       ascendkit submit review-plan --workspace PATH [--json]

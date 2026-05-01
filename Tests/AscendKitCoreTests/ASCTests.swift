@@ -220,6 +220,37 @@ struct ASCTests {
         #expect(decoded.apps.first?.bundleID == "com.example.demo")
     }
 
+    @Test("serializes ASC app pricing result")
+    func serializesAppPricingResult() throws {
+        let result = ASCAppPricingResult(
+            generatedAt: Date(timeIntervalSince1970: 1_700_000_000),
+            executed: true,
+            appID: "123",
+            baseTerritory: "USA",
+            pricePointID: "free-price-point",
+            priceScheduleID: "123",
+            responses: [
+                ReviewSubmissionExecutionResponse(
+                    id: "app-pricing.set-free",
+                    method: "POST",
+                    path: "/v1/appPriceSchedules",
+                    statusCode: 201,
+                    resourceID: "123"
+                )
+            ],
+            findings: ["Free pricing was set through the official App Store Connect appPriceSchedules API."]
+        )
+
+        let data = try AscendKitJSON.encoder.encode(result)
+        let decoded = try AscendKitJSON.decoder.decode(ASCAppPricingResult.self, from: data)
+
+        #expect(decoded.executed)
+        #expect(decoded.appID == "123")
+        #expect(decoded.baseTerritory == "USA")
+        #expect(decoded.pricePointID == "free-price-point")
+        #expect(decoded.responses.first?.id == "app-pricing.set-free")
+    }
+
     @Test("serializes review submission execution result")
     func serializesReviewSubmissionExecutionResult() throws {
         let result = ReviewSubmissionExecutionResult(

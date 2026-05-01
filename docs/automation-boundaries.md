@@ -74,6 +74,8 @@ Tool must require explicit user confirmation and cannot hide the significance of
 - produce apply plan: Class B
 - sync metadata/screenshots to ASC: Class D
 - delete or replace remote assets: Class D with especially clear confirmation
+- set pricing/availability through official ASC APIs: Class D
+- use private App Store Connect iris endpoints: Class D with explicit caveat when no official API is available
 
 ## 3.9 Build readiness
 - inspect ASC build state: Class A
@@ -128,6 +130,7 @@ For every Class D/E action, AscendKit should support:
 Examples of actions that should never feel implicit:
 - uploading metadata to ASC
 - replacing screenshot sets remotely
+- changing pricing or availability
 - creating IAP products in ASC
 - submitting the app for review
 - changing compliance-related declarations based on uncertain detection

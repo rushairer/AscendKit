@@ -292,6 +292,100 @@ public struct ASCAPIClient {
         return BuildCandidatesReport(source: "app-store-connect-api", candidates: candidates)
     }
 
+    public func setFreeAppPricing(
+        appID: String,
+        baseTerritory: String = "USA",
+        confirmRemoteMutation: Bool,
+        token: String
+    ) async throws -> ASCAppPricingResult {
+        let pricePoints = try await getList(
+            path: "v1/apps/\(appID)/appPricePoints",
+            query: [
+                "filter[territory]": baseTerritory,
+                "limit": "200"
+            ],
+            token: token,
+            as: AppPricePointResource.self
+        )
+        guard let freePricePoint = pricePoints.first(where: { $0.attributes.customerPrice == "0.0" || $0.attributes.customerPrice == "0" }) else {
+            throw AscendKitError.invalidState("No free app price point was found for territory \(baseTerritory).")
+        }
+
+        guard confirmRemoteMutation else {
+            return ASCAppPricingResult(
+                executed: false,
+                appID: appID,
+                baseTerritory: baseTerritory,
+                pricePointID: freePricePoint.id,
+                findings: [
+                    "Free pricing request was planned but not executed. Re-run with --confirm-remote-mutation to create the App Store Connect price schedule."
+                ]
+            )
+        }
+
+        let localPriceID = "${price1}"
+        let response = try await sendJSONAPIRequest(
+            id: "app-pricing.set-free",
+            method: "POST",
+            path: "/v1/appPriceSchedules",
+            payload: [
+                "data": [
+                    "type": "appPriceSchedules",
+                    "relationships": [
+                        "app": [
+                            "data": [
+                                "type": "apps",
+                                "id": appID
+                            ]
+                        ],
+                        "baseTerritory": [
+                            "data": [
+                                "type": "territories",
+                                "id": baseTerritory
+                            ]
+                        ],
+                        "manualPrices": [
+                            "data": [
+                                [
+                                    "type": "appPrices",
+                                    "id": localPriceID
+                                ]
+                            ]
+                        ]
+                    ]
+                ],
+                "included": [
+                    [
+                        "type": "appPrices",
+                        "id": localPriceID,
+                        "attributes": [
+                            "startDate": NSNull()
+                        ],
+                        "relationships": [
+                            "appPricePoint": [
+                                "data": [
+                                    "type": "appPricePoints",
+                                    "id": freePricePoint.id
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            token: token
+        )
+
+        return ASCAppPricingResult(
+            executed: true,
+            appID: appID,
+            baseTerritory: baseTerritory,
+            pricePointID: freePricePoint.id,
+            priceScheduleID: response.resourceID,
+            responses: [response],
+            findings: ["Free pricing was set through the official App Store Connect appPriceSchedules API."]
+        )
+    }
+
     public func executeReviewSubmission(
         appID: String,
         appInfoID: String?,
@@ -1054,6 +1148,15 @@ public struct ASCAPIClient {
 
     private struct ResourceIdentifier: Decodable {
         var id: String
+    }
+
+    private struct AppPricePointResource: Decodable {
+        var id: String
+        var attributes: AppPricePointAttributes
+    }
+
+    private struct AppPricePointAttributes: Decodable {
+        var customerPrice: String
     }
 
     private struct AppInfoResource: Decodable {

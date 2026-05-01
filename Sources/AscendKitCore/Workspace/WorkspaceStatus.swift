@@ -69,6 +69,7 @@ public struct WorkspaceStatusReader {
             ("asc-metadata-plan", "ASC metadata mutation dry-run plan", workspace.paths.ascMetadataPlan),
             ("asc-metadata-requests", "ASC metadata request dry-run plan", workspace.paths.ascMetadataRequests),
             ("asc-metadata-apply", "ASC metadata apply result", workspace.paths.ascMetadataApplyResult),
+            ("asc-pricing", "ASC pricing result", workspace.paths.ascPricingResult),
             ("iap-subscriptions", "IAP subscription templates", workspace.paths.iapSubscriptions),
             ("iap-validation", "IAP validation report", workspace.paths.iapValidation),
             ("audit", "Audit events", workspace.paths.auditEvents)

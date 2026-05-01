@@ -66,7 +66,7 @@ struct WorkspaceTests {
         let list = WorkspaceLister().list(baseDirectory: root.url)
 
         #expect(Set(list.releases.map(\.releaseID)) == ["demo-1", "demo-2"])
-        #expect(list.releases.allSatisfy { $0.totalStepCount == 26 })
+        #expect(list.releases.allSatisfy { $0.totalStepCount == 27 })
         #expect(list.releases.allSatisfy { $0.completeStepCount >= 2 })
     }
 

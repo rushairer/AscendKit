@@ -15,9 +15,10 @@ The roadmap defines:
 
 AscendKit MVP is **not** a replacement for Xcode Cloud.
 
-MVP assumption:
+MVP and post-MVP assumption:
 - **Xcode Cloud handles build, archive, signing, and binary upload**
 - AscendKit focuses on release asset preparation, release-readiness checks, screenshot workflows, local metadata management, App Store Connect observation/synchronization where appropriate, and submission-readiness preparation
+- Binary upload remains the lowest-priority capability and should not be implemented unless the project direction is explicitly revised.
 
 This boundary is non-negotiable for MVP.
 
@@ -235,11 +236,19 @@ These are not forbidden forever, but they should be explicitly delayed until the
 - reviewer-info checklist support
 - final summary command
 
-### Phase 8 — Post-MVP candidates
-- carefully scoped sync mutation expansion
-- remote submission execution (only if justified)
-- remote IAP operations (only if justified)
-- MCP/tool adapters (only if justified)
+### Phase 8 — Post-MVP fastlane removal
+- native ASC screenshot upload
+- first-class pricing and availability commands on official ASC APIs
+- first-class App Privacy declaration commands where official ASC APIs support them
+- release pipeline orchestration with resumable checkpoints
+- keep fastlane import commands as migration compatibility only
+- remote IAP operations only if justified
+- MCP/tool adapters only if justified
+
+### Phase 9 — Explicitly deferred long-term items
+- binary upload automation outside Xcode Cloud
+- archive/sign/export replacement
+- generalized CI/CD orchestration
 
 ## 8. Codex handoff constraints
 
@@ -255,6 +264,7 @@ If this roadmap is handed to Codex or any coding agent, the implementer must fol
 ### 8.2 Scope constraints
 - do not implement binary upload
 - do not replace Xcode Cloud
+- do not add fastlane as a required runtime dependency
 - do not add speculative remote submission execution into MVP
 - do not turn MCP into an early core dependency
 - do not widen scope to Android or generic CI/CD
