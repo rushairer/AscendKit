@@ -251,6 +251,43 @@ public struct ScreenshotCaptureExecutionResult: Codable, Equatable, Sendable {
     }
 }
 
+public struct ScreenshotLocalWorkflowResult: Codable, Equatable, Sendable {
+    public var generatedAt: Date
+    public var succeeded: Bool
+    public var capturePlanPath: String
+    public var captureResultPath: String
+    public var importManifestPath: String?
+    public var compositionManifestPath: String?
+    public var compositionMode: ScreenshotCompositionMode?
+    public var capturedFileCount: Int
+    public var composedArtifactCount: Int
+    public var findings: [String]
+
+    public init(
+        generatedAt: Date = Date(),
+        succeeded: Bool,
+        capturePlanPath: String,
+        captureResultPath: String,
+        importManifestPath: String? = nil,
+        compositionManifestPath: String? = nil,
+        compositionMode: ScreenshotCompositionMode? = nil,
+        capturedFileCount: Int = 0,
+        composedArtifactCount: Int = 0,
+        findings: [String] = []
+    ) {
+        self.generatedAt = generatedAt
+        self.succeeded = succeeded
+        self.capturePlanPath = capturePlanPath
+        self.captureResultPath = captureResultPath
+        self.importManifestPath = importManifestPath
+        self.compositionManifestPath = compositionManifestPath
+        self.compositionMode = compositionMode
+        self.capturedFileCount = capturedFileCount
+        self.composedArtifactCount = composedArtifactCount
+        self.findings = findings
+    }
+}
+
 public struct ScreenshotCaptureExecutor {
     public let fileManager: FileManager
 

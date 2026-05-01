@@ -211,7 +211,7 @@ struct CLIRunner {
 
     private func screenshots(_ args: [String], json: Bool) async throws -> String {
         guard let subcommand = args.first else {
-            throw AscendKitError.invalidArguments("Usage: ascendkit screenshots plan|capture-plan|readiness|upload-plan|upload --workspace PATH")
+            throw AscendKitError.invalidArguments("Usage: ascendkit screenshots plan|capture-plan|capture|workflow|readiness|compose|upload-plan|upload --workspace PATH")
         }
         let workspace = try loadWorkspace(from: args)
         let store = ReleaseWorkspaceStore(fileManager: fileManager)
@@ -310,20 +310,13 @@ struct CLIRunner {
                 "Fastlane screenshot import manifest saved with \(manifest.artifacts.count) artifact(s)"
             }
         case "compose":
-            guard let importManifest = try loadIfExists(ScreenshotImportManifest.self, path: workspace.paths.screenshotImportManifest) else {
-                throw AscendKitError.fileNotFound(workspace.paths.screenshotImportManifest)
-            }
             let mode = ScreenshotCompositionMode(rawValue: value(after: "--mode", in: args) ?? "storeReadyCopy") ?? .storeReadyCopy
-            let copyManifest = try loadScreenshotCompositionCopy(from: value(after: "--copy", in: args))
-            let outputRoot = URL(fileURLWithPath: workspace.paths.root).appendingPathComponent("screenshots/composed")
-            let manifest = try ScreenshotComposer(fileManager: fileManager).compose(
-                importManifest: importManifest,
-                outputRoot: outputRoot,
+            let manifest = try composeScreenshots(
+                workspace: workspace,
+                store: store,
                 mode: mode,
-                copyManifest: copyManifest
+                copyPath: value(after: "--copy", in: args)
             )
-            try store.save(manifest, to: URL(fileURLWithPath: workspace.paths.screenshotCompositionManifest))
-            try store.appendAudit(.init(action: .screenshotCompositionManifestSaved, summary: "Saved screenshot composition manifest"), to: workspace)
             return try render(manifest, json: json) {
                 "Screenshot composition manifest saved with \(manifest.artifacts.count) artifact(s)"
             }
@@ -369,9 +362,108 @@ struct CLIRunner {
                     ? "Screenshot capture completed with \(result.succeededCount) successful command(s)."
                     : "Screenshot capture finished with \(result.failedCount) failed command(s): \(result.findings.joined(separator: " "))"
             }
+        case "workflow":
+            guard args.dropFirst().first == "run" else {
+                throw AscendKitError.invalidArguments("Usage: ascendkit screenshots workflow run --workspace PATH [--scheme SCHEME] [--configuration Debug] [--destination DESTINATION] [--mode storeReadyCopy|poster|deviceFrame|framedPoster] [--copy PATH] [--json]")
+            }
+            let result = try runScreenshotWorkflow(workspace: workspace, store: store, args: args)
+            return try render(result, json: json) {
+                result.succeeded
+                    ? "Screenshot workflow completed with \(result.capturedFileCount) captured file(s) and \(result.composedArtifactCount) composed artifact(s)."
+                    : "Screenshot workflow failed: \(result.findings.joined(separator: " "))"
+            }
         default:
             throw AscendKitError.invalidArguments("Unknown screenshots command: \(subcommand)")
         }
+    }
+
+    private func runScreenshotWorkflow(workspace: ReleaseWorkspace, store: ReleaseWorkspaceStore, args: [String]) throws -> ScreenshotLocalWorkflowResult {
+        guard let screenshotPlan = try loadIfExists(ScreenshotPlan.self, path: workspace.paths.screenshotPlan) else {
+            throw AscendKitError.fileNotFound(workspace.paths.screenshotPlan)
+        }
+        let manifest = try store.loadManifest(from: workspace)
+        let capturePlan = ScreenshotCapturePlanBuilder().build(
+            manifest: manifest,
+            screenshotPlan: screenshotPlan,
+            workspaceRoot: URL(fileURLWithPath: workspace.paths.root),
+            scheme: value(after: "--scheme", in: args),
+            configuration: value(after: "--configuration", in: args) ?? "Debug",
+            destinationOverrides: repeatedValues(after: "--destination", in: args)
+        )
+        try store.save(capturePlan, to: URL(fileURLWithPath: workspace.paths.screenshotCapturePlan))
+        try store.appendAudit(
+            .init(
+                action: .screenshotCapturePlanned,
+                summary: "Planned local screenshot capture for workflow",
+                details: ["commands": "\(capturePlan.commands.count)"]
+            ),
+            to: workspace
+        )
+
+        let captureResult = try executeScreenshotCapture(workspace: workspace, store: store)
+        let capturedFileCount = captureResult.items.flatMap(\.outputFiles).count
+        guard captureResult.succeeded else {
+            let result = ScreenshotLocalWorkflowResult(
+                succeeded: false,
+                capturePlanPath: workspace.paths.screenshotCapturePlan,
+                captureResultPath: workspace.paths.screenshotCaptureResult,
+                capturedFileCount: capturedFileCount,
+                findings: captureResult.findings
+            )
+            try store.save(result, to: URL(fileURLWithPath: workspace.paths.screenshotWorkflowResult))
+            try store.appendAudit(.init(action: .screenshotWorkflowRan, summary: "Screenshot workflow failed during capture"), to: workspace)
+            return result
+        }
+
+        let mode = ScreenshotCompositionMode(rawValue: value(after: "--mode", in: args) ?? "framedPoster") ?? .framedPoster
+        let composition = try composeScreenshots(
+            workspace: workspace,
+            store: store,
+            mode: mode,
+            copyPath: value(after: "--copy", in: args)
+        )
+        let result = ScreenshotLocalWorkflowResult(
+            succeeded: true,
+            capturePlanPath: workspace.paths.screenshotCapturePlan,
+            captureResultPath: workspace.paths.screenshotCaptureResult,
+            importManifestPath: workspace.paths.screenshotImportManifest,
+            compositionManifestPath: workspace.paths.screenshotCompositionManifest,
+            compositionMode: mode,
+            capturedFileCount: capturedFileCount,
+            composedArtifactCount: composition.artifacts.count
+        )
+        try store.save(result, to: URL(fileURLWithPath: workspace.paths.screenshotWorkflowResult))
+        try store.appendAudit(
+            .init(
+                action: .screenshotWorkflowRan,
+                summary: "Completed local screenshot workflow",
+                details: ["captured": "\(capturedFileCount)", "composed": "\(composition.artifacts.count)", "mode": mode.rawValue]
+            ),
+            to: workspace
+        )
+        return result
+    }
+
+    private func composeScreenshots(
+        workspace: ReleaseWorkspace,
+        store: ReleaseWorkspaceStore,
+        mode: ScreenshotCompositionMode,
+        copyPath: String?
+    ) throws -> ScreenshotCompositionManifest {
+        guard let importManifest = try loadIfExists(ScreenshotImportManifest.self, path: workspace.paths.screenshotImportManifest) else {
+            throw AscendKitError.fileNotFound(workspace.paths.screenshotImportManifest)
+        }
+        let copyManifest = try loadScreenshotCompositionCopy(from: copyPath)
+        let outputRoot = URL(fileURLWithPath: workspace.paths.root).appendingPathComponent("screenshots/composed")
+        let manifest = try ScreenshotComposer(fileManager: fileManager).compose(
+            importManifest: importManifest,
+            outputRoot: outputRoot,
+            mode: mode,
+            copyManifest: copyManifest
+        )
+        try store.save(manifest, to: URL(fileURLWithPath: workspace.paths.screenshotCompositionManifest))
+        try store.appendAudit(.init(action: .screenshotCompositionManifestSaved, summary: "Saved screenshot composition manifest"), to: workspace)
+        return manifest
     }
 
     private func executeScreenshotCapture(workspace: ReleaseWorkspace, store: ReleaseWorkspaceStore) throws -> ScreenshotCaptureExecutionResult {
@@ -1460,6 +1552,7 @@ struct CLIRunner {
       ascendkit screenshots plan --workspace PATH [--screens A,B] [--features A,B] [--platforms iOS,macOS] [--locales en-US] [--json]
       ascendkit screenshots capture-plan --workspace PATH [--scheme SCHEME] [--configuration Debug] [--destination "platform=iOS Simulator,name=iPhone 17 Pro Max"] [--json]
       ascendkit screenshots capture --workspace PATH [--json]
+      ascendkit screenshots workflow run --workspace PATH [--scheme SCHEME] [--configuration Debug] [--destination DESTINATION] [--mode storeReadyCopy|poster|deviceFrame|framedPoster] [--copy PATH] [--json]
       ascendkit screenshots readiness --workspace PATH [--source PATH] [--json]
       ascendkit screenshots import --workspace PATH --source PATH [--json]
       ascendkit screenshots import-fastlane --workspace PATH --source PATH [--locales en-US,zh-Hans] [--json]

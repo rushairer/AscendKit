@@ -120,16 +120,16 @@ swift run ascendkit screenshots compose --workspace "$WORKSPACE" --mode deviceFr
 swift run ascendkit screenshots compose --workspace "$WORKSPACE" --mode poster
 ```
 
-Plan local Xcode UI-test screenshot capture without fastlane:
+Run the local Xcode UI-test screenshot workflow without fastlane:
 
 ```bash
-swift run ascendkit screenshots capture-plan \
+swift run ascendkit screenshots workflow run \
   --workspace "$WORKSPACE" \
   --scheme MyApp \
   --destination "platform=iOS Simulator,name=iPhone 17 Pro Max" \
+  --mode framedPoster \
+  --copy "$WORKSPACE/screenshots/copy/en-US.json" \
   --json
-
-swift run ascendkit screenshots capture --workspace "$WORKSPACE" --json
 ```
 
 Save an ASC auth profile. The profile stores only a reference to the private key file, not the key content:
@@ -367,6 +367,17 @@ swift run ascendkit screenshots capture --workspace "$WORKSPACE" --json
 ```
 
 Executes the saved capture plan locally, writes `screenshots/manifests/capture-result.json`, stores stdout/stderr logs under `screenshots/capture/logs`, and refreshes the screenshot import manifest when all capture commands succeed.
+
+```bash
+swift run ascendkit screenshots workflow run \
+  --workspace "$WORKSPACE" \
+  --scheme MyApp \
+  --mode framedPoster \
+  --copy "$WORKSPACE/screenshots/copy/en-US.json" \
+  --json
+```
+
+Runs the local screenshot workflow end to end: writes a fresh capture plan, executes local Xcode UI tests, refreshes the import manifest, composes final screenshots, and writes `screenshots/manifests/workflow-result.json`. The default workflow composition mode is `framedPoster`.
 
 ```bash
 swift run ascendkit screenshots readiness \
@@ -706,6 +717,7 @@ Important files:
 - `screenshots/manifests/*.json`: screenshot import/composition manifests.
 - `screenshots/manifests/capture-plan.json`: local Xcode UI-test screenshot capture command plan.
 - `screenshots/manifests/capture-result.json`: local screenshot capture execution result with log paths and produced files.
+- `screenshots/manifests/workflow-result.json`: local screenshot workflow result joining capture, import refresh, and composition.
 - `screenshots/manifests/upload.json`: dry-run native ASC screenshot upload plan.
 - `screenshots/manifests/upload-result.json`: native ASC screenshot upload execution result, including uploaded items, asset delivery state, delivery poll attempts, deleted remote screenshots, and per-item failures.
 - `asc/auth.json`: ASC auth config with secret references only.

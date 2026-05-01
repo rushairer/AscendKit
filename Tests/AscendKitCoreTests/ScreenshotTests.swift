@@ -126,6 +126,30 @@ struct ScreenshotTests {
         #expect(FileManager.default.fileExists(atPath: result.items[0].stderrLogPath ?? ""))
     }
 
+    @Test("serializes local screenshot workflow result")
+    func serializesLocalScreenshotWorkflowResult() throws {
+        let result = ScreenshotLocalWorkflowResult(
+            succeeded: true,
+            capturePlanPath: "/tmp/capture-plan.json",
+            captureResultPath: "/tmp/capture-result.json",
+            importManifestPath: "/tmp/import.json",
+            compositionManifestPath: "/tmp/composition.json",
+            compositionMode: .framedPoster,
+            capturedFileCount: 3,
+            composedArtifactCount: 3
+        )
+
+        let decoded = try AscendKitJSON.decoder.decode(
+            ScreenshotLocalWorkflowResult.self,
+            from: AscendKitJSON.encoder.encode(result)
+        )
+
+        #expect(decoded.succeeded)
+        #expect(decoded.compositionMode == .framedPoster)
+        #expect(decoded.capturedFileCount == 3)
+        #expect(decoded.composedArtifactCount == 3)
+    }
+
     @Test("validates user-provided import directory structure and image counts")
     func validatesImportDirectoryStructure() throws {
         let root = try TemporaryDirectory()

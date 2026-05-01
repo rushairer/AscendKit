@@ -82,15 +82,16 @@ swift run ascendkit screenshots compose --workspace "$WORKSPACE" --mode storeRea
 If the app has UI-test screenshot flows, plan native local capture without fastlane:
 
 ```bash
-swift run ascendkit screenshots capture-plan \
+swift run ascendkit screenshots workflow run \
   --workspace "$WORKSPACE" \
   --scheme APP_SCHEME \
   --destination "platform=iOS Simulator,name=iPhone 17 Pro Max" \
+  --mode framedPoster \
+  --copy "$WORKSPACE/screenshots/copy/en-US.json" \
   --json
-swift run ascendkit screenshots capture --workspace "$WORKSPACE" --json
 ```
 
-Use the generated `screenshots/manifests/capture-plan.json` commands as the deterministic local capture contract. `screenshots capture` executes only local Xcode UI tests, writes `screenshots/manifests/capture-result.json`, and refreshes the import manifest when successful. Do not treat capture as App Store Connect mutation or binary upload.
+Use `screenshots workflow run` as the default local capture path when the app has UI-test screenshot flows. It writes a fresh capture plan, executes only local Xcode UI tests, refreshes the import manifest, composes final screenshots, and writes `screenshots/manifests/workflow-result.json`. Do not treat capture as App Store Connect mutation or binary upload.
 
 Use framed screenshots when desired:
 
