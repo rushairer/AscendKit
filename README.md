@@ -241,14 +241,7 @@ swift run ascendkit submit review-plan --workspace "$WORKSPACE" --json
 swift run ascendkit submit handoff --workspace "$WORKSPACE"
 ```
 
-Submit for review. This mutates App Store Connect and must be explicitly confirmed:
-
-```bash
-swift run ascendkit submit execute \
-  --workspace "$WORKSPACE" \
-  --confirm-remote-submission \
-  --json
-```
+Use the handoff to complete the final submit-for-review action manually in App Store Connect. Remote review submission execution is boundary-disabled in the current release, even when `--confirm-remote-submission` is passed.
 
 ## Command Reference
 
@@ -714,7 +707,7 @@ swift run ascendkit submit execute \
   --json
 ```
 
-Attaches the selected build, updates review details, updates safe default declarations where supported, creates or reuses a review submission, creates the submission item, and submits it. The confirmation flag is required.
+Records a non-executed submission result explaining that remote review submission execution is boundary-disabled. Use `submit handoff` as the supported final AscendKit step, then submit manually in App Store Connect.
 
 ### `iap`
 
@@ -779,7 +772,7 @@ Remote mutation commands require explicit flags:
 - `asc metadata apply --confirm-remote-mutation`
 - `screenshots upload --confirm-remote-mutation`
 - `screenshots upload --replace-existing --confirm-remote-mutation` for planned remote screenshot replacement.
-- `submit execute --confirm-remote-submission`
+- `submit execute --confirm-remote-submission` currently remains boundary-disabled and records a non-executed result.
 
 ## Maintainer Workflow
 

@@ -189,10 +189,10 @@ swift run ascendkit submit handoff --workspace "$WORKSPACE" --json
 
 For `framedPoster` screenshot composition, readiness requires `screenshots copy lint` to have produced a clean `screenshots/manifests/copy-lint.json`.
 
-Only submit when readiness and the review plan are clean:
+Only complete final review submission when readiness and the review plan are clean. AscendKit currently stops at the handoff boundary; use the generated handoff and submit manually in App Store Connect.
 
 ```bash
-swift run ascendkit submit execute --workspace "$WORKSPACE" --confirm-remote-submission --json
+swift run ascendkit submit handoff --workspace "$WORKSPACE" --json
 ```
 
 ## What To Report Back

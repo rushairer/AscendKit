@@ -409,6 +409,21 @@ struct ASCTests {
         #expect(decoded.responses.first?.id == "review-submission.submit")
     }
 
+    @Test("creates boundary disabled review submission execution result")
+    func createsBoundaryDisabledReviewSubmissionExecutionResult() {
+        let result = ReviewSubmissionExecutionResult.boundaryDisabled(
+            appStoreVersionID: "version-1",
+            buildID: "build-7"
+        )
+
+        #expect(result.executed == false)
+        #expect(result.submitted == false)
+        #expect(result.appStoreVersionID == "version-1")
+        #expect(result.buildID == "build-7")
+        #expect(result.responses.isEmpty)
+        #expect(result.findings.contains { $0.contains("disabled by the current AscendKit boundary") })
+    }
+
     private func decodeBase64URL(_ value: String) throws -> Data {
         var base64 = value
             .replacingOccurrences(of: "-", with: "+")

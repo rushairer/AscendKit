@@ -1525,7 +1525,24 @@ struct CLIRunner {
                 )
                 try store.save(result, to: URL(fileURLWithPath: workspace.paths.reviewSubmissionResult))
                 return try render(result, json: json) {
-                    "Review submission execution was not run: pass --confirm-remote-submission to execute remote mutation."
+                    "Review submission execution was not run: pass --confirm-remote-submission to record the current boundary-disabled result."
+                }
+            }
+            guard plan.remoteSubmissionExecutionAllowed else {
+                let result = ReviewSubmissionExecutionResult.boundaryDisabled(
+                    appStoreVersionID: try loadIfExists(MetadataObservedState.self, path: workspace.paths.ascObservedState)?.appStoreVersionID,
+                    buildID: plan.selectedBuildID
+                )
+                try store.save(result, to: URL(fileURLWithPath: workspace.paths.reviewSubmissionResult))
+                try store.appendAudit(
+                    .init(
+                        action: .reviewSubmissionPlanned,
+                        summary: "Skipped remote review submission because execution is disabled"
+                    ),
+                    to: workspace
+                )
+                return try render(result, json: json) {
+                    "Review submission execution is disabled by AscendKit boundary; use submit handoff and submit manually in App Store Connect."
                 }
             }
             guard plan.readyForManualReviewSubmission else {
@@ -1862,7 +1879,7 @@ struct CLIRunner {
       ascendkit submit prepare --workspace PATH [--json]
       ascendkit submit review-plan --workspace PATH [--json]
       ascendkit submit handoff --workspace PATH [--json]
-      ascendkit submit execute --workspace PATH --confirm-remote-submission [--json]
+      ascendkit submit execute --workspace PATH --confirm-remote-submission [--json]   # boundary-disabled; records non-execution
       ascendkit submit review-info init --workspace PATH [--json]
       ascendkit submit review-info set --workspace PATH --first-name NAME --last-name NAME --email EMAIL --phone PHONE [--notes TEXT] [--requires-login true|false] [--credential-ref ENV_VAR] [--access-instructions TEXT] [--json]
       ascendkit iap template init --workspace PATH [--json]

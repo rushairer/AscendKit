@@ -288,6 +288,15 @@ public struct ReviewSubmissionExecutionResult: Codable, Equatable, Sendable {
         self.responses = responses
         self.findings = findings
     }
+
+    public static func boundaryDisabled(appStoreVersionID: String?, buildID: String?) -> Self {
+        Self(
+            executed: false,
+            appStoreVersionID: appStoreVersionID,
+            buildID: buildID,
+            findings: ["Remote review submission execution is disabled by the current AscendKit boundary. Use submit handoff and complete the final submit-for-review action manually in App Store Connect."]
+        )
+    }
 }
 
 public struct ReviewSubmissionExecutionResponse: Codable, Equatable, Identifiable, Sendable {
