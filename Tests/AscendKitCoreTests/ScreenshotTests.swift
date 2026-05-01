@@ -297,6 +297,47 @@ struct ScreenshotTests {
         #expect(copy.items[3].fileName == "02-history.png")
     }
 
+    @Test("refreshes screenshot copy template while preserving edited copy")
+    func refreshesScreenshotCopyTemplateWhilePreservingEditedCopy() {
+        let plan = ScreenshotPlan(
+            inputPath: .uiTestCapture,
+            platforms: [.iOS],
+            locales: ["en-US"],
+            items: [
+                ScreenshotPlanItem(id: "today", screenName: "Today", order: 1, purpose: "Show today focus"),
+                ScreenshotPlanItem(id: "settings", screenName: "Settings", order: 2, purpose: "Show settings")
+            ]
+        )
+        let existing = ScreenshotCompositionCopyManifest(items: [
+            ScreenshotCompositionCopy(
+                locale: "en-US",
+                platform: .iOS,
+                fileName: "01-today.png",
+                title: "Choose Three",
+                subtitle: "Keep today simple"
+            ),
+            ScreenshotCompositionCopy(
+                locale: "en-US",
+                platform: .iOS,
+                fileName: "03-stale.png",
+                title: "Stale"
+            )
+        ])
+
+        let refreshed = ScreenshotCompositionCopyTemplateBuilder().refresh(
+            plan: plan,
+            existing: existing,
+            locale: "en-US"
+        )
+
+        #expect(refreshed.items.count == 2)
+        #expect(refreshed.items[0].title == "Choose Three")
+        #expect(refreshed.items[0].subtitle == "Keep today simple")
+        #expect(refreshed.items[1].fileName == "02-settings.png")
+        #expect(refreshed.items[1].title == "Settings")
+        #expect(refreshed.items.contains { $0.fileName == "03-stale.png" } == false)
+    }
+
     @Test("lints screenshot copy coverage against imported artifacts")
     func lintsScreenshotCopyCoverage() {
         let importManifest = ScreenshotImportManifest(

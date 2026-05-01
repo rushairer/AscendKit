@@ -1213,17 +1213,37 @@ public struct ScreenshotCompositionCopyTemplateBuilder {
     public init() {}
 
     public func build(plan: ScreenshotPlan, locale: String? = nil, fileExtension: String = "png") -> ScreenshotCompositionCopyManifest {
+        build(plan: plan, locale: locale, fileExtension: fileExtension, preserving: nil)
+    }
+
+    public func refresh(
+        plan: ScreenshotPlan,
+        existing: ScreenshotCompositionCopyManifest?,
+        locale: String? = nil,
+        fileExtension: String = "png"
+    ) -> ScreenshotCompositionCopyManifest {
+        build(plan: plan, locale: locale, fileExtension: fileExtension, preserving: existing)
+    }
+
+    private func build(
+        plan: ScreenshotPlan,
+        locale: String?,
+        fileExtension: String,
+        preserving existing: ScreenshotCompositionCopyManifest?
+    ) -> ScreenshotCompositionCopyManifest {
         let effectiveLocales = locale.map { [$0] } ?? plan.locales
         let normalizedExtension = fileExtension.trimmingCharacters(in: CharacterSet(charactersIn: "."))
         let items = effectiveLocales.flatMap { locale in
             plan.platforms.flatMap { platform in
                 plan.items.sorted { $0.order < $1.order }.map { item in
-                    ScreenshotCompositionCopy(
+                    let fileName = "\(String(format: "%02d", item.order))-\(item.id).\(normalizedExtension)"
+                    let existingCopy = existing?.copy(locale: locale, platform: platform, fileName: fileName)
+                    return ScreenshotCompositionCopy(
                         locale: locale,
                         platform: platform,
-                        fileName: "\(String(format: "%02d", item.order))-\(item.id).\(normalizedExtension)",
-                        title: item.screenName,
-                        subtitle: item.purpose
+                        fileName: fileName,
+                        title: existingCopy?.title ?? item.screenName,
+                        subtitle: existingCopy?.subtitle ?? item.purpose
                     )
                 }
             }

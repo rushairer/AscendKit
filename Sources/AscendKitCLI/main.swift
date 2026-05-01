@@ -280,6 +280,32 @@ struct CLIRunner {
                 return try render(copy, json: json) {
                     "Screenshot copy template written to \(outputURL.path) with \(copy.items.count) item(s)."
                 }
+            case "refresh":
+                guard fileManager.fileExists(atPath: planURL.path) else {
+                    throw AscendKitError.fileNotFound(planURL.path)
+                }
+                let plan = try AscendKitJSON.decoder.decode(ScreenshotPlan.self, from: Data(contentsOf: planURL))
+                let locale = value(after: "--locale", in: args) ?? plan.locales.first ?? "en-US"
+                let copyPath = value(after: "--copy", in: args) ?? defaultScreenshotCopyPath(workspace: workspace, locale: locale)
+                let outputURL = URL(fileURLWithPath: value(after: "--output", in: args) ?? copyPath)
+                let existing = try loadIfExists(ScreenshotCompositionCopyManifest.self, path: copyPath)
+                let copy = ScreenshotCompositionCopyTemplateBuilder().refresh(
+                    plan: plan,
+                    existing: existing,
+                    locale: locale
+                )
+                try store.save(copy, to: outputURL)
+                try store.appendAudit(
+                    .init(
+                        action: .screenshotCopyRefreshed,
+                        summary: "Refreshed screenshot composition copy",
+                        details: ["items": "\(copy.items.count)", "path": outputURL.path]
+                    ),
+                    to: workspace
+                )
+                return try render(copy, json: json) {
+                    "Screenshot copy template refreshed at \(outputURL.path) with \(copy.items.count) item(s)."
+                }
             case "lint":
                 guard let importManifest = try loadIfExists(ScreenshotImportManifest.self, path: workspace.paths.screenshotImportManifest) else {
                     throw AscendKitError.fileNotFound(workspace.paths.screenshotImportManifest)
@@ -306,7 +332,7 @@ struct CLIRunner {
                     "Screenshot copy lint \(report.valid ? "passed" : "failed") with \(report.findings.count) finding(s)."
                 }
             default:
-                throw AscendKitError.invalidArguments("Usage: ascendkit screenshots copy init|lint --workspace PATH [--locale en-US] [--copy PATH] [--output PATH] [--json]")
+                throw AscendKitError.invalidArguments("Usage: ascendkit screenshots copy init|refresh|lint --workspace PATH [--locale en-US] [--copy PATH] [--output PATH] [--json]")
             }
         case "capture-plan":
             guard fileManager.fileExists(atPath: planURL.path) else {
@@ -1669,6 +1695,7 @@ struct CLIRunner {
       ascendkit screenshots destinations --workspace PATH [--json]
       ascendkit screenshots plan --workspace PATH [--screens A,B] [--features A,B] [--platforms iOS,macOS] [--locales en-US] [--json]
       ascendkit screenshots copy init --workspace PATH [--locale en-US] [--output PATH] [--json]
+      ascendkit screenshots copy refresh --workspace PATH [--locale en-US] [--copy PATH] [--output PATH] [--json]
       ascendkit screenshots copy lint --workspace PATH [--locale en-US] [--copy PATH] [--json]
       ascendkit screenshots capture-plan --workspace PATH [--scheme SCHEME] [--configuration Debug] [--destination DESTINATION] [--json]
       ascendkit screenshots capture --workspace PATH [--json]

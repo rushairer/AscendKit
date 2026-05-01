@@ -116,6 +116,7 @@ Compose local screenshot artifacts:
 
 ```bash
 swift run ascendkit screenshots copy init --workspace "$WORKSPACE" --locale en-US
+swift run ascendkit screenshots copy refresh --workspace "$WORKSPACE" --locale en-US
 swift run ascendkit screenshots copy lint --workspace "$WORKSPACE" --locale en-US
 swift run ascendkit screenshots compose --workspace "$WORKSPACE" --mode storeReadyCopy
 swift run ascendkit screenshots compose --workspace "$WORKSPACE" --mode deviceFrame
@@ -127,6 +128,7 @@ Run the local Xcode UI-test screenshot workflow without fastlane:
 ```bash
 swift run ascendkit screenshots destinations --workspace "$WORKSPACE" --json
 swift run ascendkit screenshots copy init --workspace "$WORKSPACE" --locale en-US --json
+swift run ascendkit screenshots copy refresh --workspace "$WORKSPACE" --locale en-US --json
 swift run ascendkit screenshots copy lint --workspace "$WORKSPACE" --locale en-US --json
 
 swift run ascendkit screenshots workflow run \
@@ -399,10 +401,11 @@ Summarizes capture plan, capture execution, import manifest, composition manifes
 
 ```bash
 swift run ascendkit screenshots copy init --workspace "$WORKSPACE" --locale en-US --json
+swift run ascendkit screenshots copy refresh --workspace "$WORKSPACE" --locale en-US --json
 swift run ascendkit screenshots copy lint --workspace "$WORKSPACE" --locale en-US --json
 ```
 
-Generates and validates an editable framed-poster copy template at `screenshots/copy/en-US.json` from `screenshot-plan.json`. Lint results are persisted to `screenshots/manifests/copy-lint.json` and included in workflow status. Edit titles and subtitles there before running `screenshots compose --mode framedPoster` or `screenshots workflow run --mode framedPoster`.
+Generates, refreshes, and validates an editable framed-poster copy template at `screenshots/copy/en-US.json` from `screenshot-plan.json`. Use `copy refresh` after the screenshot plan changes; it preserves edited titles/subtitles for matching files and removes stale entries. Lint results are persisted to `screenshots/manifests/copy-lint.json` and included in workflow status. Edit titles and subtitles there before running `screenshots compose --mode framedPoster` or `screenshots workflow run --mode framedPoster`.
 
 ```bash
 swift run ascendkit screenshots readiness \
