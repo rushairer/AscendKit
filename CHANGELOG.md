@@ -2,6 +2,13 @@
 
 AscendKit follows [Semantic Versioning](https://semver.org/). During `0.y.z`, the project is usable but still evolving quickly; minor versions may introduce breaking workflow changes when needed, and patch versions are reserved for compatible fixes.
 
+## Unreleased
+
+### Added
+
+- Agent release playbook for handing AscendKit to another AI agent without relying on a long one-off prompt.
+- App Privacy workspace status, manual Data Not Collected confirmation, and submission readiness gating.
+
 ## 0.1.0 - 2026-05-01
 
 Initial public MVP release.

@@ -30,6 +30,7 @@ public enum AuditAction: String, Codable, Equatable, Sendable {
     case ascMetadataRequestsPlanned
     case ascMetadataApplied
     case ascPricingApplied
+    case ascPrivacyUpdated
     case iapTemplateInitialized
     case iapValidated
     case metadataDiffed

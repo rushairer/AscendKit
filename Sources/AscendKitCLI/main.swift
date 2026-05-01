@@ -425,7 +425,7 @@ struct CLIRunner {
             return try await ascPrivacy(args, json: json)
         }
         guard domain == "builds" else {
-            throw AscendKitError.invalidArguments("Usage: ascendkit asc auth init|check OR ascendkit asc lookup plan|apps OR ascendkit asc apps lookup OR ascendkit asc builds list|import OR ascendkit asc metadata import OR ascendkit asc pricing set-free OR ascendkit asc privacy set-not-collected")
+            throw AscendKitError.invalidArguments("Usage: ascendkit asc auth init|check OR ascendkit asc lookup plan|apps OR ascendkit asc apps lookup OR ascendkit asc builds list|import OR ascendkit asc metadata import OR ascendkit asc pricing set-free OR ascendkit asc privacy set-not-collected|status|confirm-manual")
         }
         switch args.dropFirst().first {
         case "observe":
@@ -882,18 +882,53 @@ struct CLIRunner {
     }
 
     private func ascPrivacy(_ args: [String], json: Bool) async throws -> String {
-        guard args.dropFirst().first == "set-not-collected" else {
-            throw AscendKitError.invalidArguments("Usage: ascendkit asc privacy set-not-collected --workspace PATH [--app-id ID] --confirm-remote-mutation [--json]")
+        let workspace = try loadWorkspace(from: args)
+        let store = ReleaseWorkspaceStore(fileManager: fileManager)
+        switch args.dropFirst().first {
+        case "status":
+            let status = try loadIfExists(AppPrivacyStatus.self, path: workspace.paths.ascPrivacyStatus)
+                ?? AppPrivacyStatus(
+                    state: .unknown,
+                    source: "workspace",
+                    findings: ["No App Privacy status has been recorded."]
+                )
+            return try render(status, json: json) {
+                "ASC App Privacy status: \(status.state.rawValue)"
+            }
+        case "confirm-manual":
+            guard args.contains("--data-not-collected") else {
+                throw AscendKitError.invalidArguments("Usage: ascendkit asc privacy confirm-manual --workspace PATH --data-not-collected [--json]")
+            }
+            let status = AppPrivacyStatus(
+                state: .publishedDataNotCollected,
+                source: "manual-app-store-connect",
+                findings: ["User confirmed App Store Connect App Privacy is published as Data Not Collected."]
+            )
+            try store.save(status, to: URL(fileURLWithPath: workspace.paths.ascPrivacyStatus))
+            try store.appendAudit(
+                .init(action: .ascPrivacyUpdated, summary: "Recorded manual App Privacy confirmation"),
+                to: workspace
+            )
+            return try render(status, json: json) {
+                "ASC App Privacy manually marked as Data Not Collected."
+            }
+        case "set-not-collected":
+            break
+        default:
+            throw AscendKitError.invalidArguments("Usage: ascendkit asc privacy set-not-collected|status|confirm-manual --workspace PATH [--app-id ID] [--confirm-remote-mutation] [--data-not-collected] [--json]")
         }
         guard args.contains("--confirm-remote-mutation") else {
-            let responses: [ReviewSubmissionExecutionResponse] = []
-            return try render(responses, json: json) {
+            let status = AppPrivacyStatus(
+                state: .unknown,
+                source: "dry-run",
+                findings: ["ASC app privacy was not changed. Pass --confirm-remote-mutation to attempt Data Not Collected publishing."]
+            )
+            try store.save(status, to: URL(fileURLWithPath: workspace.paths.ascPrivacyStatus))
+            return try render(status, json: json) {
                 "ASC app privacy was not changed: pass --confirm-remote-mutation to publish Data Not Collected answers."
             }
         }
 
-        let workspace = try loadWorkspace(from: args)
-        let store = ReleaseWorkspaceStore(fileManager: fileManager)
         guard let authConfig = try loadIfExists(ASCAuthConfig.self, path: workspace.paths.ascAuthConfig) else {
             throw AscendKitError.invalidState("ASC auth config is missing. Run asc auth init first.")
         }
@@ -928,18 +963,30 @@ struct CLIRunner {
                 )
             ]
         }
+        let irisUnauthorized = responses.contains(where: { $0.statusCode == 401 })
+        let status = AppPrivacyStatus(
+            state: irisUnauthorized ? .requiresManualAppStoreConnect : .publishedDataNotCollected,
+            source: irisUnauthorized ? "apple-iris-api-key-unauthorized" : "app-store-connect-api",
+            findings: irisUnauthorized
+                ? [
+                    "Apple's IRIS App Privacy endpoint rejected ASC API key authentication.",
+                    "Complete App Privacy in App Store Connect UI, then run asc privacy confirm-manual --data-not-collected."
+                ]
+                : ["Published App Privacy answers as Data Not Collected."]
+        )
+        try store.save(status, to: URL(fileURLWithPath: workspace.paths.ascPrivacyStatus))
         try store.appendAudit(
             .init(
-                action: .reviewSubmissionPlanned,
-                summary: responses.contains(where: { $0.statusCode == 401 })
+                action: .ascPrivacyUpdated,
+                summary: irisUnauthorized
                     ? "Skipped ASC app privacy publish because IRIS rejected API key auth"
                     : "Published ASC app privacy Data Not Collected answers",
                 details: ["appID": appID, "responses": "\(responses.count)"]
             ),
             to: workspace
         )
-        return try render(responses, json: json) {
-            responses.contains(where: { $0.statusCode == 401 })
+        return try render(status, json: json) {
+            irisUnauthorized
                 ? "ASC app privacy could not be published with API key auth; use App Store Connect UI or Apple ID web session support."
                 : "ASC app privacy Data Not Collected answers published with \(responses.count) response(s)."
         }
@@ -998,6 +1045,7 @@ struct CLIRunner {
             screenshotImportManifest: context.screenshotImportManifest,
             screenshotCompositionManifest: context.screenshotCompositionManifest,
             ascLookupPlan: context.ascLookupPlan,
+            appPrivacyStatus: context.appPrivacyStatus,
             buildCandidatesReport: context.buildCandidatesReport,
             iapValidationReport: context.iapValidationReport
         )
@@ -1131,6 +1179,7 @@ struct CLIRunner {
             appsLookupReport: appsLookup,
             metadataApplyResult: metadataApply,
             metadataDiffReport: metadataDiff,
+            appPrivacyStatus: context.appPrivacyStatus,
             buildCandidatesReport: context.buildCandidatesReport
         )
     }
@@ -1143,6 +1192,7 @@ struct CLIRunner {
         var screenshotImportManifest: ScreenshotImportManifest?
         var screenshotCompositionManifest: ScreenshotCompositionManifest?
         var ascLookupPlan: ASCLookupPlan?
+        var appPrivacyStatus: AppPrivacyStatus?
         var buildCandidatesReport: BuildCandidatesReport?
         var iapValidationReport: IAPValidationReport?
     }
@@ -1156,6 +1206,7 @@ struct CLIRunner {
         let screenshotImportManifest = try loadIfExists(ScreenshotImportManifest.self, path: workspace.paths.screenshotImportManifest)
         let screenshotCompositionManifest = try loadIfExists(ScreenshotCompositionManifest.self, path: workspace.paths.screenshotCompositionManifest)
         let ascLookupPlan = try loadIfExists(ASCLookupPlan.self, path: workspace.paths.ascLookupPlan)
+        let appPrivacyStatus = try loadIfExists(AppPrivacyStatus.self, path: workspace.paths.ascPrivacyStatus)
         let buildCandidatesReport = try loadIfExists(BuildCandidatesReport.self, path: workspace.paths.buildCandidates)
         let iapValidationReport = try loadIfExists(IAPValidationReport.self, path: workspace.paths.iapValidation)
         return SubmissionContext(
@@ -1166,6 +1217,7 @@ struct CLIRunner {
             screenshotImportManifest: screenshotImportManifest,
             screenshotCompositionManifest: screenshotCompositionManifest,
             ascLookupPlan: ascLookupPlan,
+            appPrivacyStatus: appPrivacyStatus,
             buildCandidatesReport: buildCandidatesReport,
             iapValidationReport: iapValidationReport
         )
@@ -1350,6 +1402,8 @@ struct CLIRunner {
       ascendkit asc metadata apply --workspace PATH --confirm-remote-mutation [--json]
       ascendkit asc pricing set-free --workspace PATH [--app-id ID] [--base-territory USA] [--confirm-remote-mutation] [--json]
       ascendkit asc privacy set-not-collected --workspace PATH [--app-id ID] --confirm-remote-mutation [--json]
+      ascendkit asc privacy status --workspace PATH [--json]
+      ascendkit asc privacy confirm-manual --workspace PATH --data-not-collected [--json]
       ascendkit submit readiness --workspace PATH [--json]
       ascendkit submit prepare --workspace PATH [--json]
       ascendkit submit review-plan --workspace PATH [--json]

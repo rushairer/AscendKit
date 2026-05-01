@@ -28,6 +28,35 @@ public struct SubmissionReadinessReport: Codable, Equatable, Sendable {
     }
 }
 
+public enum AppPrivacyState: String, Codable, Equatable, Sendable {
+    case unknown
+    case publishedDataNotCollected
+    case requiresManualAppStoreConnect
+}
+
+public struct AppPrivacyStatus: Codable, Equatable, Sendable {
+    public var generatedAt: Date
+    public var state: AppPrivacyState
+    public var source: String
+    public var findings: [String]
+
+    public init(
+        generatedAt: Date = Date(),
+        state: AppPrivacyState,
+        source: String,
+        findings: [String] = []
+    ) {
+        self.generatedAt = generatedAt
+        self.state = state
+        self.source = source
+        self.findings = findings
+    }
+
+    public var readyForSubmission: Bool {
+        state == .publishedDataNotCollected
+    }
+}
+
 public struct SubmissionReadinessEvaluator {
     public init() {}
 
@@ -39,6 +68,7 @@ public struct SubmissionReadinessEvaluator {
         screenshotImportManifest: ScreenshotImportManifest? = nil,
         screenshotCompositionManifest: ScreenshotCompositionManifest? = nil,
         ascLookupPlan: ASCLookupPlan? = nil,
+        appPrivacyStatus: AppPrivacyStatus? = nil,
         buildCandidatesReport: BuildCandidatesReport? = nil,
         iapValidationReport: IAPValidationReport? = nil
     ) -> SubmissionReadinessReport {
@@ -106,6 +136,20 @@ public struct SubmissionReadinessEvaluator {
             satisfied: matchingProcessedBuild,
             note: selectedBuild.map { "Selected ASC build \($0.version) (\($0.buildNumber))." }
                 ?? "Import an observed processed build candidate for the release version/build."
+        ))
+
+        items.append(.init(
+            id: "app-privacy.published",
+            title: "App Privacy answers are published",
+            satisfied: appPrivacyStatus?.readyForSubmission == true,
+            note: appPrivacyStatus.map { status in
+                if status.readyForSubmission {
+                    return "App Privacy status: \(status.state.rawValue) via \(status.source)."
+                }
+                return (status.findings + [
+                    "Use App Store Connect UI to publish App Privacy answers, then run asc privacy confirm-manual --data-not-collected."
+                ]).joined(separator: " ")
+            } ?? "Run asc privacy set-not-collected, or complete App Privacy in App Store Connect UI and run asc privacy confirm-manual --data-not-collected."
         ))
 
         if let iapValidationReport {

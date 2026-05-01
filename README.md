@@ -47,6 +47,8 @@ swift run ascendkit --help
 swift run ascendkit --version
 ```
 
+If you are handing AscendKit to another AI agent, start with `docs/agent-release-playbook.md`. Use a short prompt plus that playbook; do not rely on a long one-off prompt as the only operating manual.
+
 ## Quick Start: Submit an App Store Release
 
 The typical flow is:
@@ -567,6 +569,28 @@ swift run ascendkit asc pricing set-free \
 ```
 
 Creates an App Store Connect `appPriceSchedules` resource that sets the app to free. This uses the official ASC API and does not depend on fastlane.
+
+### `asc privacy`
+
+Record or attempt App Privacy publication state.
+
+```bash
+swift run ascendkit asc privacy set-not-collected \
+  --workspace "$WORKSPACE" \
+  --confirm-remote-mutation \
+  --json
+
+swift run ascendkit asc privacy status --workspace "$WORKSPACE" --json
+```
+
+Attempts to publish App Privacy as Data Not Collected and records the result in `asc/privacy-status.json`. If Apple rejects API-key auth for the App Privacy endpoint, complete App Privacy in App Store Connect UI and then record the manual handoff:
+
+```bash
+swift run ascendkit asc privacy confirm-manual \
+  --workspace "$WORKSPACE" \
+  --data-not-collected \
+  --json
+```
 
 ### `submit`
 

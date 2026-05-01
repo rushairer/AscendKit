@@ -157,6 +157,7 @@ public struct ReviewSubmissionPlanBuilder {
         appsLookupReport: ASCAppsLookupReport?,
         metadataApplyResult: ASCMetadataApplyResult?,
         metadataDiffReport: MetadataDiffReport?,
+        appPrivacyStatus: AppPrivacyStatus? = nil,
         buildCandidatesReport: BuildCandidatesReport?
     ) -> ReviewSubmissionPlan {
         let target = manifest.targets.first(where: \.isAppStoreApplication)
@@ -198,6 +199,9 @@ public struct ReviewSubmissionPlanBuilder {
         }
         if remainingDiffs?.contains(where: { $0.field == "releaseNotes" }) == true {
             findings.append("releaseNotes/whatsNew remains unsynced because App Store Connect rejected edits in the current version state.")
+        }
+        if appPrivacyStatus?.readyForSubmission != true {
+            findings.append("App Privacy answers are not recorded as published. Complete App Privacy in App Store Connect UI or run asc privacy confirm-manual after publishing.")
         }
         findings.append("Remote review submission execution is intentionally disabled in this MVP boundary.")
 

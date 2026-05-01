@@ -87,6 +87,7 @@ struct SubmissionTests {
             screenshotImportManifest: screenshotImport,
             screenshotCompositionManifest: screenshotComposition,
             ascLookupPlan: ascLookupPlan,
+            appPrivacyStatus: readyAppPrivacyStatus(),
             buildCandidatesReport: builds,
             iapValidationReport: iapValidation
         )
@@ -99,7 +100,34 @@ struct SubmissionTests {
         #expect(report.items.first { $0.id == "screenshots.composition" }?.satisfied == true)
         #expect(report.items.first { $0.id == "asc.lookup-plan" }?.satisfied == true)
         #expect(report.items.first { $0.id == "build.processable" }?.satisfied == true)
+        #expect(report.items.first { $0.id == "app-privacy.published" }?.satisfied == true)
         #expect(report.items.first { $0.id == "iap.validation" }?.satisfied == true)
+    }
+
+    @Test("requires published App Privacy answers")
+    func requiresPublishedAppPrivacyAnswers() {
+        let report = SubmissionReadinessEvaluator().evaluate(
+            manifest: readyManifest(),
+            doctorReport: DoctorReport(findings: []),
+            reviewInfo: readyReviewInfo(),
+            metadataLintReports: [MetadataLintReport(locale: "en-US", findings: [])],
+            screenshotImportManifest: ScreenshotImportManifest(
+                sourceDirectory: "/tmp/screenshots",
+                artifacts: [ScreenshotArtifact(locale: "en-US", platform: .iOS, path: "/tmp/screenshots/en-US/iOS/01.png", fileName: "01.png")]
+            ),
+            screenshotCompositionManifest: readyScreenshotComposition(),
+            ascLookupPlan: readyASCLookupPlan(),
+            appPrivacyStatus: AppPrivacyStatus(
+                state: .requiresManualAppStoreConnect,
+                source: "apple-iris-api-key-unauthorized",
+                findings: ["Complete App Privacy in App Store Connect UI."]
+            ),
+            buildCandidatesReport: readyBuildCandidates()
+        )
+
+        #expect(report.ready == false)
+        #expect(report.items.first { $0.id == "app-privacy.published" }?.satisfied == false)
+        #expect(report.items.first { $0.id == "app-privacy.published" }?.note?.contains("confirm-manual") == true)
     }
 
     @Test("requires ASC lookup dry-run plan")
@@ -279,6 +307,7 @@ struct SubmissionTests {
                 ]
             ),
             ascLookupPlan: readyASCLookupPlan(),
+            appPrivacyStatus: readyAppPrivacyStatus(),
             buildCandidatesReport: BuildCandidatesReport(
                 source: "test",
                 candidates: [BuildCandidate(id: "build", version: "1.0", buildNumber: "7", processingState: "processed")]
@@ -388,6 +417,7 @@ struct SubmissionTests {
                     )
                 ]
             ),
+            appPrivacyStatus: readyAppPrivacyStatus(),
             buildCandidatesReport: readyBuildCandidates()
         )
 
@@ -419,6 +449,7 @@ struct SubmissionTests {
                 generatedAt: Date(timeIntervalSince1970: 199),
                 diffs: []
             ),
+            appPrivacyStatus: readyAppPrivacyStatus(),
             buildCandidatesReport: readyBuildCandidates()
         )
 
@@ -521,6 +552,14 @@ struct SubmissionTests {
             candidates: [
                 BuildCandidate(id: "build-7", version: "1.0", buildNumber: "7", processingState: "processed")
             ]
+        )
+    }
+
+    private func readyAppPrivacyStatus() -> AppPrivacyStatus {
+        AppPrivacyStatus(
+            state: .publishedDataNotCollected,
+            source: "manual-app-store-connect",
+            findings: []
         )
     }
 }
