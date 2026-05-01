@@ -329,7 +329,7 @@ struct CLIRunner {
                     to: workspace
                 )
                 return try render(report, json: json) {
-                    "Screenshot copy lint \(report.valid ? "passed" : "failed") with \(report.findings.count) finding(s)."
+                    renderScreenshotCopyLintText(report)
                 }
             default:
                 throw AscendKitError.invalidArguments("Usage: ascendkit screenshots copy init|refresh|lint --workspace PATH [--locale en-US] [--copy PATH] [--output PATH] [--json]")
@@ -509,6 +509,15 @@ struct CLIRunner {
             "- \(finding.severity.rawValue) \(finding.id): \(finding.message) Next: \(finding.nextAction)"
         }
         return ([header, "Screenshot readiness finding(s):"] + lines).joined(separator: "\n")
+    }
+
+    private func renderScreenshotCopyLintText(_ report: ScreenshotCompositionCopyLintReport) -> String {
+        let header = "Screenshot copy lint \(report.valid ? "passed" : "failed") with \(report.findings.count) finding(s)."
+        guard !report.findings.isEmpty else {
+            return header
+        }
+        let lines = report.findings.map { "- \($0)" }
+        return ([header, "Screenshot copy lint finding(s):"] + lines).joined(separator: "\n")
     }
 
     private func defaultScreenshotCopyPath(workspace: ReleaseWorkspace, locale: String) -> String {
