@@ -540,11 +540,34 @@ struct CLIRunner {
         }
 
         let mode = ScreenshotCompositionMode(rawValue: value(after: "--mode", in: args) ?? "framedPoster") ?? .framedPoster
+        let copyPath = value(after: "--copy", in: args)
+        if let copyPath {
+            let copyLint = try refreshAndLintScreenshotCopy(
+                workspace: workspace,
+                store: store,
+                screenshotPlan: screenshotPlan,
+                copyPath: copyPath
+            )
+            guard copyLint.valid else {
+                let result = ScreenshotLocalWorkflowResult(
+                    succeeded: false,
+                    capturePlanPath: workspace.paths.screenshotCapturePlan,
+                    captureResultPath: workspace.paths.screenshotCaptureResult,
+                    importManifestPath: workspace.paths.screenshotImportManifest,
+                    compositionMode: mode,
+                    capturedFileCount: capturedFileCount,
+                    findings: copyLint.findings
+                )
+                try store.save(result, to: URL(fileURLWithPath: workspace.paths.screenshotWorkflowResult))
+                try store.appendAudit(.init(action: .screenshotWorkflowRan, summary: "Screenshot workflow failed during copy lint"), to: workspace)
+                return result
+            }
+        }
         let composition = try composeScreenshots(
             workspace: workspace,
             store: store,
             mode: mode,
-            copyPath: value(after: "--copy", in: args)
+            copyPath: copyPath
         )
         let result = ScreenshotLocalWorkflowResult(
             succeeded: true,
@@ -566,6 +589,48 @@ struct CLIRunner {
             to: workspace
         )
         return result
+    }
+
+    private func refreshAndLintScreenshotCopy(
+        workspace: ReleaseWorkspace,
+        store: ReleaseWorkspaceStore,
+        screenshotPlan: ScreenshotPlan,
+        copyPath: String
+    ) throws -> ScreenshotCompositionCopyLintReport {
+        let existing = try loadIfExists(ScreenshotCompositionCopyManifest.self, path: copyPath)
+        let copy = ScreenshotCompositionCopyTemplateBuilder().refresh(
+            plan: screenshotPlan,
+            existing: existing,
+            locale: screenshotPlan.locales.first
+        )
+        let copyURL = URL(fileURLWithPath: copyPath)
+        try store.save(copy, to: copyURL)
+        try store.appendAudit(
+            .init(
+                action: .screenshotCopyRefreshed,
+                summary: "Refreshed screenshot composition copy for workflow",
+                details: ["items": "\(copy.items.count)", "path": copyURL.path]
+            ),
+            to: workspace
+        )
+
+        guard let importManifest = try loadIfExists(ScreenshotImportManifest.self, path: workspace.paths.screenshotImportManifest) else {
+            throw AscendKitError.fileNotFound(workspace.paths.screenshotImportManifest)
+        }
+        let report = ScreenshotCompositionCopyLinter().lint(
+            importManifest: importManifest,
+            copyManifest: copy
+        )
+        try store.save(report, to: URL(fileURLWithPath: workspace.paths.screenshotCopyLint))
+        try store.appendAudit(
+            .init(
+                action: .screenshotCopyLinted,
+                summary: "Linted screenshot composition copy for workflow",
+                details: ["findings": "\(report.findings.count)", "path": copyURL.path]
+            ),
+            to: workspace
+        )
+        return report
     }
 
     private func composeScreenshots(

@@ -391,7 +391,7 @@ swift run ascendkit screenshots workflow run \
   --json
 ```
 
-Runs the local screenshot workflow end to end: recommends local simulator destinations, writes a fresh capture plan, executes local Xcode UI tests, refreshes the import manifest, composes final screenshots, and writes `screenshots/manifests/workflow-result.json`. The default workflow composition mode is `framedPoster`.
+Runs the local screenshot workflow end to end: recommends local simulator destinations, writes a fresh capture plan, executes local Xcode UI tests, refreshes the import manifest, refreshes/lints the provided copy file, composes final screenshots, and writes `screenshots/manifests/workflow-result.json`. The default workflow composition mode is `framedPoster`.
 
 ```bash
 swift run ascendkit screenshots workflow status --workspace "$WORKSPACE" --json
