@@ -39,7 +39,26 @@ Out of scope for the current MVP:
 - An App Store Connect API key for remote ASC operations.
 - Optional: `fastlane` only if you are migrating existing metadata or screenshot folders. It is not required for the core workflow.
 
-Build and test:
+## Installation
+
+For normal use, install the `ascendkit` binary somewhere on your `PATH` and run it from any app project directory:
+
+```bash
+install -m 0755 bin/ascendkit ~/.local/bin/ascendkit
+ascendkit --version
+ascendkit --help
+```
+
+GitHub release archives are generated with:
+
+```bash
+scripts/package-release.sh
+shasum -a 256 -c dist/ascendkit-*.tar.gz.sha256
+```
+
+The archive contains only the AscendKit CLI, `LICENSE`, `README.md`, and install instructions. It does not contain app workspaces, App Store Connect credentials, screenshots, or app binaries.
+
+For development, run from the source checkout:
 
 ```bash
 swift test
@@ -798,6 +817,7 @@ Run this before committing:
 ```bash
 swift test
 swift run ascendkit --help
+scripts/package-release.sh
 git diff --check
 ```
 
@@ -811,14 +831,15 @@ rg -n --hidden --glob '!.build/**' --glob '!.swiftpm/**' \
 Release checklist:
 
 1. Keep `README.md` command examples aligned with `swift run ascendkit --help`.
-2. Add tests for new command behavior before expanding remote mutation.
-3. Update `docs/mvp-roadmap.md` and `docs/automation-boundaries.md` when scope changes.
-4. Never commit real app release workspaces, screenshots, API keys, or reviewer credentials.
-5. Run `workspace gitignore --workspace "$WORKSPACE" --fix` before sharing an app repo that uses AscendKit.
-6. Use `workspace validate-handoff --workspace "$WORKSPACE" --export FILE` before asking another agent to take over.
-7. Use `workspace next-steps --workspace "$WORKSPACE" --json` to give agents a command-oriented recovery plan.
-8. Use `workspace export-summary --workspace "$WORKSPACE" --output FILE` when handing state to another agent instead of sharing `.ascendkit/`.
-9. Prefer small, deterministic command outputs that can be consumed by scripts and agents.
+2. Run `scripts/package-release.sh` and verify the `.sha256` file before attaching release archives.
+3. Add tests for new command behavior before expanding remote mutation.
+4. Update `docs/mvp-roadmap.md` and `docs/automation-boundaries.md` when scope changes.
+5. Never commit real app release workspaces, screenshots, API keys, or reviewer credentials.
+6. Run `workspace gitignore --workspace "$WORKSPACE" --fix` before sharing an app repo that uses AscendKit.
+7. Use `workspace validate-handoff --workspace "$WORKSPACE" --export FILE` before asking another agent to take over.
+8. Use `workspace next-steps --workspace "$WORKSPACE" --json` to give agents a command-oriented recovery plan.
+9. Use `workspace export-summary --workspace "$WORKSPACE" --output FILE` when handing state to another agent instead of sharing `.ascendkit/`.
+10. Prefer small, deterministic command outputs that can be consumed by scripts and agents.
 
 Fastlane removal roadmap:
 

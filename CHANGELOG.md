@@ -4,7 +4,14 @@ AscendKit follows [Semantic Versioning](https://semver.org/). During `0.y.z`, th
 
 ## Unreleased
 
-No unreleased changes.
+### Added
+
+- Central command catalog tests now keep CLI help and agent-facing handoff documentation aligned before the `v1.0.0` release candidate.
+- `scripts/package-release.sh` builds a release `ascendkit` binary archive and SHA-256 checksum for GitHub Releases distribution.
+
+### Changed
+
+- CLI help is generated from `AscendKitCommandCatalog` instead of a duplicated hand-written usage block.
 
 ## 0.11.0 - 2026-05-02
 
