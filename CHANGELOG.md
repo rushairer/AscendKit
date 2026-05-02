@@ -4,7 +4,9 @@ AscendKit follows [Semantic Versioning](https://semver.org/). During `0.y.z`, th
 
 ## Unreleased
 
-No unreleased changes.
+### Added
+
+- Release asset verifier checks GitHub Release assets and performs a temporary installer smoke test after publishing.
 
 ## 0.14.0 - 2026-05-02
 

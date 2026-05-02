@@ -58,6 +58,7 @@ struct CLISmokeTests {
     func releasePackagingScriptAndDocsStayDiscoverable() throws {
         let script = try String(contentsOfFile: "scripts/package-release.sh", encoding: .utf8)
         let installScript = try String(contentsOfFile: "scripts/install-ascendkit.sh", encoding: .utf8)
+        let verifyScript = try String(contentsOfFile: "scripts/verify-release-assets.sh", encoding: .utf8)
         let formulaScript = try String(contentsOfFile: "scripts/update-homebrew-formula.sh", encoding: .utf8)
         let formula = try String(contentsOfFile: "Formula/ascendkit.rb", encoding: .utf8)
         let readme = try String(contentsOfFile: "README.md", encoding: .utf8)
@@ -72,6 +73,9 @@ struct CLISmokeTests {
         #expect(installScript.contains("EXPECTED_SHA"))
         #expect(installScript.contains("ACTUAL_SHA"))
         #expect(installScript.contains("releases/latest"))
+        #expect(verifyScript.contains("gh release view"))
+        #expect(verifyScript.contains("install-ascendkit.sh --version"))
+        #expect(verifyScript.contains("ascendkit.rb"))
         #expect(formulaScript.contains("gh release view"))
         #expect(formulaScript.contains("FORMULA_PATH="))
         #expect(formulaScript.contains("ascendkit.rb"))
@@ -79,6 +83,7 @@ struct CLISmokeTests {
         #expect(formula.contains("bin.install \"bin/ascendkit\""))
         #expect(readme.contains("scripts/package-release.sh"))
         #expect(readme.contains("scripts/install-ascendkit.sh"))
+        #expect(readme.contains("scripts/verify-release-assets.sh"))
         #expect(readme.contains("scripts/update-homebrew-formula.sh"))
         #expect(readme.contains("GitHub release archives"))
         #expect(readme.contains("install -m 0755 bin/ascendkit"))
@@ -92,6 +97,7 @@ struct CLISmokeTests {
         #expect(releaseWorkflow.contains("gh release upload"))
         #expect(releaseWorkflow.contains("scripts/update-homebrew-formula.sh"))
         #expect(releaseWorkflow.contains("scripts/install-ascendkit.sh"))
+        #expect(releaseWorkflow.contains("scripts/verify-release-assets.sh"))
         #expect(releaseWorkflow.contains("cd dist && shasum -a 256 -c *.tar.gz.sha256"))
     }
 }

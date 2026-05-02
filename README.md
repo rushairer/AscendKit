@@ -58,6 +58,14 @@ ASCENDKIT_INSTALL_DIR=/usr/local/bin scripts/install-ascendkit.sh
 
 The installer downloads the macOS arm64 release archive from GitHub Releases, verifies the `.sha256` digest with `shasum`, and installs only the `ascendkit` CLI binary.
 
+Verify a published release before announcing it:
+
+```bash
+scripts/verify-release-assets.sh --version 0.14.0
+```
+
+The verifier checks for the expected GitHub Release assets and performs a temporary installer smoke test.
+
 GitHub release archives are generated with:
 
 ```bash
@@ -863,7 +871,7 @@ Release checklist:
 GitHub Actions:
 
 - `.github/workflows/ci.yml` runs on `main` pushes and pull requests. It runs tests, shell syntax checks, whitespace checks, release packaging, and checksum verification.
-- `.github/workflows/release.yml` runs on `v*` tags. It runs tests, builds the CLI archive, verifies the checksum, uploads the archive plus `.sha256`, generates `Formula/ascendkit.rb`, and uploads the formula plus installer script to the GitHub Release.
+- `.github/workflows/release.yml` runs on `v*` tags. It runs tests, builds the CLI archive, verifies the checksum, uploads the archive plus `.sha256`, generates `Formula/ascendkit.rb`, uploads the formula plus installer script, and verifies the published release assets with an installer smoke test.
 
 Fastlane removal roadmap:
 
