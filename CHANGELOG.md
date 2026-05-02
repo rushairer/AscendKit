@@ -4,6 +4,10 @@ AscendKit follows [Semantic Versioning](https://semver.org/). During `0.y.z`, th
 
 ## Unreleased
 
+No unreleased changes.
+
+## 0.18.0 - 2026-05-02
+
 ### Changed
 
 - README now presents Homebrew as the primary install path and reserves `swift run` for contributor workflows.
