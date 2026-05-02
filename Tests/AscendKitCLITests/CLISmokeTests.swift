@@ -5,7 +5,7 @@ import Testing
 struct CLISmokeTests {
     @Test("reports current semantic version")
     func reportsCurrentSemanticVersion() {
-        #expect(AscendKitVersion.current == "0.12.2")
+        #expect(AscendKitVersion.current == "0.12.3")
     }
 
     @Test("core JSON encoder produces sorted manifest output")
@@ -68,8 +68,11 @@ struct CLISmokeTests {
         #expect(readme.contains("GitHub release archives"))
         #expect(readme.contains("install -m 0755 bin/ascendkit"))
         #expect(ciWorkflow.contains("swift test"))
+        #expect(ciWorkflow.contains("actions/checkout@v5"))
         #expect(ciWorkflow.contains("scripts/package-release.sh"))
-        #expect(releaseWorkflow.contains("softprops/action-gh-release"))
+        #expect(releaseWorkflow.contains("actions/checkout@v5"))
+        #expect(releaseWorkflow.contains("gh release create"))
+        #expect(releaseWorkflow.contains("gh release upload"))
         #expect(releaseWorkflow.contains("dist/*.tar.gz.sha256"))
     }
 }

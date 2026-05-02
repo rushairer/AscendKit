@@ -8,16 +8,13 @@ on:
 permissions:
   contents: write
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 jobs:
   package:
     name: Package CLI
     runs-on: macos-15
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Select Xcode
         run: sudo xcode-select -s /Applications/Xcode.app
@@ -32,8 +29,13 @@ jobs:
         run: shasum -a 256 -c dist/*.tar.gz.sha256
 
       - name: Upload release artifacts
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            dist/*.tar.gz
-            dist/*.tar.gz.sha256
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
+            gh release upload "${GITHUB_REF_NAME}" dist/*.tar.gz dist/*.tar.gz.sha256 --clobber
+          else
+            gh release create "${GITHUB_REF_NAME}" dist/*.tar.gz dist/*.tar.gz.sha256 \
+              --title "${GITHUB_REF_NAME}" \
+              --generate-notes
+          fi

@@ -6,6 +6,12 @@ AscendKit follows [Semantic Versioning](https://semver.org/). During `0.y.z`, th
 
 No unreleased changes.
 
+## 0.12.3 - 2026-05-02
+
+### Fixed
+
+- GitHub Actions now use `actions/checkout@v5` and GitHub CLI release uploads, removing JavaScript action Node.js 20 deprecation annotations.
+
 ## 0.12.2 - 2026-05-02
 
 ### Fixed
