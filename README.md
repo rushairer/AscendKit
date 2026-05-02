@@ -74,6 +74,14 @@ scripts/verify-release-assets.sh --version 0.32.0
 
 The verifier checks for the expected GitHub Release assets and performs a temporary installer smoke test.
 
+Run the v1 representative app smoke against a local app project before a release candidate:
+
+```bash
+scripts/v1-representative-app-smoke.sh --app-root /path/to/YourApp
+```
+
+The smoke uses the installed `ascendkit` binary from `PATH`, creates a local `.ascendkit/` release workspace in the target app, and exercises intake, doctor, metadata lint, screenshot workflow status, ASC local status, submission readiness, and agent handoff commands without remote mutations.
+
 GitHub release archives are generated with:
 
 ```bash
@@ -895,6 +903,7 @@ Release checklist:
 10. Prefer small, deterministic command outputs that can be consumed by scripts and agents.
 11. After the GitHub Release workflow succeeds, run `scripts/update-homebrew-formula.sh` and `scripts/verify-homebrew-formula.sh --version VERSION`, then commit any formula checksum sync.
 12. Before tagging `v1.0.0`, complete `docs/v1-release-readiness.md`, run `scripts/preflight-public-release.sh`, verify Homebrew install from the published formula, and confirm this README's Current Status, command examples, safety boundaries, release checklist, and maintainer workflow match the tagged release.
+13. Run `scripts/v1-representative-app-smoke.sh --app-root PATH` against a representative app using the installed Homebrew binary.
 
 GitHub Actions:
 

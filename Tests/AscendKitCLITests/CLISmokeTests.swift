@@ -126,6 +126,7 @@ struct CLISmokeTests {
         #expect(releaseReadiness.contains("Remote review submission execution remains boundary-disabled."))
         #expect(releaseReadiness.contains("Fastlane commands remain migration helpers only"))
         #expect(releaseReadiness.contains("Homebrew reinstall from the synced formula reports the tagged version"))
+        #expect(releaseReadiness.contains("scripts/v1-representative-app-smoke.sh --app-root PATH"))
 
         let v1Docs = [readme, playbook, commandSurface, automationBoundaries, architecture, releaseReadiness]
         let retiredCommandFragments = [
@@ -149,6 +150,7 @@ struct CLISmokeTests {
         let verifyScript = try String(contentsOfFile: "scripts/verify-release-assets.sh", encoding: .utf8)
         let formulaScript = try String(contentsOfFile: "scripts/update-homebrew-formula.sh", encoding: .utf8)
         let formulaVerifyScript = try String(contentsOfFile: "scripts/verify-homebrew-formula.sh", encoding: .utf8)
+        let representativeSmokeScript = try String(contentsOfFile: "scripts/v1-representative-app-smoke.sh", encoding: .utf8)
         let formula = try String(contentsOfFile: "Formula/ascendkit.rb", encoding: .utf8)
         let readme = try String(contentsOfFile: "README.md", encoding: .utf8)
         let cli = try String(contentsOfFile: "Sources/AscendKitCLI/main.swift", encoding: .utf8)
@@ -179,6 +181,10 @@ struct CLISmokeTests {
         #expect(formulaVerifyScript.contains("Formula/ascendkit.rb"))
         #expect(formulaVerifyScript.contains("sha256"))
         #expect(formulaVerifyScript.contains("gh release view"))
+        #expect(representativeSmokeScript.contains("ASCENDKIT_BIN"))
+        #expect(representativeSmokeScript.contains("intake inspect"))
+        #expect(representativeSmokeScript.contains("submit readiness"))
+        #expect(representativeSmokeScript.contains("workspace validate-handoff"))
         #expect(formula.contains("class Ascendkit < Formula"))
         #expect(formula.contains("bin.install \"bin/ascendkit\""))
         #expect(readme.contains("scripts/package-release.sh"))
@@ -187,6 +193,7 @@ struct CLISmokeTests {
         #expect(readme.contains("scripts/verify-release-assets.sh"))
         #expect(readme.contains("scripts/update-homebrew-formula.sh"))
         #expect(readme.contains("scripts/verify-homebrew-formula.sh"))
+        #expect(readme.contains("scripts/v1-representative-app-smoke.sh"))
         #expect(readme.contains("brew tap rushairer/ascendkit"))
         #expect(readme.contains("brew install ascendkit"))
         #expect(readme.contains("ascendkit version --json"))

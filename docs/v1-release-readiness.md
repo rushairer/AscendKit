@@ -10,6 +10,7 @@ This checklist defines the final gates before tagging `v1.0.0`.
 - `scripts/update-homebrew-formula.sh --version VERSION` and `scripts/verify-homebrew-formula.sh --version VERSION` pass after the GitHub Release exists.
 - Homebrew reinstall from the synced formula reports the tagged version with `ascendkit --version`.
 - `ascendkit version --json` points at the tagged GitHub Release URL.
+- `scripts/v1-representative-app-smoke.sh --app-root PATH` passes against a representative app project using the installed binary.
 - A representative app project can run `intake inspect`, `doctor release`, `metadata lint`, screenshot workflow status, ASC status commands, and `submit readiness` without source-checkout assumptions.
 - README Current Status, install examples, command examples, safety boundaries, and maintainer workflow match the tagged release.
 - `docs/v1-command-surface.md`, `docs/automation-boundaries.md`, and `docs/agent-release-playbook.md` remain aligned with the installed `ascendkit` binary.

@@ -4,7 +4,9 @@ AscendKit follows [Semantic Versioning](https://semver.org/). During `0.y.z`, th
 
 ## Unreleased
 
-No unreleased changes.
+### Added
+
+- Added a representative app smoke script for v1 release-candidate validation with the installed AscendKit binary.
 
 ## 0.32.0 - 2026-05-02
 

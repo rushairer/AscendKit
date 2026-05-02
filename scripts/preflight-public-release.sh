@@ -17,6 +17,7 @@ bash -n scripts/package-release.sh \
   scripts/verify-homebrew-formula.sh \
   scripts/install-ascendkit.sh \
   scripts/verify-release-assets.sh \
+  scripts/v1-representative-app-smoke.sh \
   scripts/preflight-public-release.sh
 
 echo "==> Release archive"
