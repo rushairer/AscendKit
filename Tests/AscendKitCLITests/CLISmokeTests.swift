@@ -38,13 +38,18 @@ struct CLISmokeTests {
     @Test("README release version references stay aligned")
     func readmeReleaseVersionReferencesStayAligned() throws {
         let readme = try String(contentsOfFile: "README.md", encoding: .utf8)
+        let changelog = try String(contentsOfFile: "CHANGELOG.md", encoding: .utf8)
         let formula = try String(contentsOfFile: "Formula/ascendkit.rb", encoding: .utf8)
         let version = AscendKitVersion.current
 
         #expect(readme.contains("Current documented release: `v\(version)`"))
         #expect(readme.contains("scripts/install-ascendkit.sh --version \(version)"))
         #expect(readme.contains("scripts/verify-release-assets.sh --version \(version)"))
+        #expect(changelog.contains("## \(version) - "))
         #expect(formula.contains("releases/download/v\(version)/ascendkit-\(version)-macos-arm64.tar.gz"))
+
+        let checksumPattern = #"sha256 "[0-9a-f]{64}""#
+        #expect(formula.range(of: checksumPattern, options: .regularExpression) != nil)
     }
 
     @Test("command catalog renders complete help without duplicate usage lines")
