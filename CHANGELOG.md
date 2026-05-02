@@ -6,6 +6,13 @@ AscendKit follows [Semantic Versioning](https://semver.org/). During `0.y.z`, th
 
 No unreleased changes.
 
+## 0.7.0 - 2026-05-02
+
+### Added
+
+- `workspace hygiene --workspace PATH [--json]` scans release workspaces for local artifacts and secret-like files that must not be committed or shared publicly.
+- `workspace summary` now includes a public-commit hygiene blocker when `.ascendkit/`, ASC state, review artifacts, screenshots, private-key markers, or other local release residue are present.
+
 ## 0.6.0 - 2026-05-02
 
 ### Added
