@@ -216,6 +216,8 @@ struct WorkspaceTests {
         let decoded = try AscendKitJSON.decoder.decode(SanitizedWorkspaceSummaryExport.self, from: exportedData)
 
         #expect(report.releaseID == "export-demo")
+        #expect(report.ascendKitVersion == AscendKitVersion.current)
+        #expect(decoded.ascendKitVersion == AscendKitVersion.current)
         #expect(decoded.exportPath == "summary.json")
         #expect(decoded.steps.contains { $0.id == "manifest" && $0.relativePath == "manifest.json" })
         #expect(decoded.hygieneFindings.contains { $0.id == "workspace.local-artifacts" })
@@ -245,6 +247,7 @@ struct WorkspaceTests {
         let ready = try HandoffValidator().validate(workspace: workspace, exportURL: exportURL)
 
         #expect(ready.readyForAgentHandoff == true)
+        #expect(ready.ascendKitVersion == AscendKitVersion.current)
         #expect(ready.releaseBlockerCount > 0)
         #expect(ready.sanitizedExportPath == "export.json")
         #expect(ready.items.contains { $0.id == "workspace.export-summary.generated" && $0.severity == .pass })

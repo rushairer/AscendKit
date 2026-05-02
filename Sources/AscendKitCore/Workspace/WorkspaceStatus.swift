@@ -280,6 +280,7 @@ public struct SanitizedWorkspaceStep: Codable, Equatable, Identifiable, Sendable
 
 public struct SanitizedWorkspaceSummaryExport: Codable, Equatable, Sendable {
     public var generatedAt: Date
+    public var ascendKitVersion: String?
     public var releaseID: String
     public var exportPath: String
     public var submissionReadinessReady: Bool?
@@ -296,6 +297,7 @@ public struct SanitizedWorkspaceSummaryExport: Codable, Equatable, Sendable {
 
     public init(
         generatedAt: Date = Date(),
+        ascendKitVersion: String? = AscendKitVersion.current,
         releaseID: String,
         exportPath: String,
         submissionReadinessReady: Bool?,
@@ -311,6 +313,7 @@ public struct SanitizedWorkspaceSummaryExport: Codable, Equatable, Sendable {
         notes: [String]
     ) {
         self.generatedAt = generatedAt
+        self.ascendKitVersion = ascendKitVersion
         self.releaseID = releaseID
         self.exportPath = exportPath
         self.submissionReadinessReady = submissionReadinessReady
@@ -415,6 +418,7 @@ public struct HandoffValidationItem: Codable, Equatable, Identifiable, Sendable 
 
 public struct HandoffValidationReport: Codable, Equatable, Sendable {
     public var generatedAt: Date
+    public var ascendKitVersion: String?
     public var releaseID: String
     public var readyForAgentHandoff: Bool
     public var releaseBlockerCount: Int
@@ -424,6 +428,7 @@ public struct HandoffValidationReport: Codable, Equatable, Sendable {
 
     public init(
         generatedAt: Date = Date(),
+        ascendKitVersion: String? = AscendKitVersion.current,
         releaseID: String,
         readyForAgentHandoff: Bool,
         releaseBlockerCount: Int,
@@ -432,6 +437,7 @@ public struct HandoffValidationReport: Codable, Equatable, Sendable {
         items: [HandoffValidationItem]
     ) {
         self.generatedAt = generatedAt
+        self.ascendKitVersion = ascendKitVersion
         self.releaseID = releaseID
         self.readyForAgentHandoff = readyForAgentHandoff
         self.releaseBlockerCount = releaseBlockerCount
