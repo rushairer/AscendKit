@@ -264,6 +264,127 @@ public struct WorkspaceGitignoreGuard {
     }
 }
 
+public struct SanitizedWorkspaceStep: Codable, Equatable, Identifiable, Sendable {
+    public var id: String
+    public var title: String
+    public var state: WorkspaceStepState
+    public var relativePath: String
+
+    public init(id: String, title: String, state: WorkspaceStepState, relativePath: String) {
+        self.id = id
+        self.title = title
+        self.state = state
+        self.relativePath = relativePath
+    }
+}
+
+public struct SanitizedWorkspaceSummaryExport: Codable, Equatable, Sendable {
+    public var generatedAt: Date
+    public var releaseID: String
+    public var exportPath: String
+    public var submissionReadinessReady: Bool?
+    public var readyForManualReviewSubmission: Bool?
+    public var appPrivacyReadyForSubmission: Bool?
+    public var appPrivacyState: String?
+    public var screenshotWorkflowReadyForUploadPlan: Bool?
+    public var remoteSubmissionExecutionAllowed: Bool?
+    public var nextActions: [ReleaseActionItem]
+    public var steps: [SanitizedWorkspaceStep]
+    public var hygieneSafeForPublicCommit: Bool
+    public var hygieneFindings: [WorkspaceHygieneFinding]
+    public var notes: [String]
+
+    public init(
+        generatedAt: Date = Date(),
+        releaseID: String,
+        exportPath: String,
+        submissionReadinessReady: Bool?,
+        readyForManualReviewSubmission: Bool?,
+        appPrivacyReadyForSubmission: Bool?,
+        appPrivacyState: String?,
+        screenshotWorkflowReadyForUploadPlan: Bool?,
+        remoteSubmissionExecutionAllowed: Bool?,
+        nextActions: [ReleaseActionItem],
+        steps: [SanitizedWorkspaceStep],
+        hygieneSafeForPublicCommit: Bool,
+        hygieneFindings: [WorkspaceHygieneFinding],
+        notes: [String]
+    ) {
+        self.generatedAt = generatedAt
+        self.releaseID = releaseID
+        self.exportPath = exportPath
+        self.submissionReadinessReady = submissionReadinessReady
+        self.readyForManualReviewSubmission = readyForManualReviewSubmission
+        self.appPrivacyReadyForSubmission = appPrivacyReadyForSubmission
+        self.appPrivacyState = appPrivacyState
+        self.screenshotWorkflowReadyForUploadPlan = screenshotWorkflowReadyForUploadPlan
+        self.remoteSubmissionExecutionAllowed = remoteSubmissionExecutionAllowed
+        self.nextActions = nextActions
+        self.steps = steps
+        self.hygieneSafeForPublicCommit = hygieneSafeForPublicCommit
+        self.hygieneFindings = hygieneFindings
+        self.notes = notes
+    }
+}
+
+public struct SanitizedWorkspaceSummaryExporter {
+    public let fileManager: FileManager
+
+    public init(fileManager: FileManager = .default) {
+        self.fileManager = fileManager
+    }
+
+    public func export(workspace: ReleaseWorkspace, outputURL: URL) throws -> SanitizedWorkspaceSummaryExport {
+        let summary = ReleaseWorkspaceSummaryReader(fileManager: fileManager).read(workspace: workspace)
+        let status = WorkspaceStatusReader(fileManager: fileManager).read(workspace: workspace)
+        let hygiene = WorkspaceHygieneScanner(fileManager: fileManager).scan(workspace: workspace)
+        let rootURL = URL(fileURLWithPath: workspace.paths.root)
+
+        let report = SanitizedWorkspaceSummaryExport(
+            releaseID: workspace.releaseID,
+            exportPath: outputURL.lastPathComponent,
+            submissionReadinessReady: summary.submissionReadinessReady,
+            readyForManualReviewSubmission: summary.readyForManualReviewSubmission,
+            appPrivacyReadyForSubmission: summary.appPrivacyReadyForSubmission,
+            appPrivacyState: summary.appPrivacyState,
+            screenshotWorkflowReadyForUploadPlan: summary.screenshotWorkflowReadyForUploadPlan,
+            remoteSubmissionExecutionAllowed: summary.remoteSubmissionExecutionAllowed,
+            nextActions: summary.nextActions,
+            steps: status.steps.map { step in
+                SanitizedWorkspaceStep(
+                    id: step.id,
+                    title: step.title,
+                    state: step.state,
+                    relativePath: relativePath(step.path, root: rootURL)
+                )
+            },
+            hygieneSafeForPublicCommit: hygiene.safeForPublicCommit,
+            hygieneFindings: hygiene.findings,
+            notes: [
+                "This export is sanitized for handoff and public issue discussion.",
+                "It does not include screenshots, ASC auth config, raw metadata, review artifacts, audit log contents, or App Store Connect API responses.",
+                "Do not share the raw .ascendkit/ workspace."
+            ]
+        )
+
+        try fileManager.createDirectory(at: outputURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try AscendKitJSON.encoder.encode(report).write(to: outputURL, options: [.atomic])
+        return report
+    }
+
+    private func relativePath(_ path: String, root: URL) -> String {
+        let rootPath = root.standardizedFileURL.path
+        let standardizedPath = URL(fileURLWithPath: path).standardizedFileURL.path
+        guard standardizedPath.hasPrefix(rootPath) else {
+            return URL(fileURLWithPath: path).lastPathComponent
+        }
+        let remainder = String(standardizedPath.dropFirst(rootPath.count))
+        return remainder.trimmingCharacters(in: CharacterSet(charactersIn: "/")).isEmpty
+            ? "."
+            : remainder.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+    }
+}
+
 public struct WorkspaceHygieneScanner {
     public let fileManager: FileManager
 

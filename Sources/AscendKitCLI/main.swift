@@ -89,6 +89,18 @@ struct CLIRunner {
             return try render(report, json: json) {
                 renderWorkspaceGitignoreText(report)
             }
+        case "export-summary":
+            let workspace = try loadWorkspace(from: args)
+            guard let outputPath = value(after: "--output", in: args) else {
+                throw AscendKitError.invalidArguments("Usage: ascendkit workspace export-summary --workspace PATH --output FILE [--json]")
+            }
+            let report = try SanitizedWorkspaceSummaryExporter(fileManager: fileManager).export(
+                workspace: workspace,
+                outputURL: URL(fileURLWithPath: outputPath)
+            )
+            return try render(report, json: json) {
+                renderSanitizedWorkspaceSummaryExportText(report)
+            }
         case "audit":
             let workspace = try loadWorkspace(from: args)
             let records = try AuditLogReader(fileManager: fileManager).read(workspace: workspace)
@@ -110,7 +122,7 @@ struct CLIRunner {
                 }.joined(separator: "\n")
             }
         default:
-            throw AscendKitError.invalidArguments("Usage: ascendkit workspace status|summary|hygiene|gitignore|audit --workspace PATH [--json] OR ascendkit workspace list [--root PATH] [--json]")
+            throw AscendKitError.invalidArguments("Usage: ascendkit workspace status|summary|hygiene|gitignore|export-summary|audit --workspace PATH [--json] OR ascendkit workspace list [--root PATH] [--json]")
         }
     }
 
@@ -164,6 +176,17 @@ struct CLIRunner {
             lines.append(contentsOf: report.nextActions.map { "- \($0)" })
         }
         return lines.joined(separator: "\n")
+    }
+
+    private func renderSanitizedWorkspaceSummaryExportText(_ report: SanitizedWorkspaceSummaryExport) -> String {
+        [
+            "Sanitized workspace summary exported: \(report.exportPath)",
+            "Release: \(report.releaseID)",
+            "Next action(s): \(report.nextActions.count)",
+            "Workspace step(s): \(report.steps.count)",
+            "Hygiene finding(s): \(report.hygieneFindings.count)",
+            "Raw workspace safe for public commit: \(report.hygieneSafeForPublicCommit ? "yes" : "no")"
+        ].joined(separator: "\n")
     }
 
     private func intake(_ args: [String], json: Bool) throws -> String {
@@ -1995,6 +2018,7 @@ struct CLIRunner {
       ascendkit workspace summary --workspace PATH [--json]
       ascendkit workspace hygiene --workspace PATH [--json]
       ascendkit workspace gitignore --workspace PATH [--fix] [--json]
+      ascendkit workspace export-summary --workspace PATH --output FILE [--json]
       ascendkit workspace audit --workspace PATH [--json]
       ascendkit workspace list [--root PATH] [--json]
       ascendkit intake inspect [--root PATH] [--project PATH] [--workspace PATH] [--release-id ID] [--save] [--json]

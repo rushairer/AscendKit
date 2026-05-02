@@ -200,6 +200,30 @@ struct WorkspaceTests {
         #expect(idempotentContent.components(separatedBy: ".ascendkit/").count == 2)
     }
 
+    @Test("exports sanitized workspace summary without raw workspace paths")
+    func exportsSanitizedWorkspaceSummary() throws {
+        let root = try TemporaryDirectory()
+        let store = ReleaseWorkspaceStore()
+        let workspace = try store.createWorkspace(
+            baseDirectory: root.url,
+            manifest: ReleaseManifest(releaseID: "export-demo", appSlug: "demo", projects: [], targets: [])
+        )
+        let exportURL = root.url.appendingPathComponent("handoff/summary.json")
+
+        let report = try SanitizedWorkspaceSummaryExporter().export(workspace: workspace, outputURL: exportURL)
+        let exportedData = try Data(contentsOf: exportURL)
+        let exportedText = String(decoding: exportedData, as: UTF8.self)
+        let decoded = try AscendKitJSON.decoder.decode(SanitizedWorkspaceSummaryExport.self, from: exportedData)
+
+        #expect(report.releaseID == "export-demo")
+        #expect(decoded.exportPath == "summary.json")
+        #expect(decoded.steps.contains { $0.id == "manifest" && $0.relativePath == "manifest.json" })
+        #expect(decoded.hygieneFindings.contains { $0.id == "workspace.local-artifacts" })
+        #expect(decoded.notes.contains { $0.contains("does not include screenshots") })
+        #expect(!exportedText.contains(workspace.paths.root))
+        #expect(!exportedText.contains(root.url.standardizedFileURL.path))
+    }
+
     @Test("lists release workspaces under a project root")
     func listsReleaseWorkspaces() throws {
         let root = try TemporaryDirectory()

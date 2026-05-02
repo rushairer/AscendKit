@@ -192,11 +192,14 @@ swift run ascendkit submit handoff --workspace "$WORKSPACE" --json
 swift run ascendkit workspace summary --workspace "$WORKSPACE" --json
 swift run ascendkit workspace hygiene --workspace "$WORKSPACE" --json
 swift run ascendkit workspace gitignore --workspace "$WORKSPACE" --fix --json
+swift run ascendkit workspace export-summary --workspace "$WORKSPACE" --output /tmp/ascendkit-summary.json --json
 ```
 
 For `framedPoster` screenshot composition, readiness requires `screenshots copy lint` to have produced a clean `screenshots/manifests/copy-lint.json`.
 
 Before committing or publishing the app repository, run `workspace hygiene` to confirm raw release artifacts are not safe to share and `workspace gitignore --fix` to make sure `.ascendkit/` is excluded from git.
+
+For agent handoff, share the `workspace export-summary` JSON instead of zipping or copying `.ascendkit/`. The export is intentionally status-only and excludes raw release artifacts.
 
 Only complete final review submission when readiness and the review plan are clean. AscendKit currently stops at the handoff boundary; use the generated handoff and submit manually in App Store Connect.
 
