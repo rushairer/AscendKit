@@ -605,7 +605,8 @@ Supported secret providers:
 
 - `file`: read a private key from a local file path.
 - `env`: read a secret from an environment variable.
-- `keychain`: reserved in the current CLI slice.
+
+`keychain` references may appear in older local profiles, but new CLI auth commands only accept `file` and `env` until a fully verified Keychain resolver is added.
 
 ### `asc lookup` and `asc apps`
 

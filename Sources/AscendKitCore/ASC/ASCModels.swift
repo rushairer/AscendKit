@@ -146,6 +146,9 @@ public struct ASCAuthStatus: Codable, Equatable, Sendable {
         if config.privateKey.identifier.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             findings.append("privateKey secret reference is empty.")
         }
+        if config.privateKey.provider == .keychain {
+            findings.append("keychain privateKey provider is not supported in this release; use file or environment.")
+        }
 
         self.configured = findings.isEmpty
         self.issuerIDRedacted = Redactor.redact(config.issuerID)

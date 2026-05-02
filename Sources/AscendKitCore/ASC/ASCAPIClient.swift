@@ -22,7 +22,7 @@ public struct ASCSecretResolver {
             }
             return try String(contentsOfFile: path, encoding: .utf8)
         case .keychain:
-            throw AscendKitError.unsupported("Keychain secret resolution is not implemented in this CLI slice; use file or environment references.")
+            throw AscendKitError.unsupported("Keychain secret references are not supported in this release; use file or environment references.")
         }
     }
 

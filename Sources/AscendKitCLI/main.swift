@@ -1175,7 +1175,7 @@ struct CLIRunner {
                     privateKey: SecretRef(provider: provider, identifier: privateKeyRef)
                 )
             } else {
-                throw AscendKitError.invalidArguments("Usage: ascendkit asc auth init --workspace PATH (--profile NAME | --issuer-id ID --key-id ID --private-key-provider env|file|keychain --private-key-ref REF) [--json]")
+                throw AscendKitError.invalidArguments("Usage: ascendkit asc auth init --workspace PATH (--profile NAME | --issuer-id ID --key-id ID --private-key-provider env|file --private-key-ref REF) [--json]")
             }
             let status = ASCAuthStatus(config: config)
             try store.save(config, to: URL(fileURLWithPath: workspace.paths.ascAuthConfig))
@@ -1199,7 +1199,7 @@ struct CLIRunner {
                   let providerValue = value(after: "--private-key-provider", in: args),
                   let provider = secretProvider(from: providerValue),
                   let privateKeyRef = value(after: "--private-key-ref", in: args) else {
-                throw AscendKitError.invalidArguments("Usage: ascendkit asc auth save-profile --name NAME --issuer-id ID --key-id ID --private-key-provider env|file|keychain --private-key-ref REF [--json]")
+                throw AscendKitError.invalidArguments("Usage: ascendkit asc auth save-profile --name NAME --issuer-id ID --key-id ID --private-key-provider env|file --private-key-ref REF [--json]")
             }
             let profile = ASCAuthProfile(
                 name: name,
@@ -2068,6 +2068,9 @@ struct CLIRunner {
     private func secretProvider(from value: String) -> SecretProvider? {
         if value == "env" {
             return .environment
+        }
+        if value == "keychain" {
+            return nil
         }
         return SecretProvider(rawValue: value)
     }

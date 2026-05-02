@@ -743,7 +743,7 @@ public struct WorkspaceHygieneScanner {
             nextActions: [
                 "Keep .ascendkit/ out of git and public archives.",
                 "Share sanitized command output or workspace summary instead of raw workspace files.",
-                "Store ASC keys outside repositories and reference them through env, file, or keychain providers."
+                "Store ASC keys outside repositories and reference them through env or file providers."
             ]
         )
     }

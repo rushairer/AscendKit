@@ -44,7 +44,7 @@ Tests/
 
 ### Secrets
 - resolve provider-backed secrets
-- support env, file reference, and macOS Keychain providers first
+- support env and file references first; keep macOS Keychain as a planned provider until verified
 - redact sensitive values from logs and diagnostics
 
 ### Intake

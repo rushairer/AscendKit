@@ -58,7 +58,7 @@ struct ASCTests {
         #expect(decoded.screenshotSetsByLocale?["en-US"]?.first?.screenshots.first?.fileName == "01-home.png")
     }
 
-    @Test("reports redacted ASC auth config status")
+    @Test("reports unsupported keychain ASC auth config status")
     func reportsASCAuthStatus() {
         let config = ASCAuthConfig(
             issuerID: "12345678-ABCD",
@@ -68,11 +68,11 @@ struct ASCTests {
 
         let status = ASCAuthStatus(config: config)
 
-        #expect(status.configured)
+        #expect(!status.configured)
         #expect(status.issuerIDRedacted == "12...CD")
         #expect(status.keyIDRedacted == "KE...67")
         #expect(status.privateKeyRefRedacted == "keychain:co...ey")
-        #expect(status.findings.isEmpty)
+        #expect(status.findings == ["keychain privateKey provider is not supported in this release; use file or environment."])
     }
 
     @Test("reports missing ASC auth fields")

@@ -32,14 +32,14 @@ app_store_connect:
   issuer_id: ASC_ISSUER_ID
   key_id: ASC_KEY_ID
   private_key:
-    provider: keychain
-    ref: com.example.ascendkit.asc.private_key
+    provider: file
+    ref: ~/.ascendkit/secrets/AuthKey_KEYID.p8
 ```
 
 Alternative providers:
 - env
 - file reference
-- macOS keychain
+- macOS keychain (planned; not accepted by current CLI auth commands)
 - future: 1Password CLI, Vault, cloud secret managers
 
 ## 4. Initial secret providers
@@ -51,7 +51,7 @@ Use environment variables for CI and simple local setups.
 Use file references outside the repository for local-only setups.
 
 ### Keychain provider
-Preferred local developer experience on macOS.
+Planned local developer experience on macOS. Until it is implemented and verified, use `file` or `env` references.
 
 ## 5. Rules
 
