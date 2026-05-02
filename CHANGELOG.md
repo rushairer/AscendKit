@@ -6,6 +6,14 @@ AscendKit follows [Semantic Versioning](https://semver.org/). During `0.y.z`, th
 
 No unreleased changes.
 
+## 0.23.0 - 2026-05-02
+
+### Changed
+
+- README and automation-boundary docs now use the current v1 command surface instead of legacy placeholders.
+- `metadata sync` now returns a migration hint to use `asc metadata plan/apply`; public docs no longer reference it as a workflow command.
+- New ASC auth commands now advertise and accept only `env` and `file` secret providers. Existing `keychain` configs are marked unsupported until a verified resolver exists.
+
 ## 0.22.0 - 2026-05-02
 
 ### Added
