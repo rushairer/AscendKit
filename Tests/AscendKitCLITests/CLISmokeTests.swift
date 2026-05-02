@@ -82,6 +82,9 @@ struct CLISmokeTests {
         #expect(commandSurface.contains("`swift run ascendkit ...` is a contributor-only"))
         #expect(commandSurface.contains("metadata import-fastlane"))
         #expect(commandSurface.contains("submit execute --confirm-remote-submission"))
+        #expect(!readme.contains("metadata sync"))
+        #expect(!playbook.contains("metadata sync"))
+        #expect(!commandSurface.contains("metadata sync"))
     }
 
     @Test("release packaging script and install docs stay discoverable")

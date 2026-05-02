@@ -144,10 +144,10 @@ Examples:
 ```bash
 ascendkit doctor release --json
 ascendkit doctor release --autofix-safe
-ascendkit metadata sync --dry-run
-ascendkit metadata sync --confirm
-ascendkit submit review --dry-run
-ascendkit submit review --confirm --acknowledge-risk=review-submission
+ascendkit asc metadata plan --workspace "$WORKSPACE" --json
+ascendkit asc metadata apply --workspace "$WORKSPACE" --confirm-remote-mutation --json
+ascendkit submit plan --workspace "$WORKSPACE" --json
+ascendkit submit handoff --workspace "$WORKSPACE" --output review-handoff.md
 ```
 
 This keeps the system deterministic and agent-friendly while preserving safe human control.

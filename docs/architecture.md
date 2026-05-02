@@ -114,7 +114,8 @@ ascendkit doctor secrets
 ascendkit metadata init
 ascendkit metadata lint
 ascendkit metadata diff
-ascendkit metadata sync
+ascendkit asc metadata plan
+ascendkit asc metadata apply
 ascendkit screenshots plan
 ascendkit screenshots capture
 ascendkit screenshots compose

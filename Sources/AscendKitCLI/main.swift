@@ -308,7 +308,7 @@ struct CLIRunner {
 
     private func metadata(_ args: [String], json: Bool) throws -> String {
         guard let subcommand = args.first else {
-            throw AscendKitError.invalidArguments("Usage: ascendkit metadata init|import-fastlane|lint --workspace PATH")
+            throw AscendKitError.invalidArguments("Usage: ascendkit metadata init|import-fastlane|status|lint|diff --workspace PATH")
         }
         let workspace = try loadWorkspace(from: args)
         let store = ReleaseWorkspaceStore(fileManager: fileManager)
@@ -366,7 +366,7 @@ struct CLIRunner {
                 "Metadata diff complete: \(report.changedCount) changed/missing field(s)"
             }
         case "sync":
-            throw AscendKitError.unsupported("metadata sync is reserved for a later ASC dry-run/apply slice.")
+            throw AscendKitError.invalidArguments("metadata sync has been replaced by asc metadata plan and asc metadata apply --confirm-remote-mutation.")
         default:
             throw AscendKitError.invalidArguments("Unknown metadata command: \(subcommand)")
         }
@@ -1345,7 +1345,7 @@ struct CLIRunner {
                     : "ASC metadata apply was not executed: \(result.findings.joined(separator: " "))"
             }
         case "status":
-            let status = ASCMetadataSyncStatusBuilder().build(
+            let status = ASCMetadataStatusBuilder().build(
                 applyResult: try loadIfExists(ASCMetadataApplyResult.self, path: workspace.paths.ascMetadataApplyResult),
                 diffReport: try loadIfExists(MetadataDiffReport.self, path: workspace.paths.ascDiff)
             )
@@ -1357,7 +1357,7 @@ struct CLIRunner {
         }
     }
 
-    private func renderASCMetadataStatusText(_ status: ASCMetadataSyncStatusReport) -> String {
+    private func renderASCMetadataStatusText(_ status: ASCMetadataStatusReport) -> String {
         var lines = [
             "ASC metadata status: \(status.readyForReviewPlan ? "ready for review plan" : "not ready")",
             "Applied: \(status.applied.map { $0 ? "yes" : "no" } ?? "unknown")",

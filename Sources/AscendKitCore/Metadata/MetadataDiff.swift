@@ -261,7 +261,7 @@ public struct ASCMetadataApplyResponse: Codable, Equatable, Identifiable, Sendab
     }
 }
 
-public struct ASCMetadataSyncStatusReport: Codable, Equatable, Sendable {
+public struct ASCMetadataStatusReport: Codable, Equatable, Sendable {
     public var generatedAt: Date
     public var applied: Bool?
     public var applyResponseCount: Int?
@@ -298,13 +298,13 @@ public struct ASCMetadataSyncStatusReport: Codable, Equatable, Sendable {
     }
 }
 
-public struct ASCMetadataSyncStatusBuilder {
+public struct ASCMetadataStatusBuilder {
     public init() {}
 
     public func build(
         applyResult: ASCMetadataApplyResult?,
         diffReport: MetadataDiffReport?
-    ) -> ASCMetadataSyncStatusReport {
+    ) -> ASCMetadataStatusReport {
         let remainingDiffs = diffReport?.diffs.filter { $0.status != .unchanged }
         let blockingDiffs = remainingDiffs?.filter { $0.field != "releaseNotes" }
         let releaseNotesOnly = remainingDiffs?.isEmpty == false && blockingDiffs?.isEmpty == true
@@ -334,7 +334,7 @@ public struct ASCMetadataSyncStatusBuilder {
             nextActions.append("Proceed with review handoff if all other readiness checks are satisfied.")
         }
 
-        return ASCMetadataSyncStatusReport(
+        return ASCMetadataStatusReport(
             applied: applyResult?.applied,
             applyResponseCount: applyResult?.responses.count,
             diffFresh: diffFresh,

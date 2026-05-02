@@ -965,7 +965,7 @@ public struct ReleaseWorkspaceSummaryReader {
             compositionManifest: load(ScreenshotCompositionManifest.self, path: workspace.paths.screenshotCompositionManifest),
             uploadPlan: load(ScreenshotUploadPlan.self, path: workspace.paths.screenshotUploadPlan)
         )
-        let metadataStatus = ASCMetadataSyncStatusBuilder().build(
+        let metadataStatus = ASCMetadataStatusBuilder().build(
             applyResult: load(ASCMetadataApplyResult.self, path: workspace.paths.ascMetadataApplyResult),
             diffReport: load(MetadataDiffReport.self, path: workspace.paths.ascDiff)
         )

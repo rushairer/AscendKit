@@ -73,9 +73,9 @@ struct MetadataTests {
         #expect(report.diffs.contains { $0.field == "releaseNotes" && $0.status == .missingRemote })
     }
 
-    @Test("summarizes ASC metadata sync status")
-    func summarizesASCMetadataSyncStatus() {
-        let status = ASCMetadataSyncStatusBuilder().build(
+    @Test("summarizes ASC metadata apply status")
+    func summarizesASCMetadataApplyStatus() {
+        let status = ASCMetadataStatusBuilder().build(
             applyResult: ASCMetadataApplyResult(
                 generatedAt: Date(timeIntervalSince1970: 100),
                 applied: true,
