@@ -177,6 +177,7 @@ struct ScreenshotTests {
         )
 
         #expect(result.executed)
+        #expect(result.ascendKitVersion == AscendKitVersion.current)
         #expect(result.succeeded)
         #expect(result.succeededCount == 1)
         #expect(result.items.first?.outputFiles.map { URL(fileURLWithPath: $0).lastPathComponent } == ["01-home.png"])
@@ -248,6 +249,7 @@ struct ScreenshotTests {
         )
 
         #expect(decoded.succeeded)
+        #expect(decoded.ascendKitVersion == AscendKitVersion.current)
         #expect(decoded.compositionMode == .framedPoster)
         #expect(decoded.capturedFileCount == 3)
         #expect(decoded.composedArtifactCount == 3)

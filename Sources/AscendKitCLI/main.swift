@@ -636,9 +636,10 @@ struct CLIRunner {
                 replaceExisting: args.contains("--replace-existing")
             )
             return try render(result, json: json) {
-                result.executed
-                    ? "Screenshot upload completed with \(result.uploadedCount) uploaded screenshot(s)."
-                    : "Screenshot upload was not executed: \(result.findings.joined(separator: " "))"
+                let version = "AscendKit version: \(result.ascendKitVersion ?? "unknown")"
+                return result.executed
+                    ? "Screenshot upload completed with \(result.uploadedCount) uploaded screenshot(s).\n\(version)"
+                    : "Screenshot upload was not executed: \(result.findings.joined(separator: " "))\n\(version)"
             }
         case "upload-status":
             let status = ScreenshotUploadStatusBuilder().build(
@@ -651,18 +652,20 @@ struct CLIRunner {
         case "capture":
             let result = try executeScreenshotCapture(workspace: workspace, store: store)
             return try render(result, json: json) {
-                result.succeeded
-                    ? "Screenshot capture completed with \(result.succeededCount) successful command(s)."
-                    : "Screenshot capture finished with \(result.failedCount) failed command(s): \(result.findings.joined(separator: " "))"
+                let version = "AscendKit version: \(result.ascendKitVersion ?? "unknown")"
+                return result.succeeded
+                    ? "Screenshot capture completed with \(result.succeededCount) successful command(s).\n\(version)"
+                    : "Screenshot capture finished with \(result.failedCount) failed command(s): \(result.findings.joined(separator: " "))\n\(version)"
             }
         case "workflow":
             switch args.dropFirst().first {
             case "run":
                 let result = try runScreenshotWorkflow(workspace: workspace, store: store, args: args)
                 return try render(result, json: json) {
-                    result.succeeded
-                        ? "Screenshot workflow completed with \(result.capturedFileCount) captured file(s) and \(result.composedArtifactCount) composed artifact(s)."
-                        : "Screenshot workflow failed: \(result.findings.joined(separator: " "))"
+                    let version = "AscendKit version: \(result.ascendKitVersion ?? "unknown")"
+                    return result.succeeded
+                        ? "Screenshot workflow completed with \(result.capturedFileCount) captured file(s) and \(result.composedArtifactCount) composed artifact(s).\n\(version)"
+                        : "Screenshot workflow failed: \(result.findings.joined(separator: " "))\n\(version)"
                 }
             case "status":
                 let status = try screenshotWorkflowStatus(workspace: workspace)

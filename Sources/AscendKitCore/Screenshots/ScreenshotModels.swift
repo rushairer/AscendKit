@@ -349,6 +349,7 @@ public struct ScreenshotCaptureExecutionItem: Codable, Equatable, Identifiable, 
 
 public struct ScreenshotCaptureExecutionResult: Codable, Equatable, Sendable {
     public var generatedAt: Date
+    public var ascendKitVersion: String?
     public var executed: Bool
     public var succeeded: Bool
     public var succeededCount: Int
@@ -358,11 +359,13 @@ public struct ScreenshotCaptureExecutionResult: Codable, Equatable, Sendable {
 
     public init(
         generatedAt: Date = Date(),
+        ascendKitVersion: String? = AscendKitVersion.current,
         executed: Bool,
         items: [ScreenshotCaptureExecutionItem] = [],
         findings: [String] = []
     ) {
         self.generatedAt = generatedAt
+        self.ascendKitVersion = ascendKitVersion
         self.executed = executed
         self.items = items
         self.findings = findings
@@ -474,6 +477,7 @@ private struct XcresultAttachment: Codable {
 
 public struct ScreenshotLocalWorkflowResult: Codable, Equatable, Sendable {
     public var generatedAt: Date
+    public var ascendKitVersion: String?
     public var succeeded: Bool
     public var capturePlanPath: String
     public var captureResultPath: String
@@ -486,6 +490,7 @@ public struct ScreenshotLocalWorkflowResult: Codable, Equatable, Sendable {
 
     public init(
         generatedAt: Date = Date(),
+        ascendKitVersion: String? = AscendKitVersion.current,
         succeeded: Bool,
         capturePlanPath: String,
         captureResultPath: String,
@@ -497,6 +502,7 @@ public struct ScreenshotLocalWorkflowResult: Codable, Equatable, Sendable {
         findings: [String] = []
     ) {
         self.generatedAt = generatedAt
+        self.ascendKitVersion = ascendKitVersion
         self.succeeded = succeeded
         self.capturePlanPath = capturePlanPath
         self.captureResultPath = captureResultPath
@@ -1614,6 +1620,7 @@ public struct ScreenshotUploadPlan: Codable, Equatable, Sendable {
 
 public struct ScreenshotUploadExecutionResult: Codable, Equatable, Sendable {
     public var generatedAt: Date
+    public var ascendKitVersion: String?
     public var executed: Bool
     public var uploadedCount: Int
     public var items: [ScreenshotUploadExecutionItem]
@@ -1623,6 +1630,7 @@ public struct ScreenshotUploadExecutionResult: Codable, Equatable, Sendable {
 
     public init(
         generatedAt: Date = Date(),
+        ascendKitVersion: String? = AscendKitVersion.current,
         executed: Bool,
         uploadedCount: Int = 0,
         items: [ScreenshotUploadExecutionItem] = [],
@@ -1631,6 +1639,7 @@ public struct ScreenshotUploadExecutionResult: Codable, Equatable, Sendable {
         failedItems: [ScreenshotUploadFailure] = []
     ) {
         self.generatedAt = generatedAt
+        self.ascendKitVersion = ascendKitVersion
         self.executed = executed
         self.uploadedCount = uploadedCount
         self.items = items

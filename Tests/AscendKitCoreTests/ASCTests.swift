@@ -312,6 +312,7 @@ struct ASCTests {
         let decoded = try AscendKitJSON.decoder.decode(ScreenshotUploadExecutionResult.self, from: data)
 
         #expect(decoded.executed)
+        #expect(decoded.ascendKitVersion == AscendKitVersion.current)
         #expect(decoded.uploadedCount == 1)
         #expect(decoded.items.first?.appScreenshotSetID == "set-1")
         #expect(decoded.items.first?.checksum == "d41d8cd98f00b204e9800998ecf8427e")
