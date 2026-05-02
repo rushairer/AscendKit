@@ -52,7 +52,7 @@ ascendkit --help
 Installer script from a source checkout or release asset:
 
 ```bash
-scripts/install-ascendkit.sh --version 0.13.0
+scripts/install-ascendkit.sh --version 0.14.0
 ASCENDKIT_INSTALL_DIR=/usr/local/bin scripts/install-ascendkit.sh
 ```
 
