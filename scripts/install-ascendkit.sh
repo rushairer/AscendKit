@@ -65,6 +65,34 @@ require_tool tar
 require_tool shasum
 require_tool install
 
+download() {
+  local url="$1"
+  local output="$2"
+  curl --fail --show-error --location --silent \
+    --retry 3 \
+    --retry-delay 2 \
+    --retry-all-errors \
+    --connect-timeout 15 \
+    --max-time 120 \
+    "${url}" \
+    --output "${output}" && return 0
+
+  if command -v gh >/dev/null 2>&1; then
+    local asset_name
+    asset_name="$(basename "${output}")"
+    echo "curl download failed for ${asset_name}; retrying with gh release download." >&2
+    rm -f "${output}"
+    gh release download "v${VERSION}" \
+      --repo "${REPOSITORY}" \
+      --pattern "${asset_name}" \
+      --dir "$(dirname "${output}")" \
+      --clobber
+    return 0
+  fi
+
+  return 1
+}
+
 ARCH="$(uname -m)"
 if [[ "${ARCH}" != "arm64" ]]; then
   echo "Unsupported architecture: ${ARCH}. AscendKit release archives currently target macOS arm64." >&2
@@ -72,7 +100,15 @@ if [[ "${ARCH}" != "arm64" ]]; then
 fi
 
 if [[ "${VERSION}" == "latest" ]]; then
-  LATEST_URL="$(curl -fsSLI -o /dev/null -w '%{url_effective}' "https://github.com/${REPOSITORY}/releases/latest")"
+  LATEST_URL="$(curl --fail --silent --show-error --location --head \
+    --retry 3 \
+    --retry-delay 2 \
+    --retry-all-errors \
+    --connect-timeout 15 \
+    --max-time 60 \
+    --output /dev/null \
+    --write-out '%{url_effective}' \
+    "https://github.com/${REPOSITORY}/releases/latest")"
   VERSION="${LATEST_URL##*/}"
 fi
 VERSION="${VERSION#v}"
@@ -83,8 +119,8 @@ ARCHIVE_URL="${BASE_URL}/${ARCHIVE_NAME}"
 CHECKSUM_URL="${ARCHIVE_URL}.sha256"
 
 TMP_DIR="$(mktemp -d)"
-curl -fsSL "${ARCHIVE_URL}" -o "${TMP_DIR}/${ARCHIVE_NAME}"
-curl -fsSL "${CHECKSUM_URL}" -o "${TMP_DIR}/${ARCHIVE_NAME}.sha256"
+download "${ARCHIVE_URL}" "${TMP_DIR}/${ARCHIVE_NAME}"
+download "${CHECKSUM_URL}" "${TMP_DIR}/${ARCHIVE_NAME}.sha256"
 
 (
   cd "${TMP_DIR}"

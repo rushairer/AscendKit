@@ -4,7 +4,9 @@ AscendKit follows [Semantic Versioning](https://semver.org/). During `0.y.z`, th
 
 ## Unreleased
 
-No unreleased changes.
+### Fixed
+
+- Installer downloads now use bounded curl retries and a GitHub CLI fallback when available to reduce transient GitHub release download failures.
 
 ## 0.15.0 - 2026-05-02
 
