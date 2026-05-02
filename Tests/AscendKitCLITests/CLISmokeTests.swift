@@ -5,7 +5,7 @@ import Testing
 struct CLISmokeTests {
     @Test("reports current semantic version")
     func reportsCurrentSemanticVersion() {
-        #expect(AscendKitVersion.current == "0.34.0")
+        #expect(AscendKitVersion.current == "0.35.0")
     }
 
     @Test("core JSON encoder produces sorted manifest output")
@@ -120,6 +120,7 @@ struct CLISmokeTests {
         #expect(readme.contains("ascendKitVersion"))
         #expect(readme.contains("docs/v1-release-readiness.md"))
         #expect(readme.contains("release-candidate hardening"))
+        #expect(!readme.contains("Until AscendKit has a dedicated tap repository"))
         #expect(commandSurface.contains("`swift run ascendkit ...` is a contributor-only"))
         #expect(commandSurface.contains("docs/v1-release-readiness.md"))
         #expect(commandSurface.contains("metadata import-fastlane"))
@@ -128,6 +129,8 @@ struct CLISmokeTests {
         #expect(releaseReadiness.contains("Fastlane commands remain migration helpers only"))
         #expect(releaseReadiness.contains("Homebrew reinstall from the synced formula reports the tagged version"))
         #expect(releaseReadiness.contains("scripts/v1-representative-app-smoke.sh --app-root PATH"))
+        #expect(releaseReadiness.contains("scripts/sync-homebrew-tap.sh --commit --push"))
+        #expect(releaseReadiness.contains("scripts/v1-release-readiness.sh --version VERSION --app-root PATH"))
 
         let v1Docs = [readme, playbook, commandSurface, automationBoundaries, architecture, releaseReadiness]
         let retiredCommandFragments = [
@@ -153,6 +156,7 @@ struct CLISmokeTests {
         let formulaVerifyScript = try String(contentsOfFile: "scripts/verify-homebrew-formula.sh", encoding: .utf8)
         let representativeSmokeScript = try String(contentsOfFile: "scripts/v1-representative-app-smoke.sh", encoding: .utf8)
         let tapSyncScript = try String(contentsOfFile: "scripts/sync-homebrew-tap.sh", encoding: .utf8)
+        let v1ReadinessScript = try String(contentsOfFile: "scripts/v1-release-readiness.sh", encoding: .utf8)
         let formula = try String(contentsOfFile: "Formula/ascendkit.rb", encoding: .utf8)
         let readme = try String(contentsOfFile: "README.md", encoding: .utf8)
         let cli = try String(contentsOfFile: "Sources/AscendKitCLI/main.swift", encoding: .utf8)
@@ -190,6 +194,10 @@ struct CLISmokeTests {
         #expect(tapSyncScript.contains("ASCENDKIT_HOMEBREW_TAP_DIR"))
         #expect(tapSyncScript.contains("homebrew-ascendkit"))
         #expect(tapSyncScript.contains("Formula/ascendkit.rb"))
+        #expect(v1ReadinessScript.contains("scripts/preflight-public-release.sh"))
+        #expect(v1ReadinessScript.contains("scripts/verify-release-assets.sh --version"))
+        #expect(v1ReadinessScript.contains("brew reinstall rushairer/ascendkit/ascendkit"))
+        #expect(v1ReadinessScript.contains("scripts/v1-representative-app-smoke.sh"))
         #expect(formula.contains("class Ascendkit < Formula"))
         #expect(formula.contains("bin.install \"bin/ascendkit\""))
         #expect(readme.contains("scripts/package-release.sh"))
@@ -200,6 +208,7 @@ struct CLISmokeTests {
         #expect(readme.contains("scripts/verify-homebrew-formula.sh"))
         #expect(readme.contains("scripts/v1-representative-app-smoke.sh"))
         #expect(readme.contains("scripts/sync-homebrew-tap.sh"))
+        #expect(readme.contains("scripts/v1-release-readiness.sh"))
         #expect(readme.contains("brew tap rushairer/ascendkit"))
         #expect(readme.contains("brew install ascendkit"))
         #expect(readme.contains("ascendkit version --json"))
