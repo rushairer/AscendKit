@@ -82,11 +82,18 @@ public struct MetadataLintFinding: Codable, Equatable, Identifiable, Sendable {
 public struct MetadataLintReport: Codable, Equatable, Sendable {
     public var locale: String
     public var generatedAt: Date
+    public var ascendKitVersion: String?
     public var findings: [MetadataLintFinding]
 
-    public init(locale: String, generatedAt: Date = Date(), findings: [MetadataLintFinding]) {
+    public init(
+        locale: String,
+        generatedAt: Date = Date(),
+        ascendKitVersion: String? = AscendKitVersion.current,
+        findings: [MetadataLintFinding]
+    ) {
         self.locale = locale
         self.generatedAt = generatedAt
+        self.ascendKitVersion = ascendKitVersion
         self.findings = findings
     }
 }

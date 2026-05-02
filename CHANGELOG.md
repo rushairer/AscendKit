@@ -4,7 +4,9 @@ AscendKit follows [Semantic Versioning](https://semver.org/). During `0.y.z`, th
 
 ## Unreleased
 
-No unreleased changes.
+### Added
+
+- Metadata lint, diff, ASC mutation plan, request plan, apply result, and status reports now include the generating AscendKit CLI version for metadata release traceability.
 
 ## 0.29.0 - 2026-05-02
 

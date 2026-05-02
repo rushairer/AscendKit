@@ -16,6 +16,7 @@ struct MetadataTests {
 
         let report = MetadataLinter().lint(metadata: metadata)
 
+        #expect(report.ascendKitVersion == AscendKitVersion.current)
         #expect(report.findings.contains { $0.id == "name.too-long" })
         #expect(report.findings.contains { $0.id == "description.required" })
         #expect(report.findings.contains { $0.id == "keywords.too-long" })
@@ -69,6 +70,7 @@ struct MetadataTests {
         )
 
         #expect(report.diffs.contains { $0.field == "name" && $0.status == .unchanged })
+        #expect(report.ascendKitVersion == AscendKitVersion.current)
         #expect(report.diffs.contains { $0.field == "subtitle" && $0.status == .changed })
         #expect(report.diffs.contains { $0.field == "releaseNotes" && $0.status == .missingRemote })
     }
@@ -103,6 +105,7 @@ struct MetadataTests {
         )
 
         #expect(status.applied == true)
+        #expect(status.ascendKitVersion == AscendKitVersion.current)
         #expect(status.applyResponseCount == 1)
         #expect(status.diffFresh == true)
         #expect(status.remainingDiffCount == 1)
@@ -149,6 +152,7 @@ struct MetadataTests {
         )
 
         #expect(plan.dryRunOnly)
+        #expect(plan.ascendKitVersion == AscendKitVersion.current)
         #expect(plan.operations.contains {
             $0.locale == "en-US" &&
             $0.field == "subtitle" &&
@@ -266,6 +270,7 @@ struct MetadataTests {
         let requestPlan = ASCMetadataRequestPlanBuilder().build(from: mutationPlan)
 
         #expect(requestPlan.dryRunOnly)
+        #expect(requestPlan.ascendKitVersion == AscendKitVersion.current)
         #expect(requestPlan.requests.count == 2)
         #expect(requestPlan.requests.contains {
             $0.method == "PATCH" &&

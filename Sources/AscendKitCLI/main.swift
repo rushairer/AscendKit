@@ -374,7 +374,9 @@ struct CLIRunner {
             let report = MetadataLinter().lint(metadata: metadata)
             try store.save(report, to: lintURL)
             try store.appendAudit(.init(action: .metadataLinted, summary: "Linted \(locale) metadata"), to: workspace)
-            return try render(report, json: json) { "Metadata lint complete: \(report.findings.count) finding(s)" }
+            return try render(report, json: json) {
+                "Metadata lint complete: \(report.findings.count) finding(s)\nAscendKit version: \(report.ascendKitVersion ?? "unknown")"
+            }
         case "diff":
             let localMetadata = try loadLocalMetadata(workspace: workspace)
             let observed = try loadIfExists(MetadataObservedState.self, path: workspace.paths.ascObservedState)
@@ -382,7 +384,7 @@ struct CLIRunner {
             try store.save(report, to: URL(fileURLWithPath: workspace.paths.ascDiff))
             try store.appendAudit(.init(action: .metadataDiffed, summary: "Diffed local metadata against observed state"), to: workspace)
             return try render(report, json: json) {
-                "Metadata diff complete: \(report.changedCount) changed/missing field(s)"
+                "Metadata diff complete: \(report.changedCount) changed/missing field(s)\nAscendKit version: \(report.ascendKitVersion ?? "unknown")"
             }
         case "sync":
             throw AscendKitError.invalidArguments("metadata sync has been replaced by asc metadata plan and asc metadata apply --confirm-remote-mutation.")
@@ -1354,19 +1356,20 @@ struct CLIRunner {
         case "plan":
             let plan = try planASCMetadata(workspace: workspace, store: store)
             return try render(plan, json: json) {
-                "ASC metadata dry-run plan saved with \(plan.operations.count) operation(s); no ASC mutation was made."
+                "ASC metadata dry-run plan saved with \(plan.operations.count) operation(s); no ASC mutation was made.\nAscendKit version: \(plan.ascendKitVersion ?? "unknown")"
             }
         case "requests":
             let requestPlan = try planASCMetadataRequests(workspace: workspace, store: store)
             return try render(requestPlan, json: json) {
-                "ASC metadata request dry-run plan saved with \(requestPlan.requests.count) request(s); no ASC mutation was made."
+                "ASC metadata request dry-run plan saved with \(requestPlan.requests.count) request(s); no ASC mutation was made.\nAscendKit version: \(requestPlan.ascendKitVersion ?? "unknown")"
             }
         case "apply":
             let result = try await applyASCMetadata(workspace: workspace, store: store, confirmed: args.contains("--confirm-remote-mutation"))
             return try render(result, json: json) {
-                result.applied
-                    ? "ASC metadata apply completed with \(result.responses.count) response(s)."
-                    : "ASC metadata apply was not executed: \(result.findings.joined(separator: " "))"
+                let version = "AscendKit version: \(result.ascendKitVersion ?? "unknown")"
+                return result.applied
+                    ? "ASC metadata apply completed with \(result.responses.count) response(s).\n\(version)"
+                    : "ASC metadata apply was not executed: \(result.findings.joined(separator: " "))\n\(version)"
             }
         case "status":
             let status = ASCMetadataStatusBuilder().build(
@@ -1384,6 +1387,7 @@ struct CLIRunner {
     private func renderASCMetadataStatusText(_ status: ASCMetadataStatusReport) -> String {
         var lines = [
             "ASC metadata status: \(status.readyForReviewPlan ? "ready for review plan" : "not ready")",
+            "AscendKit version: \(status.ascendKitVersion ?? "unknown")",
             "Applied: \(status.applied.map { $0 ? "yes" : "no" } ?? "unknown")",
             "Apply responses: \(status.applyResponseCount.map(String.init) ?? "unknown")",
             "Diff fresh: \(status.diffFresh.map { $0 ? "yes" : "no" } ?? "unknown")",

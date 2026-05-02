@@ -91,10 +91,16 @@ public struct MetadataFieldDiff: Codable, Equatable, Identifiable, Sendable {
 
 public struct MetadataDiffReport: Codable, Equatable, Sendable {
     public var generatedAt: Date
+    public var ascendKitVersion: String?
     public var diffs: [MetadataFieldDiff]
 
-    public init(generatedAt: Date = Date(), diffs: [MetadataFieldDiff]) {
+    public init(
+        generatedAt: Date = Date(),
+        ascendKitVersion: String? = AscendKitVersion.current,
+        diffs: [MetadataFieldDiff]
+    ) {
         self.generatedAt = generatedAt
+        self.ascendKitVersion = ascendKitVersion
         self.diffs = diffs
     }
 
@@ -147,17 +153,20 @@ public struct ASCMetadataPlanOperation: Codable, Equatable, Identifiable, Sendab
 
 public struct ASCMetadataMutationPlan: Codable, Equatable, Sendable {
     public var generatedAt: Date
+    public var ascendKitVersion: String?
     public var dryRunOnly: Bool
     public var operations: [ASCMetadataPlanOperation]
     public var findings: [String]
 
     public init(
         generatedAt: Date = Date(),
+        ascendKitVersion: String? = AscendKitVersion.current,
         dryRunOnly: Bool = true,
         operations: [ASCMetadataPlanOperation],
         findings: [String] = []
     ) {
         self.generatedAt = generatedAt
+        self.ascendKitVersion = ascendKitVersion
         self.dryRunOnly = dryRunOnly
         self.operations = operations
         self.findings = findings
@@ -203,17 +212,20 @@ public struct ASCMetadataPlannedRequest: Codable, Equatable, Identifiable, Senda
 
 public struct ASCMetadataRequestPlan: Codable, Equatable, Sendable {
     public var generatedAt: Date
+    public var ascendKitVersion: String?
     public var dryRunOnly: Bool
     public var requests: [ASCMetadataPlannedRequest]
     public var findings: [String]
 
     public init(
         generatedAt: Date = Date(),
+        ascendKitVersion: String? = AscendKitVersion.current,
         dryRunOnly: Bool = true,
         requests: [ASCMetadataPlannedRequest],
         findings: [String] = []
     ) {
         self.generatedAt = generatedAt
+        self.ascendKitVersion = ascendKitVersion
         self.dryRunOnly = dryRunOnly
         self.requests = requests
         self.findings = findings
@@ -222,17 +234,20 @@ public struct ASCMetadataRequestPlan: Codable, Equatable, Sendable {
 
 public struct ASCMetadataApplyResult: Codable, Equatable, Sendable {
     public var generatedAt: Date
+    public var ascendKitVersion: String?
     public var applied: Bool
     public var responses: [ASCMetadataApplyResponse]
     public var findings: [String]
 
     public init(
         generatedAt: Date = Date(),
+        ascendKitVersion: String? = AscendKitVersion.current,
         applied: Bool,
         responses: [ASCMetadataApplyResponse] = [],
         findings: [String] = []
     ) {
         self.generatedAt = generatedAt
+        self.ascendKitVersion = ascendKitVersion
         self.applied = applied
         self.responses = responses
         self.findings = findings
@@ -263,6 +278,7 @@ public struct ASCMetadataApplyResponse: Codable, Equatable, Identifiable, Sendab
 
 public struct ASCMetadataStatusReport: Codable, Equatable, Sendable {
     public var generatedAt: Date
+    public var ascendKitVersion: String?
     public var applied: Bool?
     public var applyResponseCount: Int?
     public var diffFresh: Bool?
@@ -275,6 +291,7 @@ public struct ASCMetadataStatusReport: Codable, Equatable, Sendable {
 
     public init(
         generatedAt: Date = Date(),
+        ascendKitVersion: String? = AscendKitVersion.current,
         applied: Bool?,
         applyResponseCount: Int?,
         diffFresh: Bool?,
@@ -286,6 +303,7 @@ public struct ASCMetadataStatusReport: Codable, Equatable, Sendable {
         nextActions: [String]
     ) {
         self.generatedAt = generatedAt
+        self.ascendKitVersion = ascendKitVersion
         self.applied = applied
         self.applyResponseCount = applyResponseCount
         self.diffFresh = diffFresh
