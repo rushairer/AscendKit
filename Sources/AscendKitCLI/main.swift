@@ -212,6 +212,7 @@ struct CLIRunner {
     private func renderSanitizedWorkspaceSummaryExportText(_ report: SanitizedWorkspaceSummaryExport) -> String {
         [
             "Sanitized workspace summary exported: \(report.exportPath)",
+            "AscendKit version: \(report.ascendKitVersion ?? "unknown")",
             "Release: \(report.releaseID)",
             "Next action(s): \(report.nextActions.count)",
             "Workspace step(s): \(report.steps.count)",
@@ -223,6 +224,7 @@ struct CLIRunner {
     private func renderHandoffValidationText(_ report: HandoffValidationReport) -> String {
         var lines = [
             "Agent handoff: \(report.readyForAgentHandoff ? "ready" : "blocked")",
+            "AscendKit version: \(report.ascendKitVersion ?? "unknown")",
             "Release: \(report.releaseID)",
             "Release blocker(s): \(report.releaseBlockerCount)",
             "Release warning(s): \(report.releaseWarningCount)"

@@ -144,6 +144,7 @@ struct CLISmokeTests {
         let formulaVerifyScript = try String(contentsOfFile: "scripts/verify-homebrew-formula.sh", encoding: .utf8)
         let formula = try String(contentsOfFile: "Formula/ascendkit.rb", encoding: .utf8)
         let readme = try String(contentsOfFile: "README.md", encoding: .utf8)
+        let cli = try String(contentsOfFile: "Sources/AscendKitCLI/main.swift", encoding: .utf8)
         let ciWorkflow = try String(contentsOfFile: ".github/workflows/ci.yml", encoding: .utf8)
         let releaseWorkflow = try String(contentsOfFile: ".github/workflows/release.yml", encoding: .utf8)
 
@@ -184,6 +185,7 @@ struct CLISmokeTests {
         #expect(readme.contains("ascendkit version --json"))
         #expect(readme.contains("swift run ascendkit --help"))
         #expect(readme.contains("GitHub release archives"))
+        #expect(cli.contains("AscendKit version:"))
         #expect(ciWorkflow.contains("swift test"))
         #expect(ciWorkflow.contains("actions/checkout@v5"))
         #expect(ciWorkflow.contains("bash -n"))
