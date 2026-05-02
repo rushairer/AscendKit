@@ -2,7 +2,7 @@ class Ascendkit < Formula
   desc "Local-first App Store release preparation toolkit"
   homepage "https://github.com/rushairer/AscendKit"
   url "https://github.com/rushairer/AscendKit/releases/download/v0.21.0/ascendkit-0.21.0-macos-arm64.tar.gz"
-  sha256 "ae93305f00b26f797c55d011a6be0168dd8fd58ad022a75f85f840efc4d71430"
+  sha256 "b7b01a81f680e5ec930a878fe94da707211d52a0e3ae1659c7e4ebfdd2b4dc46"
   license "MIT"
 
   def install
