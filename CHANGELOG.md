@@ -4,6 +4,10 @@ AscendKit follows [Semantic Versioning](https://semver.org/). During `0.y.z`, th
 
 ## Unreleased
 
+No unreleased changes.
+
+## 0.8.0 - 2026-05-02
+
 ### Added
 
 - `workspace gitignore --workspace PATH [--fix] [--json]` checks whether the app project ignores `.ascendkit/` and can append the rule when explicitly requested.
