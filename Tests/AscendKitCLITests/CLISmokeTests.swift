@@ -114,6 +114,8 @@ struct CLISmokeTests {
         }
         #expect(!playbook.contains("swift run ascendkit"))
         #expect(playbook.contains("brew install ascendkit"))
+        #expect(playbook.contains("ascendKitVersion"))
+        #expect(readme.contains("ascendKitVersion"))
         #expect(commandSurface.contains("`swift run ascendkit ...` is a contributor-only"))
         #expect(commandSurface.contains("metadata import-fastlane"))
         #expect(commandSurface.contains("submit execute --confirm-remote-submission"))
