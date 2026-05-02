@@ -404,6 +404,7 @@ struct ASCTests {
         let decoded = try AscendKitJSON.decoder.decode(ReviewSubmissionExecutionResult.self, from: data)
 
         #expect(decoded.executed)
+        #expect(decoded.ascendKitVersion == AscendKitVersion.current)
         #expect(decoded.submitted)
         #expect(decoded.reviewSubmissionID == "submission-1")
         #expect(decoded.responses.first?.id == "review-submission.submit")
@@ -417,6 +418,7 @@ struct ASCTests {
         )
 
         #expect(result.executed == false)
+        #expect(result.ascendKitVersion == AscendKitVersion.current)
         #expect(result.submitted == false)
         #expect(result.appStoreVersionID == "version-1")
         #expect(result.buildID == "build-7")

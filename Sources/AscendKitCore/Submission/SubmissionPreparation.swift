@@ -2,6 +2,7 @@ import Foundation
 
 public struct SubmissionPreparation: Codable, Equatable, Sendable {
     public var generatedAt: Date
+    public var ascendKitVersion: String?
     public var releaseID: String
     public var appSlug: String
     public var ready: Bool
@@ -18,6 +19,7 @@ public struct SubmissionPreparation: Codable, Equatable, Sendable {
 
     public init(
         generatedAt: Date = Date(),
+        ascendKitVersion: String? = AscendKitVersion.current,
         releaseID: String,
         appSlug: String,
         ready: Bool,
@@ -33,6 +35,7 @@ public struct SubmissionPreparation: Codable, Equatable, Sendable {
         reviewNotesPresent: Bool
     ) {
         self.generatedAt = generatedAt
+        self.ascendKitVersion = ascendKitVersion
         self.releaseID = releaseID
         self.appSlug = appSlug
         self.ready = ready
@@ -90,6 +93,7 @@ public struct SubmissionPreparationBuilder {
 
 public struct ReviewSubmissionPlan: Codable, Equatable, Sendable {
     public var generatedAt: Date
+    public var ascendKitVersion: String?
     public var releaseID: String
     public var appID: String?
     public var selectedBuildID: String?
@@ -113,6 +117,7 @@ public struct ReviewSubmissionPlan: Codable, Equatable, Sendable {
 
     public init(
         generatedAt: Date = Date(),
+        ascendKitVersion: String? = AscendKitVersion.current,
         releaseID: String,
         appID: String?,
         selectedBuildID: String?,
@@ -135,6 +140,7 @@ public struct ReviewSubmissionPlan: Codable, Equatable, Sendable {
         findings: [String] = []
     ) {
         self.generatedAt = generatedAt
+        self.ascendKitVersion = ascendKitVersion
         self.releaseID = releaseID
         self.appID = appID
         self.selectedBuildID = selectedBuildID
@@ -276,6 +282,7 @@ public struct ReviewSubmissionPlanBuilder {
 
 public struct ReviewSubmissionExecutionResult: Codable, Equatable, Sendable {
     public var generatedAt: Date
+    public var ascendKitVersion: String?
     public var executed: Bool
     public var appStoreVersionID: String?
     public var buildID: String?
@@ -288,6 +295,7 @@ public struct ReviewSubmissionExecutionResult: Codable, Equatable, Sendable {
 
     public init(
         generatedAt: Date = Date(),
+        ascendKitVersion: String? = AscendKitVersion.current,
         executed: Bool,
         appStoreVersionID: String? = nil,
         buildID: String? = nil,
@@ -299,6 +307,7 @@ public struct ReviewSubmissionExecutionResult: Codable, Equatable, Sendable {
         findings: [String] = []
     ) {
         self.generatedAt = generatedAt
+        self.ascendKitVersion = ascendKitVersion
         self.executed = executed
         self.appStoreVersionID = appStoreVersionID
         self.buildID = buildID

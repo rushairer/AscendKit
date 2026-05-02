@@ -23,6 +23,7 @@ struct SubmissionTests {
 
         let report = SubmissionReadinessEvaluator().evaluate(manifest: manifest)
 
+        #expect(report.ascendKitVersion == AscendKitVersion.current)
         #expect(report.ready == false)
         #expect(report.items.contains { $0.id == "review.info" && !$0.satisfied })
         #expect(report.items.contains { $0.id == "doctor.report" && !$0.satisfied })
@@ -428,6 +429,7 @@ struct SubmissionTests {
         )
 
         #expect(preparation.releaseID == "demo-1.0")
+        #expect(preparation.ascendKitVersion == AscendKitVersion.current)
         #expect(preparation.ready)
         #expect(preparation.metadataLocales == ["en-US"])
         #expect(preparation.screenshotArtifactCount == 1)
@@ -474,6 +476,7 @@ struct SubmissionTests {
         )
 
         #expect(plan.readyForManualReviewSubmission)
+        #expect(plan.ascendKitVersion == AscendKitVersion.current)
         #expect(plan.remoteSubmissionExecutionAllowed == false)
         #expect(plan.metadataRemainingDiffCount == 1)
         #expect(plan.metadataRemainingBlockingDiffCount == 0)

@@ -1758,7 +1758,10 @@ struct CLIRunner {
             try store.save(preparation, to: URL(fileURLWithPath: workspace.paths.reviewChecklist))
             try store.appendAudit(.init(action: .submissionPreparationSaved, summary: "Saved submission preparation checklist"), to: workspace)
             return try render(preparation, json: json) {
-                "Submission preparation saved: \(preparation.ready ? "ready" : "not ready")"
+                [
+                    "Submission preparation saved: \(preparation.ready ? "ready" : "not ready")",
+                    "AscendKit version: \(preparation.ascendKitVersion ?? "unknown")"
+                ].joined(separator: "\n")
             }
         }
 
@@ -1767,7 +1770,10 @@ struct CLIRunner {
             try store.save(plan, to: URL(fileURLWithPath: workspace.paths.reviewSubmissionPlan))
             try store.appendAudit(.init(action: .reviewSubmissionPlanned, summary: "Planned review submission handoff"), to: workspace)
             return try render(plan, json: json) {
-                "Review submission plan saved; remote submission execution remains disabled."
+                [
+                    "Review submission plan saved; remote submission execution remains disabled.",
+                    "AscendKit version: \(plan.ascendKitVersion ?? "unknown")"
+                ].joined(separator: "\n")
             }
         }
 
@@ -1780,7 +1786,10 @@ struct CLIRunner {
             try markdown.write(to: url, atomically: true, encoding: .utf8)
             try store.appendAudit(.init(action: .reviewHandoffWritten, summary: "Wrote review handoff markdown"), to: workspace)
             return try render(plan, json: json) {
-                "Review handoff written to \(url.path); remote submission execution remains disabled."
+                [
+                    "Review handoff written to \(url.path); remote submission execution remains disabled.",
+                    "AscendKit version: \(plan.ascendKitVersion ?? "unknown")"
+                ].joined(separator: "\n")
             }
         }
 
@@ -1795,7 +1804,10 @@ struct CLIRunner {
                 )
                 try store.save(result, to: URL(fileURLWithPath: workspace.paths.reviewSubmissionResult))
                 return try render(result, json: json) {
-                    "Review submission execution was not run: pass --confirm-remote-submission to record the current boundary-disabled result."
+                    [
+                        "Review submission execution was not run: pass --confirm-remote-submission to record the current boundary-disabled result.",
+                        "AscendKit version: \(result.ascendKitVersion ?? "unknown")"
+                    ].joined(separator: "\n")
                 }
             }
             guard plan.remoteSubmissionExecutionAllowed else {
@@ -1812,7 +1824,10 @@ struct CLIRunner {
                     to: workspace
                 )
                 return try render(result, json: json) {
-                    "Review submission execution is disabled by AscendKit boundary; use submit handoff and submit manually in App Store Connect."
+                    [
+                        "Review submission execution is disabled by AscendKit boundary; use submit handoff and submit manually in App Store Connect.",
+                        "AscendKit version: \(result.ascendKitVersion ?? "unknown")"
+                    ].joined(separator: "\n")
                 }
             }
             guard plan.readyForManualReviewSubmission else {
@@ -1860,9 +1875,12 @@ struct CLIRunner {
                 to: workspace
             )
             return try render(result, json: json) {
-                result.submitted
-                    ? "Review submission executed and submitted."
-                    : "Review submission execution finished but submission is not marked submitted."
+                [
+                    result.submitted
+                        ? "Review submission executed and submitted."
+                        : "Review submission execution finished but submission is not marked submitted.",
+                    "AscendKit version: \(result.ascendKitVersion ?? "unknown")"
+                ].joined(separator: "\n")
             }
         }
 
@@ -1873,15 +1891,16 @@ struct CLIRunner {
 
     private func renderSubmissionReadinessText(_ report: SubmissionReadinessReport) -> String {
         let header = "Submission readiness: \(report.ready ? "ready" : "not ready")"
+        let version = "AscendKit version: \(report.ascendKitVersion ?? "unknown")"
         let blockers = report.items.filter { !$0.satisfied }
         guard !blockers.isEmpty else {
-            return header
+            return [header, version].joined(separator: "\n")
         }
         let lines = blockers.map { item in
             let note = item.note.map { " - \($0)" } ?? ""
             return "- \(item.id): \(item.title)\(note)"
         }
-        return ([header, "Unsatisfied checklist item(s):"] + lines).joined(separator: "\n")
+        return ([header, version, "Unsatisfied checklist item(s):"] + lines).joined(separator: "\n")
     }
 
     private func buildReviewSubmissionPlan(

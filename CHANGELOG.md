@@ -4,7 +4,9 @@ AscendKit follows [Semantic Versioning](https://semver.org/). During `0.y.z`, th
 
 ## Unreleased
 
-No unreleased changes.
+### Added
+
+- Submission readiness, preparation, review-plan, handoff, and execution-result reports now include the generating AscendKit CLI version for review workflow traceability.
 
 ## 0.27.0 - 2026-05-02
 

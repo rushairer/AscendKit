@@ -16,10 +16,16 @@ public struct SubmissionChecklistItem: Codable, Equatable, Identifiable, Sendabl
 
 public struct SubmissionReadinessReport: Codable, Equatable, Sendable {
     public var generatedAt: Date
+    public var ascendKitVersion: String?
     public var items: [SubmissionChecklistItem]
 
-    public init(generatedAt: Date = Date(), items: [SubmissionChecklistItem]) {
+    public init(
+        generatedAt: Date = Date(),
+        ascendKitVersion: String? = AscendKitVersion.current,
+        items: [SubmissionChecklistItem]
+    ) {
         self.generatedAt = generatedAt
+        self.ascendKitVersion = ascendKitVersion
         self.items = items
     }
 
