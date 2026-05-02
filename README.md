@@ -6,6 +6,8 @@ The project is designed for AI-assisted release work without handing raw secrets
 
 ## Current Status
 
+Current documented release: `v0.17.0`.
+
 AscendKit is versioned from `v0.1.0` and follows [Semantic Versioning](https://semver.org/). The `0.y.z` line is usable but still evolving: each tagged release should build, test, and support the documented workflow, while minor versions may still refine command shapes before `1.0.0`.
 
 AscendKit is an MVP. It has been used end-to-end on a real iOS app release workflow covering local screenshot preparation, metadata, pricing, reviewer information, build selection, screenshot upload, and guarded App Review handoff. App Privacy publishing is currently documented as a boundary where Apple's IRIS endpoint may require App Store Connect UI or future Apple ID web-session support.
@@ -34,30 +36,33 @@ Out of scope for the current MVP:
 ## Requirements
 
 - macOS 14 or later.
-- Swift 6.1 or later.
-- Xcode command line tools.
+- Xcode command line tools for project inspection, simulator discovery, local screenshot capture, and release diagnostics.
 - An App Store Connect API key for remote ASC operations.
 - Optional: `fastlane` only if you are migrating existing metadata or screenshot folders. It is not required for the core workflow.
+- Optional for contributors: Swift 6.1 or later when building from source.
 
 ## Installation
 
-For normal use, install the `ascendkit` binary somewhere on your `PATH` and run it from any app project directory:
+Prefer Homebrew for normal use. Until AscendKit has a dedicated tap repository, tap this repository explicitly:
 
 ```bash
-install -m 0755 bin/ascendkit ~/.local/bin/ascendkit
+brew tap rushairer/ascendkit https://github.com/rushairer/AscendKit
+brew install ascendkit
 ascendkit --version
 ascendkit --help
 ascendkit version --json
 ```
 
-Installer script from a source checkout or release asset:
+After installation, run `ascendkit` from any app project directory. User-facing documentation assumes this installed binary.
+
+Alternative direct installer from a source checkout or release asset:
 
 ```bash
 scripts/install-ascendkit.sh --version 0.17.0
 ASCENDKIT_INSTALL_DIR=/usr/local/bin scripts/install-ascendkit.sh
 ```
 
-The installer downloads the macOS arm64 release archive from GitHub Releases, verifies the `.sha256` digest with `shasum`, and installs only the `ascendkit` CLI binary.
+The installer downloads the macOS arm64 release archive from GitHub Releases, verifies the `.sha256` digest with `shasum`, and installs only the `ascendkit` CLI binary. Use it when Homebrew is unavailable or when validating a specific release asset.
 
 Verify a published release before announcing it:
 
@@ -76,14 +81,14 @@ cd dist && shasum -a 256 -c ascendkit-*.tar.gz.sha256
 
 The archive contains only the AscendKit CLI, the installer script, `LICENSE`, `README.md`, and install instructions. It does not contain app workspaces, App Store Connect credentials, screenshots, or app binaries.
 
-Homebrew tap preparation:
+Homebrew formula maintenance:
 
 ```bash
 scripts/update-homebrew-formula.sh
 ruby -c Formula/ascendkit.rb
 ```
 
-The generated formula points at the GitHub Release archive for the current `ascendkit --version`. If the matching GitHub Release exists, the script uses the uploaded release asset digest; otherwise it falls back to the local package checksum. A dedicated Homebrew tap can copy `Formula/ascendkit.rb` and expose normal installation with `brew install ascendkit`.
+The generated formula points at the GitHub Release archive for the current `ascendkit --version`. If the matching GitHub Release exists, the script uses the uploaded release asset digest; otherwise it falls back to the local package checksum. Maintainers should keep `Formula/ascendkit.rb` aligned with every public release so users can install with `brew install ascendkit`.
 
 For development, run from the source checkout:
 
@@ -123,7 +128,7 @@ WORKSPACE="$APP_ROOT/.ascendkit/releases/$RELEASE_ID"
 Create the workspace:
 
 ```bash
-swift run ascendkit intake inspect \
+ascendkit intake inspect \
   --root "$APP_ROOT" \
   --release-id "$RELEASE_ID" \
   --save
@@ -132,9 +137,9 @@ swift run ascendkit intake inspect \
 Create metadata templates, or import existing fastlane metadata:
 
 ```bash
-swift run ascendkit metadata init --workspace "$WORKSPACE" --locale en-US
+ascendkit metadata init --workspace "$WORKSPACE" --locale en-US
 
-swift run ascendkit metadata import-fastlane \
+ascendkit metadata import-fastlane \
   --workspace "$WORKSPACE" \
   --source "$APP_ROOT/fastlane/metadata"
 ```
@@ -142,18 +147,18 @@ swift run ascendkit metadata import-fastlane \
 Lint metadata:
 
 ```bash
-swift run ascendkit metadata status --workspace "$WORKSPACE"
-swift run ascendkit metadata lint --workspace "$WORKSPACE" --locale en-US --json
+ascendkit metadata status --workspace "$WORKSPACE"
+ascendkit metadata lint --workspace "$WORKSPACE" --locale en-US --json
 ```
 
 Import screenshots from a folder or from fastlane:
 
 ```bash
-swift run ascendkit screenshots import \
+ascendkit screenshots import \
   --workspace "$WORKSPACE" \
   --source /path/to/screenshots
 
-swift run ascendkit screenshots import-fastlane \
+ascendkit screenshots import-fastlane \
   --workspace "$WORKSPACE" \
   --source "$APP_ROOT/fastlane/screenshots" \
   --locales en-US,zh-Hans
@@ -162,36 +167,36 @@ swift run ascendkit screenshots import-fastlane \
 Compose local screenshot artifacts:
 
 ```bash
-swift run ascendkit screenshots copy init --workspace "$WORKSPACE" --locale en-US
-swift run ascendkit screenshots copy refresh --workspace "$WORKSPACE" --locale en-US
-swift run ascendkit screenshots copy lint --workspace "$WORKSPACE" --locale en-US
-swift run ascendkit screenshots compose --workspace "$WORKSPACE" --mode storeReadyCopy
-swift run ascendkit screenshots compose --workspace "$WORKSPACE" --mode deviceFrame
-swift run ascendkit screenshots compose --workspace "$WORKSPACE" --mode poster
+ascendkit screenshots copy init --workspace "$WORKSPACE" --locale en-US
+ascendkit screenshots copy refresh --workspace "$WORKSPACE" --locale en-US
+ascendkit screenshots copy lint --workspace "$WORKSPACE" --locale en-US
+ascendkit screenshots compose --workspace "$WORKSPACE" --mode storeReadyCopy
+ascendkit screenshots compose --workspace "$WORKSPACE" --mode deviceFrame
+ascendkit screenshots compose --workspace "$WORKSPACE" --mode poster
 ```
 
 Run the local Xcode UI-test screenshot workflow without fastlane:
 
 ```bash
-swift run ascendkit screenshots destinations --workspace "$WORKSPACE" --json
-swift run ascendkit screenshots copy init --workspace "$WORKSPACE" --locale en-US --json
-swift run ascendkit screenshots copy refresh --workspace "$WORKSPACE" --locale en-US --json
-swift run ascendkit screenshots copy lint --workspace "$WORKSPACE" --locale en-US --json
+ascendkit screenshots destinations --workspace "$WORKSPACE" --json
+ascendkit screenshots copy init --workspace "$WORKSPACE" --locale en-US --json
+ascendkit screenshots copy refresh --workspace "$WORKSPACE" --locale en-US --json
+ascendkit screenshots copy lint --workspace "$WORKSPACE" --locale en-US --json
 
-swift run ascendkit screenshots workflow run \
+ascendkit screenshots workflow run \
   --workspace "$WORKSPACE" \
   --scheme MyApp \
   --mode framedPoster \
   --copy "$WORKSPACE/screenshots/copy/en-US.json" \
   --json
 
-swift run ascendkit screenshots workflow status --workspace "$WORKSPACE" --json
+ascendkit screenshots workflow status --workspace "$WORKSPACE" --json
 ```
 
 Save an ASC auth profile. The profile stores only a reference to the private key file, not the key content:
 
 ```bash
-swift run ascendkit asc auth save-profile \
+ascendkit asc auth save-profile \
   --name default \
   --issuer-id ASC_ISSUER_ID \
   --key-id ASC_KEY_ID \
@@ -202,48 +207,48 @@ swift run ascendkit asc auth save-profile \
 Attach that profile to the release workspace:
 
 ```bash
-swift run ascendkit asc auth init \
+ascendkit asc auth init \
   --workspace "$WORKSPACE" \
   --profile default
 
-swift run ascendkit asc auth check --workspace "$WORKSPACE" --json
+ascendkit asc auth check --workspace "$WORKSPACE" --json
 ```
 
 Observe the app and remote metadata:
 
 ```bash
-swift run ascendkit asc lookup plan --workspace "$WORKSPACE" --json
-swift run ascendkit asc apps lookup --workspace "$WORKSPACE" --json
-swift run ascendkit asc metadata observe --workspace "$WORKSPACE" --json
+ascendkit asc lookup plan --workspace "$WORKSPACE" --json
+ascendkit asc apps lookup --workspace "$WORKSPACE" --json
+ascendkit asc metadata observe --workspace "$WORKSPACE" --json
 ```
 
 Plan and upload screenshots. By default, the plan reads observed ASC screenshot sets and blocks execution when matching remote screenshots already exist. If you intend to replace existing screenshots, add `--replace-existing` to the plan and upload commands so AscendKit records and executes explicit screenshot deletions before uploading new assets:
 
 ```bash
-swift run ascendkit screenshots upload-plan --workspace "$WORKSPACE" --json
+ascendkit screenshots upload-plan --workspace "$WORKSPACE" --json
 
-swift run ascendkit screenshots upload-plan \
+ascendkit screenshots upload-plan \
   --workspace "$WORKSPACE" \
   --replace-existing \
   --json
 
-swift run ascendkit screenshots upload \
+ascendkit screenshots upload \
   --workspace "$WORKSPACE" \
   --replace-existing \
   --confirm-remote-mutation \
   --json
 
-swift run ascendkit screenshots upload-status --workspace "$WORKSPACE" --json
+ascendkit screenshots upload-status --workspace "$WORKSPACE" --json
 ```
 
 Plan and apply metadata changes:
 
 ```bash
-swift run ascendkit metadata diff --workspace "$WORKSPACE" --json
-swift run ascendkit asc metadata plan --workspace "$WORKSPACE" --json
-swift run ascendkit asc metadata requests --workspace "$WORKSPACE" --json
+ascendkit metadata diff --workspace "$WORKSPACE" --json
+ascendkit asc metadata plan --workspace "$WORKSPACE" --json
+ascendkit asc metadata requests --workspace "$WORKSPACE" --json
 
-swift run ascendkit asc metadata apply \
+ascendkit asc metadata apply \
   --workspace "$WORKSPACE" \
   --confirm-remote-mutation \
   --json
@@ -252,9 +257,9 @@ swift run ascendkit asc metadata apply \
 Set the app price to free through the official App Store Connect API:
 
 ```bash
-swift run ascendkit asc pricing set-free --workspace "$WORKSPACE" --json
+ascendkit asc pricing set-free --workspace "$WORKSPACE" --json
 
-swift run ascendkit asc pricing set-free \
+ascendkit asc pricing set-free \
   --workspace "$WORKSPACE" \
   --confirm-remote-mutation \
   --json
@@ -263,14 +268,14 @@ swift run ascendkit asc pricing set-free \
 Observe builds and select a processed build:
 
 ```bash
-swift run ascendkit asc builds observe --workspace "$WORKSPACE" --json
-swift run ascendkit asc builds list --workspace "$WORKSPACE" --json
+ascendkit asc builds observe --workspace "$WORKSPACE" --json
+ascendkit asc builds list --workspace "$WORKSPACE" --json
 ```
 
 Add reviewer information. If no login is required, omit login credentials and leave `--requires-login` false:
 
 ```bash
-swift run ascendkit submit review-info set \
+ascendkit submit review-info set \
   --workspace "$WORKSPACE" \
   --first-name "Ada" \
   --last-name "Lovelace" \
@@ -283,11 +288,11 @@ swift run ascendkit submit review-info set \
 Prepare the submission and review the handoff:
 
 ```bash
-swift run ascendkit doctor release --workspace "$WORKSPACE" --json
-swift run ascendkit submit readiness --workspace "$WORKSPACE" --json
-swift run ascendkit submit prepare --workspace "$WORKSPACE" --json
-swift run ascendkit submit review-plan --workspace "$WORKSPACE" --json
-swift run ascendkit submit handoff --workspace "$WORKSPACE"
+ascendkit doctor release --workspace "$WORKSPACE" --json
+ascendkit submit readiness --workspace "$WORKSPACE" --json
+ascendkit submit prepare --workspace "$WORKSPACE" --json
+ascendkit submit review-plan --workspace "$WORKSPACE" --json
+ascendkit submit handoff --workspace "$WORKSPACE"
 ```
 
 Use the handoff to complete the final submit-for-review action manually in App Store Connect. Remote review submission execution is boundary-disabled in the current release, even when `--confirm-remote-submission` is passed.
@@ -301,27 +306,27 @@ All commands support `--json` where shown in `ascendkit --help`. JSON output is 
 Inspect existing release workspace state.
 
 ```bash
-swift run ascendkit workspace status --workspace "$WORKSPACE"
-swift run ascendkit workspace status --workspace "$WORKSPACE" --json
-swift run ascendkit workspace summary --workspace "$WORKSPACE" --json
-swift run ascendkit workspace hygiene --workspace "$WORKSPACE" --json
-swift run ascendkit workspace gitignore --workspace "$WORKSPACE" --json
-swift run ascendkit workspace gitignore --workspace "$WORKSPACE" --fix --json
-swift run ascendkit workspace export-summary --workspace "$WORKSPACE" --output /tmp/ascendkit-summary.json --json
-swift run ascendkit workspace validate-handoff --workspace "$WORKSPACE" --export /tmp/ascendkit-summary.json --json
-swift run ascendkit workspace next-steps --workspace "$WORKSPACE" --json
+ascendkit workspace status --workspace "$WORKSPACE"
+ascendkit workspace status --workspace "$WORKSPACE" --json
+ascendkit workspace summary --workspace "$WORKSPACE" --json
+ascendkit workspace hygiene --workspace "$WORKSPACE" --json
+ascendkit workspace gitignore --workspace "$WORKSPACE" --json
+ascendkit workspace gitignore --workspace "$WORKSPACE" --fix --json
+ascendkit workspace export-summary --workspace "$WORKSPACE" --output /tmp/ascendkit-summary.json --json
+ascendkit workspace validate-handoff --workspace "$WORKSPACE" --export /tmp/ascendkit-summary.json --json
+ascendkit workspace next-steps --workspace "$WORKSPACE" --json
 ```
 
 `workspace status` shows which expected files exist, such as manifest, metadata, screenshots, ASC auth, readiness, and review artifacts. `workspace summary` reads the persisted release artifacts and emits final readiness state plus deduplicated next actions for agents. `workspace hygiene` checks whether the local workspace contains release artifacts or potential secrets that must not be committed. `workspace gitignore` checks whether the app project's `.gitignore` excludes `.ascendkit/`; add `--fix` to append the rule. `workspace export-summary` writes a sanitized handoff JSON file that excludes raw screenshots, ASC auth, metadata, review artifacts, audit log contents, and absolute workspace paths. `workspace validate-handoff` checks whether another agent can safely take over the release workflow; release blockers are reported as warnings because they are work for the receiving agent, not handoff blockers. `workspace next-steps` converts summary next actions into a priority-sorted, command-oriented plan.
 
 ```bash
-swift run ascendkit workspace audit --workspace "$WORKSPACE"
+ascendkit workspace audit --workspace "$WORKSPACE"
 ```
 
 Reads the workspace audit log. Sensitive values are redacted before they are written.
 
 ```bash
-swift run ascendkit workspace list --root "$APP_ROOT"
+ascendkit workspace list --root "$APP_ROOT"
 ```
 
 Lists known release workspaces under an app root.
@@ -331,7 +336,7 @@ Lists known release workspaces under an app root.
 Create or update the release manifest from an Apple project.
 
 ```bash
-swift run ascendkit intake inspect \
+ascendkit intake inspect \
   --root "$APP_ROOT" \
   --release-id "$RELEASE_ID" \
   --save \
@@ -351,7 +356,7 @@ Useful options:
 Run release hygiene checks.
 
 ```bash
-swift run ascendkit doctor release --workspace "$WORKSPACE" --json
+ascendkit doctor release --workspace "$WORKSPACE" --json
 ```
 
 The doctor checks app icon presence, entitlements, Info.plist privacy purpose strings, local metadata, screenshot state, IAP templates, and release-sensitive residue.
@@ -361,13 +366,13 @@ The doctor checks app icon presence, entitlements, Info.plist privacy purpose st
 Manage local App Store metadata.
 
 ```bash
-swift run ascendkit metadata init --workspace "$WORKSPACE" --locale en-US
+ascendkit metadata init --workspace "$WORKSPACE" --locale en-US
 ```
 
 Writes a starter metadata JSON file for one locale.
 
 ```bash
-swift run ascendkit metadata import-fastlane \
+ascendkit metadata import-fastlane \
   --workspace "$WORKSPACE" \
   --source "$APP_ROOT/fastlane/metadata" \
   --json
@@ -376,19 +381,19 @@ swift run ascendkit metadata import-fastlane \
 Imports fastlane metadata folders into AscendKit's local metadata model.
 
 ```bash
-swift run ascendkit metadata status --workspace "$WORKSPACE" --json
+ascendkit metadata status --workspace "$WORKSPACE" --json
 ```
 
 Lists local metadata bundles known to the workspace.
 
 ```bash
-swift run ascendkit metadata lint --workspace "$WORKSPACE" --locale en-US --json
+ascendkit metadata lint --workspace "$WORKSPACE" --locale en-US --json
 ```
 
 Checks required fields and App Store length constraints.
 
 ```bash
-swift run ascendkit metadata diff --workspace "$WORKSPACE" --json
+ascendkit metadata diff --workspace "$WORKSPACE" --json
 ```
 
 Compares local metadata with observed ASC metadata saved in the workspace.
@@ -398,7 +403,7 @@ Compares local metadata with observed ASC metadata saved in the workspace.
 Plan, import, validate, and compose local screenshot artifacts.
 
 ```bash
-swift run ascendkit screenshots plan \
+ascendkit screenshots plan \
   --workspace "$WORKSPACE" \
   --screens Home,Settings,Paywall \
   --features Onboarding,Sync,Premium \
@@ -410,13 +415,13 @@ swift run ascendkit screenshots plan \
 Creates a deterministic screenshot plan with coverage warnings.
 
 ```bash
-swift run ascendkit screenshots destinations --workspace "$WORKSPACE" --json
+ascendkit screenshots destinations --workspace "$WORKSPACE" --json
 ```
 
 Discovers available local iOS simulators and recommends screenshot capture destinations for the workspace platforms.
 
 ```bash
-swift run ascendkit screenshots capture-plan \
+ascendkit screenshots capture-plan \
   --workspace "$WORKSPACE" \
   --scheme MyApp \
   --configuration Debug \
@@ -426,13 +431,13 @@ swift run ascendkit screenshots capture-plan \
 Writes `screenshots/manifests/capture-plan.json` with deterministic `xcodebuild test` commands, locale flags, result bundle paths, and `ASCENDKIT_SCREENSHOT_OUTPUT_DIR` environment values for UI tests. If `--destination` is omitted, AscendKit recommends an available local simulator. This is a local capture plan only; it does not mutate App Store Connect.
 
 ```bash
-swift run ascendkit screenshots capture --workspace "$WORKSPACE" --json
+ascendkit screenshots capture --workspace "$WORKSPACE" --json
 ```
 
 Executes the saved capture plan locally, writes `screenshots/manifests/capture-result.json`, stores stdout/stderr logs under `screenshots/capture/logs`, and refreshes the screenshot import manifest when all capture commands succeed.
 
 ```bash
-swift run ascendkit screenshots workflow run \
+ascendkit screenshots workflow run \
   --workspace "$WORKSPACE" \
   --scheme MyApp \
   --mode framedPoster \
@@ -443,21 +448,21 @@ swift run ascendkit screenshots workflow run \
 Runs the local screenshot workflow end to end: recommends local simulator destinations, writes a fresh capture plan, executes local Xcode UI tests, refreshes the import manifest, refreshes/lints the provided copy file, composes final screenshots, and writes `screenshots/manifests/workflow-result.json`. The default workflow composition mode is `framedPoster`.
 
 ```bash
-swift run ascendkit screenshots workflow status --workspace "$WORKSPACE" --json
+ascendkit screenshots workflow status --workspace "$WORKSPACE" --json
 ```
 
 Summarizes capture plan, capture execution, import manifest, composition manifest, workflow result, and upload plan readiness in one report.
 
 ```bash
-swift run ascendkit screenshots copy init --workspace "$WORKSPACE" --locale en-US --json
-swift run ascendkit screenshots copy refresh --workspace "$WORKSPACE" --locale en-US --json
-swift run ascendkit screenshots copy lint --workspace "$WORKSPACE" --locale en-US --json
+ascendkit screenshots copy init --workspace "$WORKSPACE" --locale en-US --json
+ascendkit screenshots copy refresh --workspace "$WORKSPACE" --locale en-US --json
+ascendkit screenshots copy lint --workspace "$WORKSPACE" --locale en-US --json
 ```
 
 Generates, refreshes, and validates an editable framed-poster copy template at `screenshots/copy/en-US.json` from `screenshot-plan.json`. Use `copy refresh` after the screenshot plan changes; it preserves edited titles/subtitles for matching files and removes stale entries. Lint results are persisted to `screenshots/manifests/copy-lint.json` and included in workflow status. Edit titles and subtitles there before running `screenshots compose --mode framedPoster` or `screenshots workflow run --mode framedPoster`.
 
 ```bash
-swift run ascendkit screenshots readiness \
+ascendkit screenshots readiness \
   --workspace "$WORKSPACE" \
   --source /path/to/screenshots \
   --json
@@ -466,13 +471,13 @@ swift run ascendkit screenshots readiness \
 Validates whether a screenshot source folder can be imported.
 
 ```bash
-swift run ascendkit screenshots import --workspace "$WORKSPACE" --source /path/to/screenshots
+ascendkit screenshots import --workspace "$WORKSPACE" --source /path/to/screenshots
 ```
 
 Imports screenshots from a user-provided folder into a manifest.
 
 ```bash
-swift run ascendkit screenshots import-fastlane \
+ascendkit screenshots import-fastlane \
   --workspace "$WORKSPACE" \
   --source "$APP_ROOT/fastlane/screenshots" \
   --locales en-US,zh-Hans
@@ -481,10 +486,10 @@ swift run ascendkit screenshots import-fastlane \
 Imports fastlane-style screenshots.
 
 ```bash
-swift run ascendkit screenshots compose --workspace "$WORKSPACE" --mode storeReadyCopy
-swift run ascendkit screenshots compose --workspace "$WORKSPACE" --mode poster
-swift run ascendkit screenshots compose --workspace "$WORKSPACE" --mode deviceFrame
-swift run ascendkit screenshots compose --workspace "$WORKSPACE" --mode framedPoster --copy "$WORKSPACE/screenshots/copy/en-US.json"
+ascendkit screenshots compose --workspace "$WORKSPACE" --mode storeReadyCopy
+ascendkit screenshots compose --workspace "$WORKSPACE" --mode poster
+ascendkit screenshots compose --workspace "$WORKSPACE" --mode deviceFrame
+ascendkit screenshots compose --workspace "$WORKSPACE" --mode framedPoster --copy "$WORKSPACE/screenshots/copy/en-US.json"
 ```
 
 Composition modes:
@@ -511,9 +516,9 @@ Optional framed poster copy file:
 ```
 
 ```bash
-swift run ascendkit screenshots coverage --workspace "$WORKSPACE" --json
+ascendkit screenshots coverage --workspace "$WORKSPACE" --json
 
-swift run ascendkit screenshots upload-plan \
+ascendkit screenshots upload-plan \
   --workspace "$WORKSPACE" \
   --display-type APP_IPHONE_67 \
   --json
@@ -525,7 +530,7 @@ Creates a dry-run App Store Connect screenshot upload plan from imported or comp
 The plan includes observed remote screenshot sets from `asc metadata observe` and reports a blocking finding when a matching locale/display type already has screenshots, preventing accidental duplicates.
 
 ```bash
-swift run ascendkit screenshots upload-plan \
+ascendkit screenshots upload-plan \
   --workspace "$WORKSPACE" \
   --display-type APP_IPHONE_67 \
   --replace-existing \
@@ -535,7 +540,7 @@ swift run ascendkit screenshots upload-plan \
 Plans explicit deletion of matching remote screenshots before upload. This still does not mutate ASC; it only records `remoteScreenshotsToDelete` in the upload plan.
 
 ```bash
-swift run ascendkit screenshots upload \
+ascendkit screenshots upload \
   --workspace "$WORKSPACE" \
   --replace-existing \
   --confirm-remote-mutation \
@@ -553,7 +558,7 @@ Use `screenshots upload-status` to summarize uploaded, failed, deleted, and retr
 Configure App Store Connect credentials without storing private key contents.
 
 ```bash
-swift run ascendkit asc auth save-profile \
+ascendkit asc auth save-profile \
   --name production \
   --issuer-id ASC_ISSUER_ID \
   --key-id ASC_KEY_ID \
@@ -564,14 +569,14 @@ swift run ascendkit asc auth save-profile \
 Profiles are saved under `~/.ascendkit/profiles/asc/` with owner-only permissions.
 
 ```bash
-swift run ascendkit asc auth profiles --json
+ascendkit asc auth profiles --json
 ```
 
 Lists saved auth profiles with redacted IDs.
 
 ```bash
-swift run ascendkit asc auth init --workspace "$WORKSPACE" --profile production
-swift run ascendkit asc auth check --workspace "$WORKSPACE" --json
+ascendkit asc auth init --workspace "$WORKSPACE" --profile production
+ascendkit asc auth check --workspace "$WORKSPACE" --json
 ```
 
 Writes and validates the workspace auth config.
@@ -587,13 +592,13 @@ Supported secret providers:
 Plan and perform ASC app lookup.
 
 ```bash
-swift run ascendkit asc lookup plan --workspace "$WORKSPACE" --json
+ascendkit asc lookup plan --workspace "$WORKSPACE" --json
 ```
 
 Writes the planned read-only ASC lookup shape.
 
 ```bash
-swift run ascendkit asc apps lookup --workspace "$WORKSPACE" --json
+ascendkit asc apps lookup --workspace "$WORKSPACE" --json
 ```
 
 Uses the official ASC API to find the app from the release manifest bundle ID.
@@ -601,7 +606,7 @@ Uses the official ASC API to find the app from the release manifest bundle ID.
 `asc lookup apps` is retained as a compatibility alias:
 
 ```bash
-swift run ascendkit asc lookup apps --workspace "$WORKSPACE" --json
+ascendkit asc lookup apps --workspace "$WORKSPACE" --json
 ```
 
 ### `asc builds`
@@ -609,19 +614,19 @@ swift run ascendkit asc lookup apps --workspace "$WORKSPACE" --json
 Observe or import App Store Connect build candidates.
 
 ```bash
-swift run ascendkit asc builds observe --workspace "$WORKSPACE" --json
+ascendkit asc builds observe --workspace "$WORKSPACE" --json
 ```
 
 Fetches remote ASC builds for the selected app.
 
 ```bash
-swift run ascendkit asc builds list --workspace "$WORKSPACE" --json
+ascendkit asc builds list --workspace "$WORKSPACE" --json
 ```
 
 Prints currently saved build candidates.
 
 ```bash
-swift run ascendkit asc builds import \
+ascendkit asc builds import \
   --workspace "$WORKSPACE" \
   --id BUILD_ID \
   --version 1.0 \
@@ -637,7 +642,7 @@ Imports a build candidate manually. This is useful for deterministic tests or wh
 Observe, plan, and apply App Store metadata.
 
 ```bash
-swift run ascendkit asc metadata import \
+ascendkit asc metadata import \
   --workspace "$WORKSPACE" \
   --file /path/to/observed-state.json \
   --json
@@ -646,30 +651,30 @@ swift run ascendkit asc metadata import \
 Imports previously observed ASC metadata state.
 
 ```bash
-swift run ascendkit asc metadata observe --workspace "$WORKSPACE" --json
+ascendkit asc metadata observe --workspace "$WORKSPACE" --json
 ```
 
 Fetches current ASC metadata for the app/version.
 
 ```bash
-swift run ascendkit asc metadata plan --workspace "$WORKSPACE" --json
+ascendkit asc metadata plan --workspace "$WORKSPACE" --json
 ```
 
 Builds a dry-run mutation plan from local metadata and observed ASC state.
 
 ```bash
-swift run ascendkit asc metadata requests --workspace "$WORKSPACE" --json
+ascendkit asc metadata requests --workspace "$WORKSPACE" --json
 ```
 
 Builds grouped JSON:API request plans from the mutation plan.
 
 ```bash
-swift run ascendkit asc metadata apply \
+ascendkit asc metadata apply \
   --workspace "$WORKSPACE" \
   --confirm-remote-mutation \
   --json
 
-swift run ascendkit asc metadata status --workspace "$WORKSPACE" --json
+ascendkit asc metadata status --workspace "$WORKSPACE" --json
 ```
 
 Applies remote metadata mutations. The confirmation flag is required by design.
@@ -680,13 +685,13 @@ Use `asc metadata status` after observe/diff/apply to summarize whether metadata
 Plan or apply App Store pricing without fastlane.
 
 ```bash
-swift run ascendkit asc pricing set-free --workspace "$WORKSPACE" --json
+ascendkit asc pricing set-free --workspace "$WORKSPACE" --json
 ```
 
 Finds the free app price point for the base territory and writes `asc/pricing-result.json` without mutating remote state.
 
 ```bash
-swift run ascendkit asc pricing set-free \
+ascendkit asc pricing set-free \
   --workspace "$WORKSPACE" \
   --base-territory USA \
   --confirm-remote-mutation \
@@ -700,18 +705,18 @@ Creates an App Store Connect `appPriceSchedules` resource that sets the app to f
 Record or attempt App Privacy publication state.
 
 ```bash
-swift run ascendkit asc privacy set-not-collected \
+ascendkit asc privacy set-not-collected \
   --workspace "$WORKSPACE" \
   --confirm-remote-mutation \
   --json
 
-swift run ascendkit asc privacy status --workspace "$WORKSPACE" --json
+ascendkit asc privacy status --workspace "$WORKSPACE" --json
 ```
 
 Attempts to publish App Privacy as Data Not Collected and records the result in `asc/privacy-status.json`. The status JSON includes `readyForSubmission` and `nextActions` so agents can make the final readiness decision without parsing prose. If Apple rejects API-key auth for the App Privacy endpoint, complete App Privacy in App Store Connect UI and then record the manual handoff:
 
 ```bash
-swift run ascendkit asc privacy confirm-manual \
+ascendkit asc privacy confirm-manual \
   --workspace "$WORKSPACE" \
   --data-not-collected \
   --json
@@ -722,13 +727,13 @@ swift run ascendkit asc privacy confirm-manual \
 Prepare and execute App Review submission.
 
 ```bash
-swift run ascendkit submit review-info init --workspace "$WORKSPACE"
+ascendkit submit review-info init --workspace "$WORKSPACE"
 ```
 
 Writes an editable reviewer-info template.
 
 ```bash
-swift run ascendkit submit review-info set \
+ascendkit submit review-info set \
   --workspace "$WORKSPACE" \
   --first-name "Ada" \
   --last-name "Lovelace" \
@@ -741,31 +746,31 @@ swift run ascendkit submit review-info set \
 Writes reviewer contact, notes, and login requirement. If login is required, pass `--requires-login true`, `--credential-ref ENV_VAR_NAME`, and `--access-instructions "..."`. The credential reference points to an environment variable; do not place review passwords in the repository.
 
 ```bash
-swift run ascendkit submit readiness --workspace "$WORKSPACE" --json
+ascendkit submit readiness --workspace "$WORKSPACE" --json
 ```
 
 Builds a checklist of release prerequisites. For `framedPoster` screenshot composition, readiness also requires a clean `screenshots/manifests/copy-lint.json` report.
 
 ```bash
-swift run ascendkit submit prepare --workspace "$WORKSPACE" --json
+ascendkit submit prepare --workspace "$WORKSPACE" --json
 ```
 
 Creates a submission preparation summary.
 
 ```bash
-swift run ascendkit submit review-plan --workspace "$WORKSPACE" --json
+ascendkit submit review-plan --workspace "$WORKSPACE" --json
 ```
 
 Builds a review submission plan from local readiness, ASC state, metadata apply results, and selected build.
 
 ```bash
-swift run ascendkit submit handoff --workspace "$WORKSPACE"
+ascendkit submit handoff --workspace "$WORKSPACE"
 ```
 
 Writes a human-readable review handoff Markdown file, including App Privacy state, readiness, and next actions.
 
 ```bash
-swift run ascendkit submit execute \
+ascendkit submit execute \
   --workspace "$WORKSPACE" \
   --confirm-remote-submission \
   --json
@@ -778,8 +783,8 @@ Records a non-executed submission result explaining that remote review submissio
 Create and validate local subscription templates.
 
 ```bash
-swift run ascendkit iap template init --workspace "$WORKSPACE" --json
-swift run ascendkit iap validate --workspace "$WORKSPACE" --json
+ascendkit iap template init --workspace "$WORKSPACE" --json
+ascendkit iap validate --workspace "$WORKSPACE" --json
 ```
 
 This is a local validation layer. Remote IAP creation and subscription sync are not part of the current MVP command surface.
@@ -855,7 +860,7 @@ rg -n --hidden --glob '!.build/**' --glob '!.swiftpm/**' \
 
 Release checklist:
 
-1. Keep `README.md` command examples aligned with `swift run ascendkit --help`.
+1. Keep `README.md` command examples aligned with `ascendkit --help`.
 2. Run `scripts/package-release.sh` and verify the `.sha256` file before attaching release archives.
 3. Add tests for new command behavior before expanding remote mutation.
 4. Update `docs/mvp-roadmap.md` and `docs/automation-boundaries.md` when scope changes.

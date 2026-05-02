@@ -34,6 +34,18 @@ struct CLISmokeTests {
         #expect(output.contains("scripts/verify-release-assets.sh --version 9.8.7"))
     }
 
+    @Test("README release version references stay aligned")
+    func readmeReleaseVersionReferencesStayAligned() throws {
+        let readme = try String(contentsOfFile: "README.md", encoding: .utf8)
+        let formula = try String(contentsOfFile: "Formula/ascendkit.rb", encoding: .utf8)
+        let version = AscendKitVersion.current
+
+        #expect(readme.contains("Current documented release: `v\(version)`"))
+        #expect(readme.contains("scripts/install-ascendkit.sh --version \(version)"))
+        #expect(readme.contains("scripts/verify-release-assets.sh --version \(version)"))
+        #expect(formula.contains("releases/download/v\(version)/ascendkit-\(version)-macos-arm64.tar.gz"))
+    }
+
     @Test("command catalog renders complete help without duplicate usage lines")
     func commandCatalogRendersCompleteHelp() {
         let usageLines = AscendKitCommandCatalog.usageLines
@@ -105,9 +117,11 @@ struct CLISmokeTests {
         #expect(readme.contains("scripts/install-ascendkit.sh"))
         #expect(readme.contains("scripts/verify-release-assets.sh"))
         #expect(readme.contains("scripts/update-homebrew-formula.sh"))
+        #expect(readme.contains("brew tap rushairer/ascendkit"))
+        #expect(readme.contains("brew install ascendkit"))
         #expect(readme.contains("ascendkit version --json"))
+        #expect(readme.contains("swift run ascendkit --help"))
         #expect(readme.contains("GitHub release archives"))
-        #expect(readme.contains("install -m 0755 bin/ascendkit"))
         #expect(ciWorkflow.contains("swift test"))
         #expect(ciWorkflow.contains("actions/checkout@v5"))
         #expect(ciWorkflow.contains("bash -n"))
