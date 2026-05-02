@@ -71,10 +71,16 @@ public struct DoctorFinding: Codable, Equatable, Identifiable, Sendable {
 
 public struct DoctorReport: Codable, Equatable, Sendable {
     public var generatedAt: Date
+    public var ascendKitVersion: String?
     public var findings: [DoctorFinding]
 
-    public init(generatedAt: Date = Date(), findings: [DoctorFinding]) {
+    public init(
+        generatedAt: Date = Date(),
+        ascendKitVersion: String? = AscendKitVersion.current,
+        findings: [DoctorFinding]
+    ) {
         self.generatedAt = generatedAt
+        self.ascendKitVersion = ascendKitVersion
         self.findings = findings.sorted { lhs, rhs in
             if lhs.severity == rhs.severity { return lhs.id < rhs.id }
             return lhs.severity > rhs.severity

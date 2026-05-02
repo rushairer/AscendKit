@@ -15,6 +15,7 @@ struct DoctorTests {
 
         let report = ReleaseDoctor().run(manifest: manifest)
 
+        #expect(report.ascendKitVersion == AscendKitVersion.current)
         #expect(report.hasBlockers)
         #expect(report.findings.contains { $0.id == "intake.no-project" })
     }

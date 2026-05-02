@@ -318,7 +318,10 @@ struct CLIRunner {
         try store.save(report, to: URL(fileURLWithPath: workspace.paths.doctorReport))
         try store.appendAudit(.init(action: .doctorRan, summary: "Ran release doctor"), to: workspace)
         return try render(report, json: json) {
-            "Doctor complete: \(report.findings.count) finding(s), blockers: \(report.hasBlockers ? "yes" : "no")"
+            [
+                "Doctor complete: \(report.findings.count) finding(s), blockers: \(report.hasBlockers ? "yes" : "no")",
+                "AscendKit version: \(report.ascendKitVersion ?? "unknown")"
+            ].joined(separator: "\n")
         }
     }
 
