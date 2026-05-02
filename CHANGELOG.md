@@ -6,6 +6,17 @@ AscendKit follows [Semantic Versioning](https://semver.org/). The `1.x` line kee
 
 No unreleased changes.
 
+## 1.1.0 - 2026-05-02
+
+### Added
+
+- Added a post-v1 roadmap covering stability, distribution, screenshot reliability, and agent handoff priorities.
+- Added macOS universal release packaging for Apple Silicon and Intel Macs.
+
+### Changed
+
+- Homebrew formula, release verification, and installer scripts now prefer `macos-universal` release archives.
+
 ## 1.0.0 - 2026-05-02
 
 ### Changed

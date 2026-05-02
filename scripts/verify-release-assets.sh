@@ -55,7 +55,6 @@ require_tool() {
 }
 
 require_tool gh
-require_tool uname
 
 if [[ -z "${VERSION}" ]]; then
   echo "Missing required --version value." >&2
@@ -63,10 +62,9 @@ if [[ -z "${VERSION}" ]]; then
   exit 64
 fi
 
-ARCH="$(uname -m)"
 VERSION="${VERSION#v}"
 TAG="v${VERSION}"
-ARCHIVE_NAME="ascendkit-${VERSION}-macos-${ARCH}.tar.gz"
+ARCHIVE_NAME="ascendkit-${VERSION}-macos-universal.tar.gz"
 EXPECTED_ASSETS=(
   "${ARCHIVE_NAME}"
   "${ARCHIVE_NAME}.sha256"

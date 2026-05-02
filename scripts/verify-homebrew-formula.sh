@@ -70,8 +70,7 @@ fi
 
 VERSION="${VERSION#v}"
 TAG="v${VERSION}"
-ARCH="$(uname -m)"
-ARCHIVE_NAME="ascendkit-${VERSION}-macos-${ARCH}.tar.gz"
+ARCHIVE_NAME="ascendkit-${VERSION}-macos-universal.tar.gz"
 EXPECTED_URL="https://github.com/${REPOSITORY}/releases/download/${TAG}/${ARCHIVE_NAME}"
 
 if ! gh release view "${TAG}" --repo "${REPOSITORY}" >/dev/null 2>&1; then

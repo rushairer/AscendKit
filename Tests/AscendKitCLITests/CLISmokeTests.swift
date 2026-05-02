@@ -5,7 +5,7 @@ import Testing
 struct CLISmokeTests {
     @Test("reports current semantic version")
     func reportsCurrentSemanticVersion() {
-        #expect(AscendKitVersion.current == "1.0.0")
+        #expect(AscendKitVersion.current == "1.1.0")
     }
 
     @Test("core JSON encoder produces sorted manifest output")
@@ -47,7 +47,7 @@ struct CLISmokeTests {
         #expect(readme.contains("scripts/install-ascendkit.sh --version \(version)"))
         #expect(readme.contains("scripts/verify-release-assets.sh --version \(version)"))
         #expect(changelog.contains("## \(version) - "))
-        #expect(formula.contains("releases/download/v\(version)/ascendkit-\(version)-macos-arm64.tar.gz"))
+        #expect(formula.contains("releases/download/v\(version)/ascendkit-\(version)-macos-universal.tar.gz"))
 
         let checksumPattern = #"sha256 "[0-9a-f]{64}""#
         #expect(formula.range(of: checksumPattern, options: .regularExpression) != nil)
@@ -165,6 +165,8 @@ struct CLISmokeTests {
         let releaseWorkflow = try String(contentsOfFile: ".github/workflows/release.yml", encoding: .utf8)
 
         #expect(script.contains("swift build -c release --product ascendkit"))
+        #expect(script.contains("--arch arm64 --arch x86_64"))
+        #expect(script.contains("macos-${PACKAGE_ARCH}"))
         #expect(script.contains("shasum -a 256"))
         #expect(script.contains("bin/ascendkit"))
         #expect(script.contains("install-ascendkit.sh"))
@@ -175,18 +177,23 @@ struct CLISmokeTests {
         #expect(installScript.contains("ASCENDKIT_VERSION"))
         #expect(installScript.contains("EXPECTED_SHA"))
         #expect(installScript.contains("ACTUAL_SHA"))
+        #expect(installScript.contains("macos-universal"))
+        #expect(installScript.contains("macos-${ARCH}"))
         #expect(installScript.contains("--retry 3"))
         #expect(installScript.contains("--retry-all-errors"))
         #expect(installScript.contains("gh release download"))
         #expect(installScript.contains("releases/latest"))
         #expect(verifyScript.contains("gh release view"))
+        #expect(verifyScript.contains("macos-universal"))
         #expect(verifyScript.contains("install-ascendkit.sh --version"))
         #expect(verifyScript.contains("ascendkit.rb"))
         #expect(formulaScript.contains("gh release view"))
+        #expect(formulaScript.contains("macos-universal"))
         #expect(formulaScript.contains("FORMULA_PATH="))
         #expect(formulaScript.contains("ascendkit.rb"))
         #expect(formulaVerifyScript.contains("Formula/ascendkit.rb"))
         #expect(formulaVerifyScript.contains("sha256"))
+        #expect(formulaVerifyScript.contains("macos-universal"))
         #expect(formulaVerifyScript.contains("gh release view"))
         #expect(representativeSmokeScript.contains("ASCENDKIT_BIN"))
         #expect(representativeSmokeScript.contains("intake inspect"))

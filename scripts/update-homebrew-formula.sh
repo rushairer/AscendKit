@@ -9,13 +9,14 @@ REPOSITORY="${ASCENDKIT_GITHUB_REPOSITORY:-rushairer/AscendKit}"
 
 cd "${ROOT_DIR}"
 
-BINARY_PATH="${ROOT_DIR}/.build/release/ascendkit"
+BINARY_PATH="${ROOT_DIR}/.build/apple/Products/Release/ascendkit"
 if [[ ! -x "${BINARY_PATH}" ]]; then
   swift build -c release --product ascendkit
+  BINARY_PATH="${ROOT_DIR}/.build/release/ascendkit"
 fi
 
 VERSION="$("${BINARY_PATH}" --version | awk '{print $2}')"
-ARCHIVE_PATH="${DIST_DIR}/ascendkit-${VERSION}-macos-$(uname -m).tar.gz"
+ARCHIVE_PATH="${DIST_DIR}/ascendkit-${VERSION}-macos-universal.tar.gz"
 CHECKSUM_PATH="${ARCHIVE_PATH}.sha256"
 
 if [[ ! -f "${ARCHIVE_PATH}" || ! -f "${CHECKSUM_PATH}" ]]; then

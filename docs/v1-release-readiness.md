@@ -6,7 +6,7 @@ This checklist defines the final gates before tagging `v1.0.0`.
 
 - `scripts/preflight-public-release.sh` passes on a clean working tree.
 - GitHub CI passes on the release commit.
-- GitHub Release workflow publishes the macOS arm64 archive, checksum, installer script, and generated Homebrew formula.
+- GitHub Release workflow publishes the macOS universal archive, checksum, installer script, and generated Homebrew formula.
 - `scripts/update-homebrew-formula.sh --version VERSION` and `scripts/verify-homebrew-formula.sh --version VERSION` pass after the GitHub Release exists.
 - `scripts/sync-homebrew-tap.sh --commit --push` publishes the verified formula to `rushairer/homebrew-ascendkit`.
 - Homebrew reinstall from the synced formula reports the tagged version with `ascendkit --version`.

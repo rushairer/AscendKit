@@ -94,10 +94,13 @@ download() {
 }
 
 ARCH="$(uname -m)"
-if [[ "${ARCH}" != "arm64" ]]; then
-  echo "Unsupported architecture: ${ARCH}. AscendKit release archives currently target macOS arm64." >&2
-  exit 70
-fi
+case "${ARCH}" in
+  arm64|x86_64) ;;
+  *)
+    echo "Unsupported architecture: ${ARCH}. AscendKit release archives currently target macOS arm64 and x86_64." >&2
+    exit 70
+    ;;
+esac
 
 if [[ "${VERSION}" == "latest" ]]; then
   LATEST_URL="$(curl --fail --silent --show-error --location --head \
@@ -113,14 +116,22 @@ if [[ "${VERSION}" == "latest" ]]; then
 fi
 VERSION="${VERSION#v}"
 
-ARCHIVE_NAME="ascendkit-${VERSION}-macos-${ARCH}.tar.gz"
 BASE_URL="https://github.com/${REPOSITORY}/releases/download/v${VERSION}"
-ARCHIVE_URL="${BASE_URL}/${ARCHIVE_NAME}"
-CHECKSUM_URL="${ARCHIVE_URL}.sha256"
-
 TMP_DIR="$(mktemp -d)"
-download "${ARCHIVE_URL}" "${TMP_DIR}/${ARCHIVE_NAME}"
-download "${CHECKSUM_URL}" "${TMP_DIR}/${ARCHIVE_NAME}.sha256"
+ARCHIVE_NAME=""
+for candidate in "ascendkit-${VERSION}-macos-universal.tar.gz" "ascendkit-${VERSION}-macos-${ARCH}.tar.gz"; do
+  if download "${BASE_URL}/${candidate}.sha256" "${TMP_DIR}/${candidate}.sha256"; then
+    ARCHIVE_NAME="${candidate}"
+    break
+  fi
+done
+
+if [[ -z "${ARCHIVE_NAME}" ]]; then
+  echo "No compatible AscendKit archive found for macOS ${ARCH} in v${VERSION}." >&2
+  exit 66
+fi
+
+download "${BASE_URL}/${ARCHIVE_NAME}" "${TMP_DIR}/${ARCHIVE_NAME}"
 
 (
   cd "${TMP_DIR}"
@@ -136,7 +147,8 @@ download "${CHECKSUM_URL}" "${TMP_DIR}/${ARCHIVE_NAME}.sha256"
 )
 
 mkdir -p "${INSTALL_DIR}"
-install -m 0755 "${TMP_DIR}/ascendkit-${VERSION}-macos-${ARCH}/bin/ascendkit" "${INSTALL_DIR}/ascendkit"
+PACKAGE_ROOT="${ARCHIVE_NAME%.tar.gz}"
+install -m 0755 "${TMP_DIR}/${PACKAGE_ROOT}/bin/ascendkit" "${INSTALL_DIR}/ascendkit"
 
 echo "Installed ascendkit ${VERSION} to ${INSTALL_DIR}/ascendkit"
 echo "Run: ${INSTALL_DIR}/ascendkit --version"

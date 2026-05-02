@@ -4,15 +4,33 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DIST_DIR="${ROOT_DIR}/dist"
 WORK_DIR="${DIST_DIR}/.package-work"
-ARCH="$(uname -m)"
+PACKAGE_ARCH="${ASCENDKIT_PACKAGE_ARCH:-universal}"
 
 cd "${ROOT_DIR}"
 
-swift build -c release --product ascendkit
+case "${PACKAGE_ARCH}" in
+  universal)
+    swift build -c release --product ascendkit --arch arm64 --arch x86_64
+    BINARY_PATH="${ROOT_DIR}/.build/apple/Products/Release/ascendkit"
+    ;;
+  arm64|x86_64)
+    swift build -c release --product ascendkit --arch "${PACKAGE_ARCH}"
+    BINARY_PATH="${ROOT_DIR}/.build/apple/Products/Release/ascendkit"
+    ;;
+  native)
+    swift build -c release --product ascendkit
+    BINARY_PATH="${ROOT_DIR}/.build/release/ascendkit"
+    PACKAGE_ARCH="$(uname -m)"
+    ;;
+  *)
+    echo "Unsupported ASCENDKIT_PACKAGE_ARCH: ${PACKAGE_ARCH}" >&2
+    echo "Expected universal, arm64, x86_64, or native." >&2
+    exit 64
+    ;;
+esac
 
-BINARY_PATH="${ROOT_DIR}/.build/release/ascendkit"
 VERSION="$("${BINARY_PATH}" --version | awk '{print $2}')"
-PACKAGE_NAME="ascendkit-${VERSION}-macos-${ARCH}"
+PACKAGE_NAME="ascendkit-${VERSION}-macos-${PACKAGE_ARCH}"
 PACKAGE_ROOT="${WORK_DIR}/${PACKAGE_NAME}"
 ARCHIVE_PATH="${DIST_DIR}/${PACKAGE_NAME}.tar.gz"
 CHECKSUM_PATH="${ARCHIVE_PATH}.sha256"

@@ -6,7 +6,7 @@ The project is designed for AI-assisted release work without handing raw secrets
 
 ## Current Status
 
-Current documented release: `v1.0.0`.
+Current documented release: `v1.1.0`.
 
 AscendKit follows [Semantic Versioning](https://semver.org/). The v1 command surface is stable for `1.x`: breaking workflow changes require a new major version, while compatible commands, flags, diagnostics, and documentation can continue to evolve through minor releases.
 
@@ -33,7 +33,7 @@ Out of scope for the current release:
 - Fully managed App Store Connect pricing/App Privacy abstractions for every Apple API edge case.
 - Broad remote screenshot lifecycle management beyond guarded replace-existing deletion.
 
-`v1.0.0` release readiness is tracked in `docs/v1-release-readiness.md`.
+`v1.0.0` release readiness is tracked in `docs/v1-release-readiness.md`. Post-v1 work is tracked in `docs/post-v1-roadmap.md`.
 
 ## Requirements
 
@@ -60,16 +60,16 @@ After installation, run `ascendkit` from any app project directory. User-facing 
 Alternative direct installer from a source checkout or release asset:
 
 ```bash
-scripts/install-ascendkit.sh --version 1.0.0
+scripts/install-ascendkit.sh --version 1.1.0
 ASCENDKIT_INSTALL_DIR=/usr/local/bin scripts/install-ascendkit.sh
 ```
 
-The installer downloads the macOS arm64 release archive from GitHub Releases, verifies the `.sha256` digest with `shasum`, and installs only the `ascendkit` CLI binary. Use it when Homebrew is unavailable or when validating a specific release asset.
+The installer downloads the macOS universal release archive from GitHub Releases, verifies the `.sha256` digest with `shasum`, and installs only the `ascendkit` CLI binary. Use it when Homebrew is unavailable or when validating a specific release asset.
 
 Verify a published release before announcing it:
 
 ```bash
-scripts/verify-release-assets.sh --version 1.0.0
+scripts/verify-release-assets.sh --version 1.1.0
 ```
 
 The verifier checks for the expected GitHub Release assets and performs a temporary installer smoke test.
@@ -95,9 +95,9 @@ Homebrew formula maintenance:
 
 ```bash
 scripts/update-homebrew-formula.sh
-scripts/verify-homebrew-formula.sh --version 1.0.0
+scripts/verify-homebrew-formula.sh --version 1.1.0
 scripts/sync-homebrew-tap.sh --commit --push
-scripts/v1-release-readiness.sh --version 1.0.0 --app-root /path/to/RepresentativeApp
+scripts/v1-release-readiness.sh --version 1.1.0 --app-root /path/to/RepresentativeApp
 ruby -c Formula/ascendkit.rb
 ```
 

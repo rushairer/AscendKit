@@ -15,7 +15,10 @@ let package = Package(
         .target(name: "AscendKitCore"),
         .executableTarget(
             name: "AscendKitCLI",
-            dependencies: ["AscendKitCore"]
+            dependencies: ["AscendKitCore"],
+            swiftSettings: [
+                .unsafeFlags(["-parse-as-library"])
+            ]
         ),
         .testTarget(
             name: "AscendKitCoreTests",

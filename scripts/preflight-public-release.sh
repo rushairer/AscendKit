@@ -26,11 +26,10 @@ echo "==> Release archive"
 scripts/package-release.sh
 
 echo "==> Release checksum"
-VERSION="$(.build/release/ascendkit --version | awk '{print $2}')"
-ARCH="$(uname -m)"
+VERSION="$(.build/apple/Products/Release/ascendkit --version | awk '{print $2}')"
 (
   cd dist
-  shasum -a 256 -c "ascendkit-${VERSION}-macos-${ARCH}.tar.gz.sha256"
+  shasum -a 256 -c "ascendkit-${VERSION}-macos-universal.tar.gz.sha256"
 )
 
 echo "==> Homebrew formula syntax"
