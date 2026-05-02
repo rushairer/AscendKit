@@ -906,6 +906,7 @@ Useful design docs:
 - `docs/product-scope.md`
 - `docs/security-model.md`
 - `docs/automation-boundaries.md`
+- `docs/v1-command-surface.md`
 - `docs/release-workspace-model.md`
 - `docs/asc-api-strategy.md`
 - `docs/mvp-roadmap.md`

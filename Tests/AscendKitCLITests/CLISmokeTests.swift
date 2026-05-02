@@ -30,7 +30,8 @@ struct CLISmokeTests {
 
         #expect(output.contains("\"version\" : \"9.8.7\""))
         #expect(output.contains("https://github.com/rushairer/AscendKit/releases/tag/v9.8.7"))
-        #expect(output.contains("scripts/install-ascendkit.sh --version 9.8.7"))
+        #expect(output.contains("brew tap rushairer/ascendkit"))
+        #expect(output.contains("brew install ascendkit"))
         #expect(output.contains("scripts/verify-release-assets.sh --version 9.8.7"))
     }
 
@@ -62,6 +63,7 @@ struct CLISmokeTests {
     func agentDocsMentionRequiredHandoffCommands() throws {
         let readme = try String(contentsOfFile: "README.md", encoding: .utf8)
         let playbook = try String(contentsOfFile: "docs/agent-release-playbook.md", encoding: .utf8)
+        let commandSurface = try String(contentsOfFile: "docs/v1-command-surface.md", encoding: .utf8)
         let requiredFragments = [
             "workspace summary",
             "workspace hygiene",
@@ -75,6 +77,11 @@ struct CLISmokeTests {
             #expect(readme.contains(fragment))
             #expect(playbook.contains(fragment))
         }
+        #expect(!playbook.contains("swift run ascendkit"))
+        #expect(playbook.contains("brew install ascendkit"))
+        #expect(commandSurface.contains("`swift run ascendkit ...` is a contributor-only"))
+        #expect(commandSurface.contains("metadata import-fastlane"))
+        #expect(commandSurface.contains("submit execute --confirm-remote-submission"))
     }
 
     @Test("release packaging script and install docs stay discoverable")

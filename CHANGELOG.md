@@ -4,7 +4,14 @@ AscendKit follows [Semantic Versioning](https://semver.org/). During `0.y.z`, th
 
 ## Unreleased
 
-No unreleased changes.
+### Changed
+
+- Agent release playbook now uses the installed `ascendkit` binary instead of source-checkout `swift run` commands.
+- `version --json` now reports Homebrew as the primary install command.
+
+### Added
+
+- v1 command-surface document records stable command groups, migration-only fastlane helpers, and disabled boundaries.
 
 ## 0.19.0 - 2026-05-02
 
