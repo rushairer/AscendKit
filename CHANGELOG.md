@@ -4,7 +4,9 @@ AscendKit follows [Semantic Versioning](https://semver.org/). During `0.y.z`, th
 
 ## Unreleased
 
-No unreleased changes.
+### Added
+
+- ASC lookup, build candidate, app lookup, pricing, and IAP validation reports now include the generating AscendKit CLI version for release traceability.
 
 ## 0.30.0 - 2026-05-02
 

@@ -13,6 +13,7 @@ struct ASCTests {
             BuildCandidate(id: "valid", version: "1.0", buildNumber: "3", processingState: "valid")
         ])
 
+        #expect(report.ascendKitVersion == AscendKitVersion.current)
         #expect(report.processableCandidates.map(\.id) == ["processed", "valid"])
     }
 
@@ -129,6 +130,7 @@ struct ASCTests {
         let plan = ASCLookupPlanBuilder().build(manifest: manifest, authStatus: auth)
 
         #expect(plan.dryRunOnly)
+        #expect(plan.ascendKitVersion == AscendKitVersion.current)
         #expect(plan.authConfigured)
         #expect(plan.bundleIDs == ["com.example.demo"])
         #expect(plan.version == "1.0")
@@ -225,6 +227,7 @@ struct ASCTests {
         let data = try AscendKitJSON.encoder.encode(report)
         let decoded = try AscendKitJSON.decoder.decode(ASCAppsLookupReport.self, from: data)
 
+        #expect(decoded.ascendKitVersion == AscendKitVersion.current)
         #expect(decoded.source == "app-store-connect-api")
         #expect(decoded.bundleIDs == ["com.example.demo"])
         #expect(decoded.apps.first?.id == "123")
@@ -256,6 +259,7 @@ struct ASCTests {
         let decoded = try AscendKitJSON.decoder.decode(ASCAppPricingResult.self, from: data)
 
         #expect(decoded.executed)
+        #expect(decoded.ascendKitVersion == AscendKitVersion.current)
         #expect(decoded.appID == "123")
         #expect(decoded.baseTerritory == "USA")
         #expect(decoded.pricePointID == "free-price-point")

@@ -11,7 +11,9 @@ struct IAPTests {
             "com.example.demo.subscription.monthly",
             "com.example.demo.subscription.yearly"
         ])
-        #expect(IAPValidationReport(templates: templates).valid)
+        let report = IAPValidationReport(templates: templates)
+        #expect(report.valid)
+        #expect(report.ascendKitVersion == AscendKitVersion.current)
     }
 
     @Test("detects duplicate subscription product ids")
@@ -24,6 +26,7 @@ struct IAPTests {
         let report = IAPValidationReport(templates: templates)
 
         #expect(report.valid == false)
+        #expect(report.ascendKitVersion == AscendKitVersion.current)
         #expect(report.findings.contains("Subscription product IDs must be unique."))
     }
 

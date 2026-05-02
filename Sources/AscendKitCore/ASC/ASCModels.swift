@@ -57,11 +57,18 @@ public struct BuildCandidate: Codable, Equatable, Identifiable, Sendable {
 
 public struct BuildCandidatesReport: Codable, Equatable, Sendable {
     public var generatedAt: Date
+    public var ascendKitVersion: String?
     public var source: String
     public var candidates: [BuildCandidate]
 
-    public init(generatedAt: Date = Date(), source: String, candidates: [BuildCandidate]) {
+    public init(
+        generatedAt: Date = Date(),
+        ascendKitVersion: String? = AscendKitVersion.current,
+        source: String,
+        candidates: [BuildCandidate]
+    ) {
         self.generatedAt = generatedAt
+        self.ascendKitVersion = ascendKitVersion
         self.source = source
         self.candidates = candidates
     }
@@ -290,6 +297,7 @@ public struct ASCLookupStep: Codable, Equatable, Identifiable, Sendable {
 
 public struct ASCLookupPlan: Codable, Equatable, Sendable {
     public var generatedAt: Date
+    public var ascendKitVersion: String?
     public var releaseID: String
     public var bundleIDs: [String]
     public var version: String?
@@ -303,6 +311,7 @@ public struct ASCLookupPlan: Codable, Equatable, Sendable {
 
     public init(
         generatedAt: Date = Date(),
+        ascendKitVersion: String? = AscendKitVersion.current,
         releaseID: String,
         bundleIDs: [String],
         version: String?,
@@ -315,6 +324,7 @@ public struct ASCLookupPlan: Codable, Equatable, Sendable {
         findings: [String]
     ) {
         self.generatedAt = generatedAt
+        self.ascendKitVersion = ascendKitVersion
         self.releaseID = releaseID
         self.bundleIDs = bundleIDs
         self.version = version
@@ -430,6 +440,7 @@ public struct ASCObservedApp: Codable, Equatable, Identifiable, Sendable {
 
 public struct ASCAppsLookupReport: Codable, Equatable, Sendable {
     public var generatedAt: Date
+    public var ascendKitVersion: String?
     public var source: String
     public var bundleIDs: [String]
     public var apps: [ASCObservedApp]
@@ -437,12 +448,14 @@ public struct ASCAppsLookupReport: Codable, Equatable, Sendable {
 
     public init(
         generatedAt: Date = Date(),
+        ascendKitVersion: String? = AscendKitVersion.current,
         source: String = "app-store-connect-api",
         bundleIDs: [String],
         apps: [ASCObservedApp],
         findings: [String] = []
     ) {
         self.generatedAt = generatedAt
+        self.ascendKitVersion = ascendKitVersion
         self.source = source
         self.bundleIDs = bundleIDs
         self.apps = apps
@@ -452,6 +465,7 @@ public struct ASCAppsLookupReport: Codable, Equatable, Sendable {
 
 public struct ASCAppPricingResult: Codable, Equatable, Sendable {
     public var generatedAt: Date
+    public var ascendKitVersion: String?
     public var executed: Bool
     public var appID: String
     public var baseTerritory: String
@@ -462,6 +476,7 @@ public struct ASCAppPricingResult: Codable, Equatable, Sendable {
 
     public init(
         generatedAt: Date = Date(),
+        ascendKitVersion: String? = AscendKitVersion.current,
         executed: Bool,
         appID: String,
         baseTerritory: String,
@@ -471,6 +486,7 @@ public struct ASCAppPricingResult: Codable, Equatable, Sendable {
         findings: [String] = []
     ) {
         self.generatedAt = generatedAt
+        self.ascendKitVersion = ascendKitVersion
         self.executed = executed
         self.appID = appID
         self.baseTerritory = baseTerritory

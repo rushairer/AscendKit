@@ -1085,7 +1085,7 @@ struct CLIRunner {
             let store = ReleaseWorkspaceStore(fileManager: fileManager)
             let report = try await observeASCBuilds(workspace: workspace, store: store)
             return try render(report, json: json) {
-                "Observed \(report.candidates.count) ASC build candidate(s), \(report.processableCandidates.count) processable."
+                "Observed \(report.candidates.count) ASC build candidate(s), \(report.processableCandidates.count) processable.\nAscendKit version: \(report.ascendKitVersion ?? "unknown")"
             }
         case "list":
             if let workspacePath = value(after: "--workspace", in: args) {
@@ -1093,7 +1093,7 @@ struct CLIRunner {
                 let report = try loadIfExists(BuildCandidatesReport.self, path: workspace.paths.buildCandidates)
                     ?? BuildCandidatesReport(source: "workspace", candidates: [])
                 return try render(report, json: json) {
-                    "\(report.candidates.count) build candidate(s), \(report.processableCandidates.count) processable"
+                    "\(report.candidates.count) build candidate(s), \(report.processableCandidates.count) processable\nAscendKit version: \(report.ascendKitVersion ?? "unknown")"
                 }
             }
             let note = ASCCapabilityNote(
@@ -1126,7 +1126,7 @@ struct CLIRunner {
             try store.save(report, to: URL(fileURLWithPath: workspace.paths.buildCandidates))
             try store.appendAudit(.init(action: .buildCandidatesImported, summary: "Imported build candidate"), to: workspace)
             return try render(report, json: json) {
-                "Imported \(report.candidates.count) build candidate(s)"
+                "Imported \(report.candidates.count) build candidate(s)\nAscendKit version: \(report.ascendKitVersion ?? "unknown")"
             }
         default:
             throw AscendKitError.invalidArguments("Usage: ascendkit asc builds observe --workspace PATH [--json] OR ascendkit asc builds list [--workspace PATH] [--json] OR ascendkit asc builds import --workspace PATH --id ID --version VERSION --build BUILD [--state STATE] [--json]")
@@ -1268,12 +1268,12 @@ struct CLIRunner {
             try store.save(plan, to: URL(fileURLWithPath: workspace.paths.ascLookupPlan))
             try store.appendAudit(.init(action: .ascLookupPlanned, summary: "Planned ASC lookup dry run"), to: workspace)
             return try render(plan, json: json) {
-                "ASC lookup dry-run plan saved with \(plan.steps.count) step(s) and \(plan.findings.count) finding(s)."
+                "ASC lookup dry-run plan saved with \(plan.steps.count) step(s) and \(plan.findings.count) finding(s).\nAscendKit version: \(plan.ascendKitVersion ?? "unknown")"
             }
         case "apps":
             let report = try await performASCAppsLookup(workspace: workspace, manifest: manifest, store: store)
             return try render(report, json: json) {
-                "ASC apps lookup observed \(report.apps.count) app(s) with \(report.findings.count) finding(s); no ASC mutation was made."
+                "ASC apps lookup observed \(report.apps.count) app(s) with \(report.findings.count) finding(s); no ASC mutation was made.\nAscendKit version: \(report.ascendKitVersion ?? "unknown")"
             }
         default:
             throw AscendKitError.invalidArguments("Usage: ascendkit asc lookup plan|apps --workspace PATH [--json]")
@@ -1289,7 +1289,7 @@ struct CLIRunner {
         let manifest = try store.loadManifest(from: workspace)
         let report = try await performASCAppsLookup(workspace: workspace, manifest: manifest, store: store)
         return try render(report, json: json) {
-            "ASC apps lookup observed \(report.apps.count) app(s) with \(report.findings.count) finding(s); no ASC mutation was made."
+            "ASC apps lookup observed \(report.apps.count) app(s) with \(report.findings.count) finding(s); no ASC mutation was made.\nAscendKit version: \(report.ascendKitVersion ?? "unknown")"
         }
     }
 
@@ -1558,9 +1558,10 @@ struct CLIRunner {
             to: workspace
         )
         return try render(result, json: json) {
-            result.executed
-                ? "ASC free pricing was set for app \(appID)."
-                : "ASC free pricing was planned but not executed; pass --confirm-remote-mutation to apply it."
+            let version = "AscendKit version: \(result.ascendKitVersion ?? "unknown")"
+            return result.executed
+                ? "ASC free pricing was set for app \(appID).\n\(version)"
+                : "ASC free pricing was planned but not executed; pass --confirm-remote-mutation to apply it.\n\(version)"
         }
     }
 
@@ -1997,7 +1998,9 @@ struct CLIRunner {
             let report = IAPValidationReport(templates: templates)
             try store.save(report, to: URL(fileURLWithPath: workspace.paths.iapValidation))
             try store.appendAudit(.init(action: .iapValidated, summary: "Validated local IAP subscription templates"), to: workspace)
-            return try render(report, json: json) { "IAP template validation: \(report.valid ? "valid" : "invalid")" }
+            return try render(report, json: json) {
+                "IAP template validation: \(report.valid ? "valid" : "invalid")\nAscendKit version: \(report.ascendKitVersion ?? "unknown")"
+            }
         default:
             throw AscendKitError.invalidArguments("Unknown iap command: \(subcommand)")
         }
