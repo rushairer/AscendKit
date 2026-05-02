@@ -243,6 +243,7 @@ struct CLIRunner {
     private func renderWorkspaceNextStepsText(_ plan: WorkspaceNextStepsPlan) -> String {
         var lines = [
             "Workspace next steps: \(plan.releaseID)",
+            "AscendKit version: \(plan.ascendKitVersion ?? "unknown")",
             "Blocker(s): \(plan.blockerCount)",
             "Warning(s): \(plan.warningCount)"
         ]

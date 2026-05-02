@@ -610,11 +610,18 @@ public struct WorkspaceNextStep: Codable, Equatable, Identifiable, Sendable {
 
 public struct WorkspaceNextStepsPlan: Codable, Equatable, Sendable {
     public var generatedAt: Date
+    public var ascendKitVersion: String?
     public var releaseID: String
     public var steps: [WorkspaceNextStep]
 
-    public init(generatedAt: Date = Date(), releaseID: String, steps: [WorkspaceNextStep]) {
+    public init(
+        generatedAt: Date = Date(),
+        ascendKitVersion: String? = AscendKitVersion.current,
+        releaseID: String,
+        steps: [WorkspaceNextStep]
+    ) {
         self.generatedAt = generatedAt
+        self.ascendKitVersion = ascendKitVersion
         self.releaseID = releaseID
         self.steps = steps
     }

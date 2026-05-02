@@ -267,6 +267,7 @@ struct WorkspaceTests {
         let plan = WorkspaceNextStepsPlanner().plan(workspace: workspace)
 
         #expect(plan.releaseID == "next-steps-demo")
+        #expect(plan.ascendKitVersion == AscendKitVersion.current)
         #expect(plan.blockerCount > 0)
         #expect(plan.steps.first?.severity == .blocker)
         #expect(plan.steps.contains {
