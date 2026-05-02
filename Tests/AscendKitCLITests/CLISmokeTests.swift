@@ -64,6 +64,8 @@ struct CLISmokeTests {
         let readme = try String(contentsOfFile: "README.md", encoding: .utf8)
         let playbook = try String(contentsOfFile: "docs/agent-release-playbook.md", encoding: .utf8)
         let commandSurface = try String(contentsOfFile: "docs/v1-command-surface.md", encoding: .utf8)
+        let automationBoundaries = try String(contentsOfFile: "docs/automation-boundaries.md", encoding: .utf8)
+        let architecture = try String(contentsOfFile: "docs/architecture.md", encoding: .utf8)
         let requiredFragments = [
             "workspace summary",
             "workspace hygiene",
@@ -82,9 +84,19 @@ struct CLISmokeTests {
         #expect(commandSurface.contains("`swift run ascendkit ...` is a contributor-only"))
         #expect(commandSurface.contains("metadata import-fastlane"))
         #expect(commandSurface.contains("submit execute --confirm-remote-submission"))
-        #expect(!readme.contains("metadata sync"))
-        #expect(!playbook.contains("metadata sync"))
-        #expect(!commandSurface.contains("metadata sync"))
+
+        let v1Docs = [readme, playbook, commandSurface, automationBoundaries, architecture]
+        let retiredCommandFragments = [
+            "metadata sync",
+            "submit review --",
+            "doctor release --autofix-safe",
+            "--private-key-provider env|file|keychain"
+        ]
+        for doc in v1Docs {
+            for fragment in retiredCommandFragments {
+                #expect(!doc.contains(fragment))
+            }
+        }
     }
 
     @Test("release packaging script and install docs stay discoverable")
