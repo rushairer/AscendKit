@@ -85,10 +85,11 @@ Homebrew formula maintenance:
 
 ```bash
 scripts/update-homebrew-formula.sh
+scripts/verify-homebrew-formula.sh --version 0.18.0
 ruby -c Formula/ascendkit.rb
 ```
 
-The generated formula points at the GitHub Release archive for the current `ascendkit --version`. If the matching GitHub Release exists, the script uses the uploaded release asset digest; otherwise it falls back to the local package checksum. Maintainers should keep `Formula/ascendkit.rb` aligned with every public release so users can install with `brew install ascendkit`.
+The generated formula points at the GitHub Release archive for the current `ascendkit --version`. If the matching GitHub Release exists, the script uses the uploaded release asset digest; otherwise it falls back to the local package checksum. After a release workflow succeeds, run `scripts/update-homebrew-formula.sh` again and commit any checksum update so `Formula/ascendkit.rb` matches the published asset digest. Maintainers should keep `Formula/ascendkit.rb` aligned with every public release so users can install with `brew install ascendkit`.
 
 For development, run from the source checkout:
 
@@ -870,7 +871,8 @@ Release checklist:
 8. Use `workspace next-steps --workspace "$WORKSPACE" --json` to give agents a command-oriented recovery plan.
 9. Use `workspace export-summary --workspace "$WORKSPACE" --output FILE` when handing state to another agent instead of sharing `.ascendkit/`.
 10. Prefer small, deterministic command outputs that can be consumed by scripts and agents.
-11. Before `v1.0.0`, do a full README rewrite pass: install paths, first-release workflow, command reference, safety boundaries, release checklist, and maintainer workflow.
+11. After the GitHub Release workflow succeeds, run `scripts/update-homebrew-formula.sh` and `scripts/verify-homebrew-formula.sh --version VERSION`, then commit any formula checksum sync.
+12. Before `v1.0.0`, do a full README rewrite pass: install paths, first-release workflow, command reference, safety boundaries, release checklist, and maintainer workflow.
 
 GitHub Actions:
 

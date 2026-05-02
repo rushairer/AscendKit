@@ -45,6 +45,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: scripts/update-homebrew-formula.sh
 
+      - name: Verify Homebrew formula
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: scripts/verify-homebrew-formula.sh --version "${GITHUB_REF_NAME}"
+
       - name: Upload Homebrew formula
         env:
           GH_TOKEN: ${{ github.token }}

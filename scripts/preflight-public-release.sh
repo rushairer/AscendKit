@@ -14,6 +14,7 @@ swift run ascendkit version --json >/dev/null
 echo "==> Shell syntax"
 bash -n scripts/package-release.sh \
   scripts/update-homebrew-formula.sh \
+  scripts/verify-homebrew-formula.sh \
   scripts/install-ascendkit.sh \
   scripts/verify-release-assets.sh \
   scripts/preflight-public-release.sh
@@ -32,6 +33,9 @@ ARCH="$(uname -m)"
 echo "==> Homebrew formula syntax"
 scripts/update-homebrew-formula.sh
 ruby -c Formula/ascendkit.rb
+
+echo "==> Homebrew formula release sync"
+scripts/verify-homebrew-formula.sh --version "${VERSION}" --allow-missing-release
 
 echo "==> Whitespace"
 git diff --check

@@ -4,7 +4,9 @@ AscendKit follows [Semantic Versioning](https://semver.org/). During `0.y.z`, th
 
 ## Unreleased
 
-No unreleased changes.
+### Added
+
+- Homebrew formula verification script checks that the committed formula points at the published release archive and SHA-256 digest.
 
 ## 0.18.0 - 2026-05-02
 
