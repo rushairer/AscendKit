@@ -96,10 +96,11 @@ Homebrew formula maintenance:
 ```bash
 scripts/update-homebrew-formula.sh
 scripts/verify-homebrew-formula.sh --version 0.34.0
+scripts/sync-homebrew-tap.sh --commit --push
 ruby -c Formula/ascendkit.rb
 ```
 
-The generated formula points at the GitHub Release archive for the current `ascendkit --version`. If the matching GitHub Release exists, the script uses the uploaded release asset digest; otherwise it falls back to the local package checksum. After a release workflow succeeds, run `scripts/update-homebrew-formula.sh` again and commit any checksum update so `Formula/ascendkit.rb` matches the published asset digest. Maintainers should keep `Formula/ascendkit.rb` aligned with every public release so users can install with `brew install ascendkit`.
+The generated formula points at the GitHub Release archive for the current `ascendkit --version`. If the matching GitHub Release exists, the script uses the uploaded release asset digest; otherwise it falls back to the local package checksum. After a release workflow succeeds, run `scripts/update-homebrew-formula.sh` again and commit any checksum update so `Formula/ascendkit.rb` matches the published asset digest. Then sync the dedicated `rushairer/homebrew-ascendkit` tap with `scripts/sync-homebrew-tap.sh --commit --push`. Maintainers should keep both formula copies aligned with every public release so users can install with `brew install ascendkit`.
 
 For development, run from the source checkout:
 
@@ -904,6 +905,7 @@ Release checklist:
 11. After the GitHub Release workflow succeeds, run `scripts/update-homebrew-formula.sh` and `scripts/verify-homebrew-formula.sh --version VERSION`, then commit any formula checksum sync.
 12. Before tagging `v1.0.0`, complete `docs/v1-release-readiness.md`, run `scripts/preflight-public-release.sh`, verify Homebrew install from the published formula, and confirm this README's Current Status, command examples, safety boundaries, release checklist, and maintainer workflow match the tagged release.
 13. Run `scripts/v1-representative-app-smoke.sh --app-root PATH` against a representative app using the installed Homebrew binary.
+14. Sync the dedicated Homebrew tap with `scripts/sync-homebrew-tap.sh --commit --push`, then verify `brew reinstall rushairer/ascendkit/ascendkit`.
 
 GitHub Actions:
 

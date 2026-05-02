@@ -4,7 +4,9 @@ AscendKit follows [Semantic Versioning](https://semver.org/). During `0.y.z`, th
 
 ## Unreleased
 
-No unreleased changes.
+### Added
+
+- Added a Homebrew tap sync script for publishing verified formulas to the dedicated tap repository.
 
 ## 0.34.0 - 2026-05-02
 
