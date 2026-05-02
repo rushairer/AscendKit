@@ -20,6 +20,7 @@ This roadmap keeps the v1 command surface stable while improving distribution, r
 
 - Expand local screenshot upload status so ASC delivery failures and pending processing are visible without network requests.
 - Emit deterministic screenshot upload recovery commands that agents can follow without guessing the next safe step.
+- Surface screenshot upload recovery and ready-for-review commands through workspace summary and next-steps.
 - Harden screenshot upload and replacement recovery paths with clearer persisted status.
 - Improve retry diagnostics for partial ASC failures.
 - Expand real-project coverage around existing remote screenshot sets, ordering, and deletion safety.

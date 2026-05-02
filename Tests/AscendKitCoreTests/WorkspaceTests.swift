@@ -292,6 +292,123 @@ struct WorkspaceTests {
         })
     }
 
+    @Test("workspace next steps include screenshot upload recovery commands")
+    func workspaceNextStepsIncludeScreenshotUploadRecoveryCommands() throws {
+        let root = try TemporaryDirectory()
+        let store = ReleaseWorkspaceStore()
+        let workspace = try store.createWorkspace(
+            baseDirectory: root.url,
+            manifest: ReleaseManifest(releaseID: "upload-recovery-demo", appSlug: "demo", projects: [], targets: [])
+        )
+        try store.save(
+            ScreenshotUploadPlan(
+                sourceKind: .composed,
+                items: [
+                    ScreenshotUploadPlanItem(
+                        locale: "en-US",
+                        platform: .iOS,
+                        displayType: "APP_IPHONE_67",
+                        appStoreVersionLocalizationID: "version-loc-1",
+                        sourcePath: "/tmp/home.png",
+                        fileName: "home.png",
+                        order: 1
+                    )
+                ]
+            ),
+            to: URL(fileURLWithPath: workspace.paths.screenshotUploadPlan)
+        )
+        try store.save(
+            ScreenshotUploadExecutionResult(
+                executed: true,
+                uploadedCount: 1,
+                items: [
+                    ScreenshotUploadExecutionItem(
+                        planItemID: "en-US:iOS:APP_IPHONE_67:1:home.png",
+                        appScreenshotSetID: "set-1",
+                        appScreenshotID: "screenshot-1",
+                        fileName: "home.png",
+                        checksum: "checksum-1",
+                        assetDeliveryState: "FAILED"
+                    )
+                ]
+            ),
+            to: URL(fileURLWithPath: workspace.paths.screenshotUploadResult)
+        )
+
+        let summary = ReleaseWorkspaceSummaryReader().read(workspace: workspace)
+        let plan = WorkspaceNextStepsPlanner().plan(workspace: workspace)
+
+        #expect(summary.nextActions.contains {
+            $0.id == "screenshots.upload.recovery-command.2" &&
+                $0.detail == "screenshots upload-plan --workspace PATH --replace-existing --json"
+        })
+        #expect(plan.steps.contains {
+            $0.sourceActionID == "screenshots.upload.recovery-command.2" &&
+                $0.command == "screenshots upload-plan --workspace PATH --replace-existing --json"
+        })
+        #expect(plan.steps.contains {
+            $0.sourceActionID == "screenshots.upload.recovery-command.3" &&
+                $0.command == "screenshots upload --workspace PATH --replace-existing --confirm-remote-mutation --json"
+        })
+    }
+
+    @Test("workspace next steps include screenshot upload ready commands")
+    func workspaceNextStepsIncludeScreenshotUploadReadyCommands() throws {
+        let root = try TemporaryDirectory()
+        let store = ReleaseWorkspaceStore()
+        let workspace = try store.createWorkspace(
+            baseDirectory: root.url,
+            manifest: ReleaseManifest(releaseID: "upload-ready-demo", appSlug: "demo", projects: [], targets: [])
+        )
+        try store.save(
+            ScreenshotUploadPlan(
+                sourceKind: .composed,
+                items: [
+                    ScreenshotUploadPlanItem(
+                        locale: "en-US",
+                        platform: .iOS,
+                        displayType: "APP_IPHONE_67",
+                        appStoreVersionLocalizationID: "version-loc-1",
+                        sourcePath: "/tmp/home.png",
+                        fileName: "home.png",
+                        order: 1
+                    )
+                ]
+            ),
+            to: URL(fileURLWithPath: workspace.paths.screenshotUploadPlan)
+        )
+        try store.save(
+            ScreenshotUploadExecutionResult(
+                executed: true,
+                uploadedCount: 1,
+                items: [
+                    ScreenshotUploadExecutionItem(
+                        planItemID: "en-US:iOS:APP_IPHONE_67:1:home.png",
+                        appScreenshotSetID: "set-1",
+                        appScreenshotID: "screenshot-1",
+                        fileName: "home.png",
+                        checksum: "checksum-1",
+                        assetDeliveryState: "COMPLETE"
+                    )
+                ]
+            ),
+            to: URL(fileURLWithPath: workspace.paths.screenshotUploadResult)
+        )
+
+        let plan = WorkspaceNextStepsPlanner().plan(workspace: workspace)
+
+        #expect(plan.steps.contains {
+            $0.sourceActionID == "screenshots.upload.ready-command.1" &&
+                $0.command == "workspace summary --workspace PATH --json" &&
+                $0.severity == .info
+        })
+        #expect(plan.steps.contains {
+            $0.sourceActionID == "screenshots.upload.ready-command.2" &&
+                $0.command == "submit readiness --workspace PATH --json" &&
+                $0.severity == .info
+        })
+    }
+
     @Test("lists release workspaces under a project root")
     func listsReleaseWorkspaces() throws {
         let root = try TemporaryDirectory()

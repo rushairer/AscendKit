@@ -717,6 +717,16 @@ public struct WorkspaceNextStepsPlanner {
             return "screenshots workflow status --workspace PATH --json"
         }
         if action.id.hasPrefix("screenshots.upload.") {
+            if action.detail.hasPrefix("screenshots ") ||
+                action.detail.hasPrefix("asc ") ||
+                action.detail.hasPrefix("workspace ") ||
+                action.detail.hasPrefix("submit ") {
+                return action.detail
+            }
+            if let command = action.detail.components(separatedBy: "Next command: ").last,
+               command != action.detail {
+                return command
+            }
             return "screenshots upload-status --workspace PATH --json"
         }
         if action.id.hasPrefix("screenshots.coverage.") {
@@ -1066,12 +1076,29 @@ public struct ReleaseWorkspaceSummaryReader {
             }
         }
 
-        if screenshotUploadStatus.failedCount > 0 {
+        if screenshotUploadStatus.readyForReview {
+            for (index, command) in screenshotUploadStatus.recoveryCommands.enumerated() {
+                actions.append(.init(
+                    id: "screenshots.upload.ready-command.\(index + 1)",
+                    title: "Screenshot upload ready for review checks",
+                    detail: "Screenshots are uploaded and asset delivery is complete. Next command: \(command)",
+                    severity: .info
+                ))
+            }
+        } else if screenshotUploadStatus.failedCount > 0 || screenshotUploadStatus.readyForRetry || screenshotUploadStatus.requiresRemoteRecovery || screenshotUploadStatus.deliveryPendingCount > 0 || screenshotUploadStatus.deliveryUnknownCount > 0 {
             for (index, action) in screenshotUploadStatus.nextActions.enumerated() {
                 actions.append(.init(
                     id: "screenshots.upload.next-action.\(index + 1)",
                     title: "Screenshot upload next action",
                     detail: action,
+                    severity: .warning
+                ))
+            }
+            for (index, command) in screenshotUploadStatus.recoveryCommands.enumerated() {
+                actions.append(.init(
+                    id: "screenshots.upload.recovery-command.\(index + 1)",
+                    title: "Screenshot upload recovery command",
+                    detail: command,
                     severity: .warning
                 ))
             }
