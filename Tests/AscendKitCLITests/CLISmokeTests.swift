@@ -59,6 +59,34 @@ struct CLISmokeTests {
         }
     }
 
+    @Test("v1 command surface groups stay represented in help")
+    func v1CommandSurfaceGroupsStayRepresentedInHelp() throws {
+        let commandSurface = try String(contentsOfFile: "docs/v1-command-surface.md", encoding: .utf8)
+        let usageLines = AscendKitCommandCatalog.usageLines
+        let stableGroups = [
+            "version",
+            "workspace",
+            "intake",
+            "doctor",
+            "metadata",
+            "screenshots",
+            "asc auth",
+            "asc lookup",
+            "asc apps",
+            "asc builds",
+            "asc metadata",
+            "asc pricing",
+            "asc privacy",
+            "submit",
+            "iap"
+        ]
+
+        for group in stableGroups {
+            #expect(commandSurface.contains("- `\(group)`"))
+            #expect(usageLines.contains { $0.hasPrefix("ascendkit \(group) ") || $0 == "ascendkit \(group) [--json]" })
+        }
+    }
+
     @Test("agent-facing docs mention required handoff commands")
     func agentDocsMentionRequiredHandoffCommands() throws {
         let readme = try String(contentsOfFile: "README.md", encoding: .utf8)
