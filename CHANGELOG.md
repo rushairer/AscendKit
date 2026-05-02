@@ -4,6 +4,10 @@ AscendKit follows [Semantic Versioning](https://semver.org/). During `0.y.z`, th
 
 ## Unreleased
 
+No unreleased changes.
+
+## 0.20.0 - 2026-05-02
+
 ### Changed
 
 - Agent release playbook now uses the installed `ascendkit` binary instead of source-checkout `swift run` commands.
