@@ -258,9 +258,11 @@ swift run ascendkit workspace status --workspace "$WORKSPACE"
 swift run ascendkit workspace status --workspace "$WORKSPACE" --json
 swift run ascendkit workspace summary --workspace "$WORKSPACE" --json
 swift run ascendkit workspace hygiene --workspace "$WORKSPACE" --json
+swift run ascendkit workspace gitignore --workspace "$WORKSPACE" --json
+swift run ascendkit workspace gitignore --workspace "$WORKSPACE" --fix --json
 ```
 
-`workspace status` shows which expected files exist, such as manifest, metadata, screenshots, ASC auth, readiness, and review artifacts. `workspace summary` reads the persisted release artifacts and emits final readiness state plus deduplicated next actions for agents. `workspace hygiene` checks whether the local workspace contains release artifacts or potential secrets that must not be committed.
+`workspace status` shows which expected files exist, such as manifest, metadata, screenshots, ASC auth, readiness, and review artifacts. `workspace summary` reads the persisted release artifacts and emits final readiness state plus deduplicated next actions for agents. `workspace hygiene` checks whether the local workspace contains release artifacts or potential secrets that must not be committed. `workspace gitignore` checks whether the app project's `.gitignore` excludes `.ascendkit/`; add `--fix` to append the rule.
 
 ```bash
 swift run ascendkit workspace audit --workspace "$WORKSPACE"
@@ -809,7 +811,8 @@ Release checklist:
 2. Add tests for new command behavior before expanding remote mutation.
 3. Update `docs/mvp-roadmap.md` and `docs/automation-boundaries.md` when scope changes.
 4. Never commit real app release workspaces, screenshots, API keys, or reviewer credentials.
-5. Prefer small, deterministic command outputs that can be consumed by scripts and agents.
+5. Run `workspace gitignore --workspace "$WORKSPACE" --fix` before sharing an app repo that uses AscendKit.
+6. Prefer small, deterministic command outputs that can be consumed by scripts and agents.
 
 Fastlane removal roadmap:
 

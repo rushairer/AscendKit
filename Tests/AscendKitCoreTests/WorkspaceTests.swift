@@ -166,6 +166,40 @@ struct WorkspaceTests {
         #expect(report.findings.allSatisfy { !$0.reason.contains("fixture") })
     }
 
+    @Test("checks and fixes project gitignore for workspace artifacts")
+    func checksAndFixesProjectGitignore() throws {
+        let root = try TemporaryDirectory()
+        let store = ReleaseWorkspaceStore()
+        let workspace = try store.createWorkspace(
+            baseDirectory: root.url,
+            manifest: ReleaseManifest(releaseID: "gitignore-demo", appSlug: "demo", projects: [], targets: [])
+        )
+        let gitignoreURL = root.url.appendingPathComponent(".gitignore")
+        try "DerivedData/\n".write(to: gitignoreURL, atomically: true, encoding: .utf8)
+
+        let guardrail = WorkspaceGitignoreGuard()
+        let missingReport = try guardrail.check(workspace: workspace)
+
+        #expect(missingReport.hasAscendKitRule == false)
+        #expect(missingReport.changed == false)
+        #expect(missingReport.projectRoot == root.url.standardizedFileURL.path)
+        #expect(missingReport.nextActions.contains { $0.contains("--fix") })
+
+        let fixedReport = try guardrail.check(workspace: workspace, fix: true)
+        let fixedContent = try String(contentsOf: gitignoreURL, encoding: .utf8)
+
+        #expect(fixedReport.hasAscendKitRule == true)
+        #expect(fixedReport.changed == true)
+        #expect(fixedContent.contains(".ascendkit/"))
+
+        let idempotentReport = try guardrail.check(workspace: workspace, fix: true)
+        let idempotentContent = try String(contentsOf: gitignoreURL, encoding: .utf8)
+
+        #expect(idempotentReport.hasAscendKitRule == true)
+        #expect(idempotentReport.changed == false)
+        #expect(idempotentContent.components(separatedBy: ".ascendkit/").count == 2)
+    }
+
     @Test("lists release workspaces under a project root")
     func listsReleaseWorkspaces() throws {
         let root = try TemporaryDirectory()

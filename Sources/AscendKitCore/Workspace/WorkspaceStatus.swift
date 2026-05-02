@@ -140,6 +140,130 @@ public struct WorkspaceHygieneReport: Codable, Equatable, Sendable {
     }
 }
 
+public struct WorkspaceGitignoreReport: Codable, Equatable, Sendable {
+    public var generatedAt: Date
+    public var releaseID: String
+    public var workspaceRoot: String
+    public var projectRoot: String?
+    public var gitignorePath: String?
+    public var hasAscendKitRule: Bool
+    public var changed: Bool
+    public var nextActions: [String]
+
+    public init(
+        generatedAt: Date = Date(),
+        releaseID: String,
+        workspaceRoot: String,
+        projectRoot: String?,
+        gitignorePath: String?,
+        hasAscendKitRule: Bool,
+        changed: Bool,
+        nextActions: [String]
+    ) {
+        self.generatedAt = generatedAt
+        self.releaseID = releaseID
+        self.workspaceRoot = workspaceRoot
+        self.projectRoot = projectRoot
+        self.gitignorePath = gitignorePath
+        self.hasAscendKitRule = hasAscendKitRule
+        self.changed = changed
+        self.nextActions = nextActions
+    }
+}
+
+public struct WorkspaceGitignoreGuard {
+    public let fileManager: FileManager
+
+    public init(fileManager: FileManager = .default) {
+        self.fileManager = fileManager
+    }
+
+    public func check(workspace: ReleaseWorkspace, fix: Bool = false) throws -> WorkspaceGitignoreReport {
+        let workspaceRoot = URL(fileURLWithPath: workspace.paths.root).standardizedFileURL
+        guard let projectRoot = projectRoot(forWorkspaceRoot: workspaceRoot) else {
+            return WorkspaceGitignoreReport(
+                releaseID: workspace.releaseID,
+                workspaceRoot: workspace.paths.root,
+                projectRoot: nil,
+                gitignorePath: nil,
+                hasAscendKitRule: false,
+                changed: false,
+                nextActions: ["Workspace path must be under PROJECT/.ascendkit/releases/RELEASE_ID to check project .gitignore."]
+            )
+        }
+
+        let gitignoreURL = projectRoot.appendingPathComponent(".gitignore")
+        let existing = (try? String(contentsOf: gitignoreURL, encoding: .utf8)) ?? ""
+        let hasRule = hasAscendKitIgnoreRule(in: existing)
+        var changed = false
+
+        if !hasRule && fix {
+            try fileManager.createDirectory(at: projectRoot, withIntermediateDirectories: true)
+            let updated = appendAscendKitRule(to: existing)
+            try updated.write(to: gitignoreURL, atomically: true, encoding: .utf8)
+            changed = true
+        }
+
+        let finalContent = changed ? ((try? String(contentsOf: gitignoreURL, encoding: .utf8)) ?? "") : existing
+        let finalHasRule = hasAscendKitIgnoreRule(in: finalContent)
+        return WorkspaceGitignoreReport(
+            releaseID: workspace.releaseID,
+            workspaceRoot: workspace.paths.root,
+            projectRoot: projectRoot.path,
+            gitignorePath: gitignoreURL.path,
+            hasAscendKitRule: finalHasRule,
+            changed: changed,
+            nextActions: nextActions(hasRule: finalHasRule, changed: changed)
+        )
+    }
+
+    private func projectRoot(forWorkspaceRoot workspaceRoot: URL) -> URL? {
+        let components = workspaceRoot.pathComponents
+        guard let ascendKitIndex = components.firstIndex(of: ".ascendkit"), ascendKitIndex > 0 else {
+            return nil
+        }
+        let projectComponents = Array(components.prefix(upTo: ascendKitIndex))
+        return URL(fileURLWithPath: NSString.path(withComponents: projectComponents)).standardizedFileURL
+    }
+
+    private func hasAscendKitIgnoreRule(in content: String) -> Bool {
+        for line in content.split(whereSeparator: \.isNewline) {
+            let uncommented = line
+                .split(separator: "#", maxSplits: 1, omittingEmptySubsequences: false)
+                .first ?? ""
+            let rule = uncommented.trimmingCharacters(in: .whitespaces)
+            if rule == ".ascendkit" ||
+                rule == ".ascendkit/" ||
+                rule == "/.ascendkit" ||
+                rule == "/.ascendkit/" ||
+                rule == ".ascendkit/**" ||
+                rule == "/.ascendkit/**" {
+                return true
+            }
+        }
+        return false
+    }
+
+    private func appendAscendKitRule(to content: String) -> String {
+        let rule = ".ascendkit/"
+        guard !content.isEmpty else {
+            return rule + "\n"
+        }
+        let separator = content.hasSuffix("\n") ? "" : "\n"
+        return content + separator + rule + "\n"
+    }
+
+    private func nextActions(hasRule: Bool, changed: Bool) -> [String] {
+        if changed {
+            return ["Review .gitignore and keep .ascendkit/ out of source control."]
+        }
+        if hasRule {
+            return ["No action needed. .ascendkit/ is ignored by the project .gitignore."]
+        }
+        return ["Run workspace gitignore --workspace PATH --fix, or add .ascendkit/ to the project .gitignore manually."]
+    }
+}
+
 public struct WorkspaceHygieneScanner {
     public let fileManager: FileManager
 

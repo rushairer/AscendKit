@@ -80,6 +80,15 @@ struct CLIRunner {
             return try render(report, json: json) {
                 renderWorkspaceHygieneText(report)
             }
+        case "gitignore":
+            let workspace = try loadWorkspace(from: args)
+            let report = try WorkspaceGitignoreGuard(fileManager: fileManager).check(
+                workspace: workspace,
+                fix: args.contains("--fix")
+            )
+            return try render(report, json: json) {
+                renderWorkspaceGitignoreText(report)
+            }
         case "audit":
             let workspace = try loadWorkspace(from: args)
             let records = try AuditLogReader(fileManager: fileManager).read(workspace: workspace)
@@ -101,7 +110,7 @@ struct CLIRunner {
                 }.joined(separator: "\n")
             }
         default:
-            throw AscendKitError.invalidArguments("Usage: ascendkit workspace status|summary|hygiene|audit --workspace PATH [--json] OR ascendkit workspace list [--root PATH] [--json]")
+            throw AscendKitError.invalidArguments("Usage: ascendkit workspace status|summary|hygiene|gitignore|audit --workspace PATH [--json] OR ascendkit workspace list [--root PATH] [--json]")
         }
     }
 
@@ -136,6 +145,20 @@ struct CLIRunner {
                 "- [\($0.severity.rawValue)] \($0.path): \($0.reason)"
             })
         }
+        if !report.nextActions.isEmpty {
+            lines.append("Next action(s):")
+            lines.append(contentsOf: report.nextActions.map { "- \($0)" })
+        }
+        return lines.joined(separator: "\n")
+    }
+
+    private func renderWorkspaceGitignoreText(_ report: WorkspaceGitignoreReport) -> String {
+        var lines = [
+            "Workspace gitignore: \(report.hasAscendKitRule ? "protected" : "missing .ascendkit/ rule")",
+            "Changed: \(report.changed ? "yes" : "no")",
+            "Project root: \(report.projectRoot ?? "unknown")",
+            "Gitignore: \(report.gitignorePath ?? "unknown")"
+        ]
         if !report.nextActions.isEmpty {
             lines.append("Next action(s):")
             lines.append(contentsOf: report.nextActions.map { "- \($0)" })
@@ -1971,6 +1994,7 @@ struct CLIRunner {
       ascendkit workspace status --workspace PATH [--json]
       ascendkit workspace summary --workspace PATH [--json]
       ascendkit workspace hygiene --workspace PATH [--json]
+      ascendkit workspace gitignore --workspace PATH [--fix] [--json]
       ascendkit workspace audit --workspace PATH [--json]
       ascendkit workspace list [--root PATH] [--json]
       ascendkit intake inspect [--root PATH] [--project PATH] [--workspace PATH] [--release-id ID] [--save] [--json]
