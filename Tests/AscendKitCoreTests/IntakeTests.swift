@@ -47,6 +47,7 @@ struct IntakeTests {
 
         let report = try ProjectDiscovery().inspect(options: IntakeOptions(searchRoot: root.url.path))
 
+        #expect(report.ascendKitVersion == AscendKitVersion.current)
         #expect(report.manifest.projects.count == 1)
         #expect(report.manifest.targets.first?.bundleIdentifier == "com.example.demo")
         #expect(report.manifest.targets.first?.appIconName == "AppIcon")

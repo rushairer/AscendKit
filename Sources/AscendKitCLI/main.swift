@@ -290,7 +290,10 @@ struct CLIRunner {
         }
 
         return try render(report, json: json) {
-            "Release \(report.manifest.releaseID): \(report.manifest.targets.count) target(s), \(report.manifest.projects.count) project reference(s)"
+            [
+                "Release \(report.manifest.releaseID): \(report.manifest.targets.count) target(s), \(report.manifest.projects.count) project reference(s)",
+                "AscendKit version: \(report.ascendKitVersion ?? "unknown")"
+            ].joined(separator: "\n")
         }
     }
 

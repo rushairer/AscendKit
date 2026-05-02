@@ -20,10 +20,16 @@ public struct IntakeOptions: Codable, Equatable, Sendable {
 }
 
 public struct IntakeReport: Codable, Equatable, Sendable {
+    public var ascendKitVersion: String?
     public var manifest: ReleaseManifest
     public var warnings: [String]
 
-    public init(manifest: ReleaseManifest, warnings: [String] = []) {
+    public init(
+        ascendKitVersion: String? = AscendKitVersion.current,
+        manifest: ReleaseManifest,
+        warnings: [String] = []
+    ) {
+        self.ascendKitVersion = ascendKitVersion
         self.manifest = manifest
         self.warnings = warnings
     }

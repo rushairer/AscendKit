@@ -4,7 +4,9 @@ AscendKit follows [Semantic Versioning](https://semver.org/). During `0.y.z`, th
 
 ## Unreleased
 
-No unreleased changes.
+### Added
+
+- Intake reports now include the generating AscendKit CLI version for release workspace traceability.
 
 ## 0.26.0 - 2026-05-02
 
