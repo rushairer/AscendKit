@@ -6,6 +6,9 @@ on:
     branches:
       - main
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   test:
     name: Swift test
@@ -33,4 +36,3 @@ jobs:
 
       - name: Verify package checksum
         run: shasum -a 256 -c dist/*.tar.gz.sha256
-

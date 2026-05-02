@@ -6,6 +6,12 @@ AscendKit follows [Semantic Versioning](https://semver.org/). During `0.y.z`, th
 
 No unreleased changes.
 
+## 0.12.2 - 2026-05-02
+
+### Fixed
+
+- GitHub Actions now opt into Node.js 24 for JavaScript actions to avoid the Node.js 20 deprecation warning before `v1.0.0`.
+
 ## 0.12.1 - 2026-05-02
 
 ### Fixed
