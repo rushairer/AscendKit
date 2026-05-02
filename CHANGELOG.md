@@ -4,7 +4,13 @@ AscendKit follows [Semantic Versioning](https://semver.org/). During `0.y.z`, th
 
 ## Unreleased
 
-No unreleased changes.
+### Changed
+
+- `version --json` now reports an installed-CLI verification command that works outside the AscendKit source checkout.
+
+### Added
+
+- CLI smoke tests now guard v1 command-surface docs against retired command examples and ensure stable command groups remain represented in help output.
 
 ## 0.23.0 - 2026-05-02
 
