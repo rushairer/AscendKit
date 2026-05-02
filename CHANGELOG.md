@@ -4,7 +4,10 @@ AscendKit follows [Semantic Versioning](https://semver.org/). During `0.y.z`, th
 
 ## Unreleased
 
-No unreleased changes.
+### Added
+
+- Release smoke tests now verify CHANGELOG and Homebrew formula version/checksum alignment before public releases.
+- Sanitized workspace exports and handoff validation reports now include the generating AscendKit CLI version for agent handoff traceability.
 
 ## 0.24.0 - 2026-05-02
 
