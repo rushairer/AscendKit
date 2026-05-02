@@ -136,6 +136,7 @@ struct WorkspaceTests {
         #expect(summary.nextActions.contains { $0.detail == "Submission readiness is not complete." })
         #expect(summary.nextActions.contains { $0.detail.contains("asc privacy set-not-collected") })
         #expect(summary.nextActions.contains { $0.id.hasPrefix("screenshots.coverage.finding.") })
+        #expect(summary.nextActions.contains { $0.id == "workspace.hygiene.public-commit" })
     }
 
     @Test("scans workspace hygiene without exposing contents")

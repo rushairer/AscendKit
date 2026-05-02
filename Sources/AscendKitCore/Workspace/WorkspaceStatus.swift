@@ -398,6 +398,7 @@ public struct ReleaseWorkspaceSummaryReader {
             applyResult: load(ASCMetadataApplyResult.self, path: workspace.paths.ascMetadataApplyResult),
             diffReport: load(MetadataDiffReport.self, path: workspace.paths.ascDiff)
         )
+        let hygiene = WorkspaceHygieneScanner(fileManager: fileManager).scan(workspace: workspace)
 
         var actions: [ReleaseActionItem] = []
 
@@ -498,6 +499,15 @@ public struct ReleaseWorkspaceSummaryReader {
                     severity: .blocker
                 ))
             }
+        }
+
+        if !hygiene.safeForPublicCommit {
+            actions.append(.init(
+                id: "workspace.hygiene.public-commit",
+                title: "Workspace is not safe for public commit",
+                detail: "Run workspace hygiene --workspace PATH and keep .ascendkit/ out of git/public archives.",
+                severity: .blocker
+            ))
         }
 
         return ReleaseWorkspaceSummary(
