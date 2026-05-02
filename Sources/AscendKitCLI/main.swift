@@ -111,6 +111,12 @@ struct CLIRunner {
             return try render(report, json: json) {
                 renderHandoffValidationText(report)
             }
+        case "next-steps":
+            let workspace = try loadWorkspace(from: args)
+            let plan = WorkspaceNextStepsPlanner(fileManager: fileManager).plan(workspace: workspace)
+            return try render(plan, json: json) {
+                renderWorkspaceNextStepsText(plan)
+            }
         case "audit":
             let workspace = try loadWorkspace(from: args)
             let records = try AuditLogReader(fileManager: fileManager).read(workspace: workspace)
@@ -132,7 +138,7 @@ struct CLIRunner {
                 }.joined(separator: "\n")
             }
         default:
-            throw AscendKitError.invalidArguments("Usage: ascendkit workspace status|summary|hygiene|gitignore|export-summary|validate-handoff|audit --workspace PATH [--json] OR ascendkit workspace list [--root PATH] [--json]")
+            throw AscendKitError.invalidArguments("Usage: ascendkit workspace status|summary|hygiene|gitignore|export-summary|validate-handoff|next-steps|audit --workspace PATH [--json] OR ascendkit workspace list [--root PATH] [--json]")
         }
     }
 
@@ -214,6 +220,24 @@ struct CLIRunner {
             let next = item.nextAction.map { " Next: \($0)" } ?? ""
             return "- [\(item.severity.rawValue)] \(item.title): \(item.detail)\(next)"
         })
+        return lines.joined(separator: "\n")
+    }
+
+    private func renderWorkspaceNextStepsText(_ plan: WorkspaceNextStepsPlan) -> String {
+        var lines = [
+            "Workspace next steps: \(plan.releaseID)",
+            "Blocker(s): \(plan.blockerCount)",
+            "Warning(s): \(plan.warningCount)"
+        ]
+        if plan.steps.isEmpty {
+            lines.append("Next step(s): none")
+        } else {
+            lines.append("Next step(s):")
+            lines.append(contentsOf: plan.steps.map { step in
+                let command = step.command.map { " Command: \($0)" } ?? ""
+                return "- [\(step.severity.rawValue)] \(step.title): \(step.detail)\(command)"
+            })
+        }
         return lines.joined(separator: "\n")
     }
 
@@ -2048,6 +2072,7 @@ struct CLIRunner {
       ascendkit workspace gitignore --workspace PATH [--fix] [--json]
       ascendkit workspace export-summary --workspace PATH --output FILE [--json]
       ascendkit workspace validate-handoff --workspace PATH [--export FILE] [--json]
+      ascendkit workspace next-steps --workspace PATH [--json]
       ascendkit workspace audit --workspace PATH [--json]
       ascendkit workspace list [--root PATH] [--json]
       ascendkit intake inspect [--root PATH] [--project PATH] [--workspace PATH] [--release-id ID] [--save] [--json]

@@ -4,7 +4,9 @@ AscendKit follows [Semantic Versioning](https://semver.org/). During `0.y.z`, th
 
 ## Unreleased
 
-No unreleased changes.
+### Added
+
+- `workspace next-steps --workspace PATH [--json]` turns release summary next actions into a priority-sorted, command-oriented plan for agents.
 
 ## 0.10.0 - 2026-05-02
 

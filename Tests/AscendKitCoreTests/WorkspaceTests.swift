@@ -252,6 +252,39 @@ struct WorkspaceTests {
         #expect(FileManager.default.fileExists(atPath: exportURL.path))
     }
 
+    @Test("plans structured next steps from workspace summary")
+    func plansStructuredNextSteps() throws {
+        let root = try TemporaryDirectory()
+        let store = ReleaseWorkspaceStore()
+        let workspace = try store.createWorkspace(
+            baseDirectory: root.url,
+            manifest: ReleaseManifest(releaseID: "next-steps-demo", appSlug: "demo", projects: [], targets: [])
+        )
+
+        let plan = WorkspaceNextStepsPlanner().plan(workspace: workspace)
+
+        #expect(plan.releaseID == "next-steps-demo")
+        #expect(plan.blockerCount > 0)
+        #expect(plan.steps.first?.severity == .blocker)
+        #expect(plan.steps.contains {
+            $0.sourceActionID == "readiness.missing" &&
+                $0.command == "submit readiness --workspace PATH --json"
+        })
+        #expect(plan.steps.contains {
+            $0.sourceActionID == "review-plan.missing" &&
+                $0.command == "submit review-plan --workspace PATH --json"
+        })
+        #expect(plan.steps.contains {
+            $0.sourceActionID == "workspace.hygiene.public-commit" &&
+                $0.command == "workspace hygiene --workspace PATH --json"
+        })
+        #expect(plan.steps.allSatisfy { step in
+            step.sourceActionID.hasPrefix("review-plan.") == false ||
+                step.detail.contains("App Privacy") == false ||
+                step.command == "asc privacy status --workspace PATH --json"
+        })
+    }
+
     @Test("lists release workspaces under a project root")
     func listsReleaseWorkspaces() throws {
         let root = try TemporaryDirectory()

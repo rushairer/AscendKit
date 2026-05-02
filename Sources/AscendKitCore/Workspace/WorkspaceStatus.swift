@@ -574,6 +574,143 @@ public struct HandoffValidator {
     }
 }
 
+public struct WorkspaceNextStep: Codable, Equatable, Identifiable, Sendable {
+    public var id: String
+    public var sourceActionID: String
+    public var priority: Int
+    public var severity: ReleaseActionSeverity
+    public var title: String
+    public var detail: String
+    public var command: String?
+
+    public init(
+        id: String,
+        sourceActionID: String,
+        priority: Int,
+        severity: ReleaseActionSeverity,
+        title: String,
+        detail: String,
+        command: String?
+    ) {
+        self.id = id
+        self.sourceActionID = sourceActionID
+        self.priority = priority
+        self.severity = severity
+        self.title = title
+        self.detail = detail
+        self.command = command
+    }
+}
+
+public struct WorkspaceNextStepsPlan: Codable, Equatable, Sendable {
+    public var generatedAt: Date
+    public var releaseID: String
+    public var steps: [WorkspaceNextStep]
+
+    public init(generatedAt: Date = Date(), releaseID: String, steps: [WorkspaceNextStep]) {
+        self.generatedAt = generatedAt
+        self.releaseID = releaseID
+        self.steps = steps
+    }
+
+    public var blockerCount: Int {
+        steps.filter { $0.severity == .blocker }.count
+    }
+
+    public var warningCount: Int {
+        steps.filter { $0.severity == .warning }.count
+    }
+}
+
+public struct WorkspaceNextStepsPlanner {
+    public let fileManager: FileManager
+
+    public init(fileManager: FileManager = .default) {
+        self.fileManager = fileManager
+    }
+
+    public func plan(workspace: ReleaseWorkspace) -> WorkspaceNextStepsPlan {
+        let summary = ReleaseWorkspaceSummaryReader(fileManager: fileManager).read(workspace: workspace)
+        let steps = summary.nextActions
+            .enumerated()
+            .map { index, action in
+                WorkspaceNextStep(
+                    id: "next-step.\(index + 1)",
+                    sourceActionID: action.id,
+                    priority: priority(for: action, fallback: index),
+                    severity: action.severity,
+                    title: action.title,
+                    detail: action.detail,
+                    command: command(for: action)
+                )
+            }
+            .sorted { left, right in
+                if left.priority != right.priority {
+                    return left.priority < right.priority
+                }
+                return left.id < right.id
+            }
+
+        return WorkspaceNextStepsPlan(releaseID: workspace.releaseID, steps: steps)
+    }
+
+    private func priority(for action: ReleaseActionItem, fallback: Int) -> Int {
+        let severityRank: Int
+        switch action.severity {
+        case .blocker:
+            severityRank = 0
+        case .warning:
+            severityRank = 1
+        case .info:
+            severityRank = 2
+        }
+        return severityRank * 1_000 + fallback
+    }
+
+    private func command(for action: ReleaseActionItem) -> String? {
+        if action.id == "readiness.missing" {
+            return "submit readiness --workspace PATH --json"
+        }
+        if action.id == "review-plan.missing" {
+            return "submit review-plan --workspace PATH --json"
+        }
+        if action.id.hasPrefix("app-privacy.") || action.id == "readiness.app-privacy.published" {
+            return "asc privacy status --workspace PATH --json"
+        }
+        if action.detail.contains("App Privacy") {
+            return "asc privacy status --workspace PATH --json"
+        }
+        if action.detail.contains("Submission readiness is not complete") {
+            return "submit readiness --workspace PATH --json"
+        }
+        if action.detail.contains("asc privacy set-not-collected") {
+            return "asc privacy status --workspace PATH --json"
+        }
+        if action.id.hasPrefix("screenshots.workflow.") {
+            return "screenshots workflow status --workspace PATH --json"
+        }
+        if action.id.hasPrefix("screenshots.upload.") {
+            return "screenshots upload-status --workspace PATH --json"
+        }
+        if action.id.hasPrefix("screenshots.coverage.") {
+            return "screenshots coverage --workspace PATH --json"
+        }
+        if action.id.hasPrefix("metadata.") {
+            return "asc metadata status --workspace PATH --json"
+        }
+        if action.id == "workspace.hygiene.public-commit" {
+            return "workspace hygiene --workspace PATH --json"
+        }
+        if action.id == "review.submit-manual" {
+            return "submit handoff --workspace PATH --json"
+        }
+        if action.id.hasPrefix("review-plan.") {
+            return "submit review-plan --workspace PATH --json"
+        }
+        return nil
+    }
+}
+
 public struct WorkspaceHygieneScanner {
     public let fileManager: FileManager
 

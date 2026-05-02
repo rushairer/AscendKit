@@ -262,9 +262,10 @@ swift run ascendkit workspace gitignore --workspace "$WORKSPACE" --json
 swift run ascendkit workspace gitignore --workspace "$WORKSPACE" --fix --json
 swift run ascendkit workspace export-summary --workspace "$WORKSPACE" --output /tmp/ascendkit-summary.json --json
 swift run ascendkit workspace validate-handoff --workspace "$WORKSPACE" --export /tmp/ascendkit-summary.json --json
+swift run ascendkit workspace next-steps --workspace "$WORKSPACE" --json
 ```
 
-`workspace status` shows which expected files exist, such as manifest, metadata, screenshots, ASC auth, readiness, and review artifacts. `workspace summary` reads the persisted release artifacts and emits final readiness state plus deduplicated next actions for agents. `workspace hygiene` checks whether the local workspace contains release artifacts or potential secrets that must not be committed. `workspace gitignore` checks whether the app project's `.gitignore` excludes `.ascendkit/`; add `--fix` to append the rule. `workspace export-summary` writes a sanitized handoff JSON file that excludes raw screenshots, ASC auth, metadata, review artifacts, audit log contents, and absolute workspace paths. `workspace validate-handoff` checks whether another agent can safely take over the release workflow; release blockers are reported as warnings because they are work for the receiving agent, not handoff blockers.
+`workspace status` shows which expected files exist, such as manifest, metadata, screenshots, ASC auth, readiness, and review artifacts. `workspace summary` reads the persisted release artifacts and emits final readiness state plus deduplicated next actions for agents. `workspace hygiene` checks whether the local workspace contains release artifacts or potential secrets that must not be committed. `workspace gitignore` checks whether the app project's `.gitignore` excludes `.ascendkit/`; add `--fix` to append the rule. `workspace export-summary` writes a sanitized handoff JSON file that excludes raw screenshots, ASC auth, metadata, review artifacts, audit log contents, and absolute workspace paths. `workspace validate-handoff` checks whether another agent can safely take over the release workflow; release blockers are reported as warnings because they are work for the receiving agent, not handoff blockers. `workspace next-steps` converts summary next actions into a priority-sorted, command-oriented plan.
 
 ```bash
 swift run ascendkit workspace audit --workspace "$WORKSPACE"
@@ -815,8 +816,9 @@ Release checklist:
 4. Never commit real app release workspaces, screenshots, API keys, or reviewer credentials.
 5. Run `workspace gitignore --workspace "$WORKSPACE" --fix` before sharing an app repo that uses AscendKit.
 6. Use `workspace validate-handoff --workspace "$WORKSPACE" --export FILE` before asking another agent to take over.
-7. Use `workspace export-summary --workspace "$WORKSPACE" --output FILE` when handing state to another agent instead of sharing `.ascendkit/`.
-8. Prefer small, deterministic command outputs that can be consumed by scripts and agents.
+7. Use `workspace next-steps --workspace "$WORKSPACE" --json` to give agents a command-oriented recovery plan.
+8. Use `workspace export-summary --workspace "$WORKSPACE" --output FILE` when handing state to another agent instead of sharing `.ascendkit/`.
+9. Prefer small, deterministic command outputs that can be consumed by scripts and agents.
 
 Fastlane removal roadmap:
 
