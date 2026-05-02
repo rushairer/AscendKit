@@ -142,8 +142,7 @@ Examples of actions that should never feel implicit:
 Examples:
 
 ```bash
-ascendkit doctor release --json
-ascendkit doctor release --autofix-safe
+ascendkit doctor release --workspace "$WORKSPACE" --json
 ascendkit asc metadata plan --workspace "$WORKSPACE" --json
 ascendkit asc metadata apply --workspace "$WORKSPACE" --confirm-remote-mutation --json
 ascendkit submit plan --workspace "$WORKSPACE" --json
