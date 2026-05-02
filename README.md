@@ -883,7 +883,7 @@ Release checklist:
 1. Keep `README.md` command examples aligned with `ascendkit --help`.
 2. Run `scripts/package-release.sh` and verify the `.sha256` file before attaching release archives.
 3. Add tests for new command behavior before expanding remote mutation.
-4. Update `docs/mvp-roadmap.md` and `docs/automation-boundaries.md` when scope changes.
+4. Update `docs/v1-command-surface.md` and `docs/automation-boundaries.md` when scope changes.
 5. Never commit real app release workspaces, screenshots, API keys, or reviewer credentials.
 6. Run `workspace gitignore --workspace "$WORKSPACE" --fix` before sharing an app repo that uses AscendKit.
 7. Use `workspace validate-handoff --workspace "$WORKSPACE" --export FILE` before asking another agent to take over.
@@ -891,7 +891,7 @@ Release checklist:
 9. Use `workspace export-summary --workspace "$WORKSPACE" --output FILE` when handing state to another agent instead of sharing `.ascendkit/`.
 10. Prefer small, deterministic command outputs that can be consumed by scripts and agents.
 11. After the GitHub Release workflow succeeds, run `scripts/update-homebrew-formula.sh` and `scripts/verify-homebrew-formula.sh --version VERSION`, then commit any formula checksum sync.
-12. Before `v1.0.0`, do a full README rewrite pass: install paths, first-release workflow, command reference, safety boundaries, release checklist, and maintainer workflow.
+12. Before tagging `v1.0.0`, run `scripts/preflight-public-release.sh`, verify Homebrew install from the published formula, and confirm this README's Current Status, command examples, safety boundaries, release checklist, and maintainer workflow match the tagged release.
 
 GitHub Actions:
 
@@ -928,7 +928,8 @@ Useful design docs:
 - `docs/v1-command-surface.md`
 - `docs/release-workspace-model.md`
 - `docs/asc-api-strategy.md`
-- `docs/mvp-roadmap.md`
+- `docs/screenshot-pipeline.md`
+- `docs/agent-release-playbook.md`
 
 ## License
 
