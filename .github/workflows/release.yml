@@ -39,3 +39,13 @@ jobs:
               --title "${GITHUB_REF_NAME}" \
               --generate-notes
           fi
+
+      - name: Generate Homebrew formula
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: scripts/update-homebrew-formula.sh
+
+      - name: Upload Homebrew formula
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${GITHUB_REF_NAME}" Formula/ascendkit.rb --clobber

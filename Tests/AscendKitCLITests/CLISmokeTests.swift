@@ -57,6 +57,8 @@ struct CLISmokeTests {
     @Test("release packaging script and install docs stay discoverable")
     func releasePackagingScriptAndDocsStayDiscoverable() throws {
         let script = try String(contentsOfFile: "scripts/package-release.sh", encoding: .utf8)
+        let formulaScript = try String(contentsOfFile: "scripts/update-homebrew-formula.sh", encoding: .utf8)
+        let formula = try String(contentsOfFile: "Formula/ascendkit.rb", encoding: .utf8)
         let readme = try String(contentsOfFile: "README.md", encoding: .utf8)
         let ciWorkflow = try String(contentsOfFile: ".github/workflows/ci.yml", encoding: .utf8)
         let releaseWorkflow = try String(contentsOfFile: ".github/workflows/release.yml", encoding: .utf8)
@@ -64,7 +66,13 @@ struct CLISmokeTests {
         #expect(script.contains("swift build -c release --product ascendkit"))
         #expect(script.contains("shasum -a 256"))
         #expect(script.contains("bin/ascendkit"))
+        #expect(formulaScript.contains("gh release view"))
+        #expect(formulaScript.contains("FORMULA_PATH="))
+        #expect(formulaScript.contains("ascendkit.rb"))
+        #expect(formula.contains("class Ascendkit < Formula"))
+        #expect(formula.contains("bin.install \"bin/ascendkit\""))
         #expect(readme.contains("scripts/package-release.sh"))
+        #expect(readme.contains("scripts/update-homebrew-formula.sh"))
         #expect(readme.contains("GitHub release archives"))
         #expect(readme.contains("install -m 0755 bin/ascendkit"))
         #expect(ciWorkflow.contains("swift test"))
@@ -73,6 +81,7 @@ struct CLISmokeTests {
         #expect(releaseWorkflow.contains("actions/checkout@v5"))
         #expect(releaseWorkflow.contains("gh release create"))
         #expect(releaseWorkflow.contains("gh release upload"))
+        #expect(releaseWorkflow.contains("scripts/update-homebrew-formula.sh"))
         #expect(releaseWorkflow.contains("dist/*.tar.gz.sha256"))
     }
 }

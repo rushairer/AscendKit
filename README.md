@@ -58,6 +58,15 @@ shasum -a 256 -c dist/ascendkit-*.tar.gz.sha256
 
 The archive contains only the AscendKit CLI, `LICENSE`, `README.md`, and install instructions. It does not contain app workspaces, App Store Connect credentials, screenshots, or app binaries.
 
+Homebrew tap preparation:
+
+```bash
+scripts/update-homebrew-formula.sh
+ruby -c Formula/ascendkit.rb
+```
+
+The generated formula points at the GitHub Release archive for the current `ascendkit --version`. If the matching GitHub Release exists, the script uses the uploaded release asset digest; otherwise it falls back to the local package checksum. A dedicated Homebrew tap can copy `Formula/ascendkit.rb` and expose normal installation with `brew install ascendkit`.
+
 For development, run from the source checkout:
 
 ```bash
@@ -844,7 +853,7 @@ Release checklist:
 GitHub Actions:
 
 - `.github/workflows/ci.yml` runs on `main` pushes and pull requests. It runs tests, whitespace checks, release packaging, and checksum verification.
-- `.github/workflows/release.yml` runs on `v*` tags. It runs tests, builds the CLI archive, verifies the checksum, and uploads the archive plus `.sha256` to the GitHub Release.
+- `.github/workflows/release.yml` runs on `v*` tags. It runs tests, builds the CLI archive, verifies the checksum, uploads the archive plus `.sha256`, generates `Formula/ascendkit.rb`, and uploads the formula to the GitHub Release.
 
 Fastlane removal roadmap:
 

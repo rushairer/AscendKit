@@ -4,7 +4,10 @@ AscendKit follows [Semantic Versioning](https://semver.org/). During `0.y.z`, th
 
 ## Unreleased
 
-No unreleased changes.
+### Added
+
+- Homebrew formula generation now prepares `Formula/ascendkit.rb` from the current release archive and SHA-256 digest.
+- Release workflow now uploads the generated Homebrew formula as a release asset.
 
 ## 0.12.3 - 2026-05-02
 
