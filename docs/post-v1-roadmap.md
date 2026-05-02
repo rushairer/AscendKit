@@ -7,7 +7,7 @@ This roadmap keeps the v1 command surface stable while improving distribution, r
 - Keep Homebrew as the primary distribution path.
 - Fix release-process issues without changing workflow semantics.
 - Keep README, formula, release assets, and tap state aligned for every public release.
-- Improve checksum and stale-tap troubleshooting so users can recover without reading maintainer notes.
+- Keep checksum and stale-tap troubleshooting executable through `scripts/diagnose-homebrew-install.sh` so users can recover without reading maintainer notes.
 
 ## v1.1 Distribution Hardening
 

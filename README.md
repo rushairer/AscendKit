@@ -96,12 +96,21 @@ Homebrew formula maintenance:
 ```bash
 scripts/update-homebrew-formula.sh
 scripts/verify-homebrew-formula.sh --version 1.1.0
+scripts/diagnose-homebrew-install.sh --version 1.1.0
 scripts/sync-homebrew-tap.sh --commit --push
 scripts/v1-release-readiness.sh --version 1.1.0 --app-root /path/to/RepresentativeApp
 ruby -c Formula/ascendkit.rb
 ```
 
 The generated formula points at the GitHub Release archive for the current `ascendkit --version`. If the matching GitHub Release exists, the script uses the uploaded release asset digest; otherwise it falls back to the local package checksum. After a release workflow succeeds, run `scripts/update-homebrew-formula.sh` again and commit any checksum update so `Formula/ascendkit.rb` matches the published asset digest. Then sync the dedicated `rushairer/homebrew-ascendkit` tap with `scripts/sync-homebrew-tap.sh --commit --push`. Maintainers should keep both formula copies aligned with every public release so users can install with `brew install ascendkit`.
+
+If Homebrew reports a checksum mismatch, stale formula, wrong tap, or unexpected installed version, run:
+
+```bash
+scripts/diagnose-homebrew-install.sh --version 1.1.0
+```
+
+The diagnostic is read-only. It checks the installed `ascendkit` binary, universal architectures, tap remote, formula URL, formula SHA-256, and GitHub Release asset digest, then prints repair commands such as re-tapping and reinstalling from `rushairer/ascendkit`.
 
 For development, run from the source checkout:
 
@@ -908,6 +917,7 @@ Release checklist:
 13. Run `scripts/v1-representative-app-smoke.sh --app-root PATH` against a representative app using the installed Homebrew binary.
 14. Sync the dedicated Homebrew tap with `scripts/sync-homebrew-tap.sh --commit --push`, then verify `brew reinstall rushairer/ascendkit/ascendkit`.
 15. Run `scripts/v1-release-readiness.sh --version VERSION --app-root PATH` as the combined final v1 gate after the GitHub Release and tap are published.
+16. If install or checksum reports differ across machines, run `scripts/diagnose-homebrew-install.sh --version VERSION` before changing release assets.
 
 GitHub Actions:
 
