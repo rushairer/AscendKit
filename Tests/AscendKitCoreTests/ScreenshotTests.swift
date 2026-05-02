@@ -365,9 +365,11 @@ struct ScreenshotTests {
         #expect(status.executed == true)
         #expect(status.uploadedCount == 1)
         #expect(status.failedCount == 1)
+        #expect(status.readyForReview == false)
         #expect(status.readyForRetry)
         #expect(status.retryPlanItemIDs == ["en-US:iOS:APP_IPHONE_67:2:settings.png"])
         #expect(status.nextActions.contains { $0.contains("rerun screenshots upload") })
+        #expect(status.recoveryCommands.contains("screenshots upload --workspace PATH --confirm-remote-mutation --json"))
     }
 
     @Test("summarizes screenshot asset delivery recovery status")
@@ -444,11 +446,60 @@ struct ScreenshotTests {
         #expect(status.deliveryFailedItemIDs == ["en-US:iOS:APP_IPHONE_67:2:settings.png"])
         #expect(status.deliveryPendingItemIDs == ["en-US:iOS:APP_IPHONE_67:3:paywall.png"])
         #expect(status.requiresRemoteRecovery)
+        #expect(status.readyForReview == false)
         #expect(status.readyForRetry == false)
         #expect(status.findings.contains("Screenshot asset delivery failed for 1 uploaded item(s)."))
         #expect(status.findings.contains("Screenshot asset delivery is still pending for 1 uploaded item(s)."))
         #expect(status.nextActions.contains { $0.contains("upload-plan --replace-existing") })
         #expect(status.nextActions.contains { $0.contains("Wait for App Store Connect screenshot processing") })
+        #expect(status.recoveryCommands == [
+            "asc metadata observe --workspace PATH --json",
+            "screenshots upload-status --workspace PATH --json"
+        ])
+    }
+
+    @Test("marks screenshot upload ready for review after complete delivery")
+    func marksScreenshotUploadReadyForReviewAfterCompleteDelivery() {
+        let plan = ScreenshotUploadPlan(
+            sourceKind: .composed,
+            items: [
+                ScreenshotUploadPlanItem(
+                    locale: "en-US",
+                    platform: .iOS,
+                    displayType: "APP_IPHONE_67",
+                    appStoreVersionLocalizationID: "version-loc-1",
+                    sourcePath: "/tmp/home.png",
+                    fileName: "home.png",
+                    order: 1
+                )
+            ]
+        )
+        let result = ScreenshotUploadExecutionResult(
+            executed: true,
+            uploadedCount: 1,
+            items: [
+                ScreenshotUploadExecutionItem(
+                    planItemID: "en-US:iOS:APP_IPHONE_67:1:home.png",
+                    appScreenshotSetID: "set-1",
+                    appScreenshotID: "screenshot-1",
+                    fileName: "home.png",
+                    checksum: "checksum-1",
+                    assetDeliveryState: "COMPLETE"
+                )
+            ]
+        )
+
+        let status = ScreenshotUploadStatusBuilder().build(plan: plan, result: result)
+
+        #expect(status.readyForReview)
+        #expect(status.readyForRetry == false)
+        #expect(status.requiresRemoteRecovery == false)
+        #expect(status.deliveryCompleteCount == 1)
+        #expect(status.nextActions.contains { $0.contains("submit readiness") })
+        #expect(status.recoveryCommands == [
+            "workspace summary --workspace PATH --json",
+            "submit readiness --workspace PATH --json"
+        ])
     }
 
     @Test("summarizes screenshot locale and display type coverage")

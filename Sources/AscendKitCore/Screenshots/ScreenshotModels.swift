@@ -1691,10 +1691,12 @@ public struct ScreenshotUploadStatusReport: Codable, Equatable, Sendable {
     public var deliveryFailedItemIDs: [String]
     public var deliveryPendingItemIDs: [String]
     public var requiresRemoteRecovery: Bool
+    public var readyForReview: Bool
     public var readyForRetry: Bool
     public var retryPlanItemIDs: [String]
     public var findings: [String]
     public var nextActions: [String]
+    public var recoveryCommands: [String]
 
     public init(
         generatedAt: Date = Date(),
@@ -1711,10 +1713,12 @@ public struct ScreenshotUploadStatusReport: Codable, Equatable, Sendable {
         deliveryFailedItemIDs: [String] = [],
         deliveryPendingItemIDs: [String] = [],
         requiresRemoteRecovery: Bool = false,
+        readyForReview: Bool = false,
         readyForRetry: Bool,
         retryPlanItemIDs: [String],
         findings: [String],
-        nextActions: [String]
+        nextActions: [String],
+        recoveryCommands: [String] = []
     ) {
         self.generatedAt = generatedAt
         self.ascendKitVersion = ascendKitVersion
@@ -1730,10 +1734,12 @@ public struct ScreenshotUploadStatusReport: Codable, Equatable, Sendable {
         self.deliveryFailedItemIDs = deliveryFailedItemIDs
         self.deliveryPendingItemIDs = deliveryPendingItemIDs
         self.requiresRemoteRecovery = requiresRemoteRecovery
+        self.readyForReview = readyForReview
         self.readyForRetry = readyForRetry
         self.retryPlanItemIDs = retryPlanItemIDs
         self.findings = findings
         self.nextActions = nextActions
+        self.recoveryCommands = recoveryCommands
     }
 }
 
@@ -1754,7 +1760,8 @@ public struct ScreenshotUploadStatusBuilder {
                 readyForRetry: false,
                 retryPlanItemIDs: [],
                 findings: plan?.findings ?? [],
-                nextActions: ["Run screenshots upload --workspace PATH --confirm-remote-mutation after reviewing screenshots upload-plan."]
+                nextActions: ["Run screenshots upload --workspace PATH --confirm-remote-mutation after reviewing screenshots upload-plan."],
+                recoveryCommands: ["screenshots upload --workspace PATH --confirm-remote-mutation --json"]
             )
         }
 
@@ -1763,6 +1770,12 @@ public struct ScreenshotUploadStatusBuilder {
         let deliverySummary = deliveryStateSummary(items: result.items)
         let deletionFailed = failedItems.contains(where: { $0.phase == "delete" })
         let requiresRemoteRecovery = deletionFailed || !deliverySummary.failedItemIDs.isEmpty
+        let readyForReview = result.executed
+            && failedItems.isEmpty
+            && deliverySummary.failedItemIDs.isEmpty
+            && deliverySummary.pendingItemIDs.isEmpty
+            && deliverySummary.unknownCount == 0
+            && result.uploadedCount == (plan?.items.count ?? result.items.count)
         var findings = result.findings
         if !deliverySummary.failedItemIDs.isEmpty {
             findings.append("Screenshot asset delivery failed for \(deliverySummary.failedItemIDs.count) uploaded item(s).")
@@ -1790,11 +1803,20 @@ public struct ScreenshotUploadStatusBuilder {
         if !deliverySummary.pendingItemIDs.isEmpty {
             nextActions.append("Wait for App Store Connect screenshot processing, then re-run screenshots upload-status after refreshing observed state if needed.")
         }
-        if nextActions.isEmpty && result.executed {
+        if nextActions.isEmpty && readyForReview {
+            nextActions.append("Screenshots are uploaded and asset delivery is complete; run workspace summary or submit readiness.")
+        } else if nextActions.isEmpty && result.executed {
             nextActions.append("Run screenshots workflow status or workspace summary to confirm no screenshot blockers remain.")
         } else if nextActions.isEmpty {
             nextActions.append("Run screenshots upload --workspace PATH --confirm-remote-mutation when ready to mutate App Store Connect.")
         }
+        let recoveryCommands = recoveryCommands(
+            result: result,
+            retryPlanItemIDs: retryPlanItemIDs,
+            deliverySummary: deliverySummary,
+            deletionFailed: deletionFailed,
+            readyForReview: readyForReview
+        )
 
         return ScreenshotUploadStatusReport(
             plannedCount: plan?.items.count,
@@ -1809,10 +1831,12 @@ public struct ScreenshotUploadStatusBuilder {
             deliveryFailedItemIDs: deliverySummary.failedItemIDs,
             deliveryPendingItemIDs: deliverySummary.pendingItemIDs,
             requiresRemoteRecovery: requiresRemoteRecovery,
+            readyForReview: readyForReview,
             readyForRetry: !retryPlanItemIDs.isEmpty,
             retryPlanItemIDs: retryPlanItemIDs,
             findings: Array(Set(findings)).sorted(),
-            nextActions: nextActions
+            nextActions: nextActions,
+            recoveryCommands: recoveryCommands
         )
     }
 
@@ -1849,6 +1873,49 @@ public struct ScreenshotUploadStatusBuilder {
             pendingItemIDs.sorted(),
             unknownCount
         )
+    }
+
+    private func recoveryCommands(
+        result: ScreenshotUploadExecutionResult,
+        retryPlanItemIDs: [String],
+        deliverySummary: (
+            completeCount: Int,
+            failedItemIDs: [String],
+            pendingItemIDs: [String],
+            unknownCount: Int
+        ),
+        deletionFailed: Bool,
+        readyForReview: Bool
+    ) -> [String] {
+        if readyForReview {
+            return [
+                "workspace summary --workspace PATH --json",
+                "submit readiness --workspace PATH --json"
+            ]
+        }
+        if !deliverySummary.pendingItemIDs.isEmpty {
+            return [
+                "asc metadata observe --workspace PATH --json",
+                "screenshots upload-status --workspace PATH --json"
+            ]
+        }
+        if !deliverySummary.failedItemIDs.isEmpty || deletionFailed {
+            return [
+                "asc metadata observe --workspace PATH --json",
+                "screenshots upload-plan --workspace PATH --replace-existing --json",
+                "screenshots upload --workspace PATH --replace-existing --confirm-remote-mutation --json"
+            ]
+        }
+        if !retryPlanItemIDs.isEmpty {
+            return [
+                "screenshots upload --workspace PATH --confirm-remote-mutation --json",
+                "screenshots upload-status --workspace PATH --json"
+            ]
+        }
+        if !result.executed {
+            return ["screenshots upload --workspace PATH --confirm-remote-mutation --json"]
+        }
+        return ["workspace summary --workspace PATH --json"]
     }
 }
 

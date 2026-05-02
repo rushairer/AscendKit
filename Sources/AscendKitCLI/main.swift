@@ -737,6 +737,7 @@ struct CLIRunner {
             "Executed: \(status.executed.map { $0 ? "yes" : "no" } ?? "unknown")",
             "Delivery: \(status.deliveryCompleteCount) complete, \(status.deliveryPendingCount) pending, \(status.deliveryFailedCount) failed, \(status.deliveryUnknownCount) unknown",
             "Requires remote recovery: \(status.requiresRemoteRecovery ? "yes" : "no")",
+            "Ready for review checks: \(status.readyForReview ? "yes" : "no")",
             "Ready for retry: \(status.readyForRetry ? "yes" : "no")"
         ]
         if !status.deliveryFailedItemIDs.isEmpty {
@@ -758,6 +759,10 @@ struct CLIRunner {
         if !status.nextActions.isEmpty {
             lines.append("Next action(s):")
             lines.append(contentsOf: status.nextActions.map { "- \($0)" })
+        }
+        if !status.recoveryCommands.isEmpty {
+            lines.append("Recovery command(s):")
+            lines.append(contentsOf: status.recoveryCommands.map { "- \($0)" })
         }
         return lines.joined(separator: "\n")
     }
