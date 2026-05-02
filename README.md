@@ -6,7 +6,7 @@ The project is designed for AI-assisted release work without handing raw secrets
 
 ## Current Status
 
-Current documented release: `v0.25.0`.
+Current documented release: `v0.26.0`.
 
 AscendKit follows [Semantic Versioning](https://semver.org/). The current `0.y.z` line is usable and release-tested, while minor versions may still refine command shapes before `1.0.0`.
 
@@ -58,7 +58,7 @@ After installation, run `ascendkit` from any app project directory. User-facing 
 Alternative direct installer from a source checkout or release asset:
 
 ```bash
-scripts/install-ascendkit.sh --version 0.25.0
+scripts/install-ascendkit.sh --version 0.26.0
 ASCENDKIT_INSTALL_DIR=/usr/local/bin scripts/install-ascendkit.sh
 ```
 
@@ -67,7 +67,7 @@ The installer downloads the macOS arm64 release archive from GitHub Releases, ve
 Verify a published release before announcing it:
 
 ```bash
-scripts/verify-release-assets.sh --version 0.25.0
+scripts/verify-release-assets.sh --version 0.26.0
 ```
 
 The verifier checks for the expected GitHub Release assets and performs a temporary installer smoke test.
@@ -85,7 +85,7 @@ Homebrew formula maintenance:
 
 ```bash
 scripts/update-homebrew-formula.sh
-scripts/verify-homebrew-formula.sh --version 0.25.0
+scripts/verify-homebrew-formula.sh --version 0.26.0
 ruby -c Formula/ascendkit.rb
 ```
 
