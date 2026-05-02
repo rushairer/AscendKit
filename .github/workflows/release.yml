@@ -26,7 +26,7 @@ jobs:
         run: scripts/package-release.sh
 
       - name: Verify package checksum
-        run: shasum -a 256 -c dist/*.tar.gz.sha256
+        run: cd dist && shasum -a 256 -c *.tar.gz.sha256
 
       - name: Upload release artifacts
         env:
@@ -49,3 +49,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release upload "${GITHUB_REF_NAME}" Formula/ascendkit.rb --clobber
+
+      - name: Upload installer script
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${GITHUB_REF_NAME}" scripts/install-ascendkit.sh --clobber

@@ -21,6 +21,7 @@ rm -rf "${WORK_DIR}"
 mkdir -p "${PACKAGE_ROOT}/bin"
 
 install -m 0755 "${BINARY_PATH}" "${PACKAGE_ROOT}/bin/ascendkit"
+install -m 0755 "${ROOT_DIR}/scripts/install-ascendkit.sh" "${PACKAGE_ROOT}/install-ascendkit.sh"
 install -m 0644 "${ROOT_DIR}/LICENSE" "${PACKAGE_ROOT}/LICENSE"
 install -m 0644 "${ROOT_DIR}/README.md" "${PACKAGE_ROOT}/README.md"
 
@@ -46,7 +47,10 @@ INSTALL
 
 mkdir -p "${DIST_DIR}"
 tar -C "${WORK_DIR}" -czf "${ARCHIVE_PATH}" "${PACKAGE_NAME}"
-shasum -a 256 "${ARCHIVE_PATH}" > "${CHECKSUM_PATH}"
+(
+  cd "${DIST_DIR}"
+  shasum -a 256 "${PACKAGE_NAME}.tar.gz" > "${PACKAGE_NAME}.tar.gz.sha256"
+)
 
 echo "Created ${ARCHIVE_PATH}"
 echo "Created ${CHECKSUM_PATH}"

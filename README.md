@@ -49,14 +49,23 @@ ascendkit --version
 ascendkit --help
 ```
 
+Installer script from a source checkout or release asset:
+
+```bash
+scripts/install-ascendkit.sh --version 0.13.0
+ASCENDKIT_INSTALL_DIR=/usr/local/bin scripts/install-ascendkit.sh
+```
+
+The installer downloads the macOS arm64 release archive from GitHub Releases, verifies the `.sha256` digest with `shasum`, and installs only the `ascendkit` CLI binary.
+
 GitHub release archives are generated with:
 
 ```bash
 scripts/package-release.sh
-shasum -a 256 -c dist/ascendkit-*.tar.gz.sha256
+cd dist && shasum -a 256 -c ascendkit-*.tar.gz.sha256
 ```
 
-The archive contains only the AscendKit CLI, `LICENSE`, `README.md`, and install instructions. It does not contain app workspaces, App Store Connect credentials, screenshots, or app binaries.
+The archive contains only the AscendKit CLI, the installer script, `LICENSE`, `README.md`, and install instructions. It does not contain app workspaces, App Store Connect credentials, screenshots, or app binaries.
 
 Homebrew tap preparation:
 
@@ -827,6 +836,7 @@ Run this before committing:
 swift test
 swift run ascendkit --help
 scripts/package-release.sh
+bash -n scripts/*.sh
 git diff --check
 ```
 
@@ -852,8 +862,8 @@ Release checklist:
 
 GitHub Actions:
 
-- `.github/workflows/ci.yml` runs on `main` pushes and pull requests. It runs tests, whitespace checks, release packaging, and checksum verification.
-- `.github/workflows/release.yml` runs on `v*` tags. It runs tests, builds the CLI archive, verifies the checksum, uploads the archive plus `.sha256`, generates `Formula/ascendkit.rb`, and uploads the formula to the GitHub Release.
+- `.github/workflows/ci.yml` runs on `main` pushes and pull requests. It runs tests, shell syntax checks, whitespace checks, release packaging, and checksum verification.
+- `.github/workflows/release.yml` runs on `v*` tags. It runs tests, builds the CLI archive, verifies the checksum, uploads the archive plus `.sha256`, generates `Formula/ascendkit.rb`, and uploads the formula plus installer script to the GitHub Release.
 
 Fastlane removal roadmap:
 

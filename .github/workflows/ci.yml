@@ -28,8 +28,11 @@ jobs:
       - name: Check whitespace
         run: git diff --check
 
+      - name: Check shell scripts
+        run: bash -n scripts/package-release.sh scripts/update-homebrew-formula.sh scripts/install-ascendkit.sh
+
       - name: Package release archive
         run: scripts/package-release.sh
 
       - name: Verify package checksum
-        run: shasum -a 256 -c dist/*.tar.gz.sha256
+        run: cd dist && shasum -a 256 -c *.tar.gz.sha256

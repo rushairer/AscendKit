@@ -4,7 +4,10 @@ AscendKit follows [Semantic Versioning](https://semver.org/). During `0.y.z`, th
 
 ## Unreleased
 
-No unreleased changes.
+### Added
+
+- Installer script downloads a GitHub Release archive, verifies the SHA-256 checksum, and installs `ascendkit` onto the local `PATH`.
+- CI now validates shell script syntax before packaging release archives.
 
 ## 0.13.0 - 2026-05-02
 
