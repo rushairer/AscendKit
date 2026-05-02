@@ -4,6 +4,10 @@ AscendKit follows [Semantic Versioning](https://semver.org/). During `0.y.z`, th
 
 ## Unreleased
 
+No unreleased changes.
+
+## 0.21.0 - 2026-05-02
+
 ### Changed
 
 - README and review handoff output now use current-release boundary language instead of MVP wording.
