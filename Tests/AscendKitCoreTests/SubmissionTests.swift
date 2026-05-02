@@ -580,7 +580,7 @@ struct SubmissionTests {
         #expect(plan.readyForManualReviewSubmission == false)
     }
 
-    @Test("renders review handoff markdown with explicit MVP boundary")
+    @Test("renders review handoff markdown with explicit submission boundary")
     func rendersReviewHandoffMarkdown() {
         let plan = ReviewSubmissionPlan(
             releaseID: "demo-1.0",
@@ -601,7 +601,7 @@ struct SubmissionTests {
             appPrivacyNextActions: [],
             readinessReady: true,
             readyForManualReviewSubmission: true,
-            findings: ["Remote review submission execution is intentionally disabled in this MVP boundary."]
+            findings: ["Remote review submission execution is intentionally disabled by the current AscendKit boundary."]
         )
 
         let markdown = ReviewHandoffMarkdown().render(plan: plan)
@@ -612,7 +612,7 @@ struct SubmissionTests {
         #expect(markdown.contains("## App Privacy"))
         #expect(markdown.contains("- State: publishedDataNotCollected"))
         #expect(markdown.contains("- Ready for submission: yes"))
-        #expect(markdown.contains("AscendKit MVP does not execute remote review submission."))
+        #expect(markdown.contains("AscendKit does not execute remote review submission."))
     }
 
     private func readyASCLookupPlan() -> ASCLookupPlan {

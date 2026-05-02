@@ -8,9 +8,9 @@ The project is designed for AI-assisted release work without handing raw secrets
 
 Current documented release: `v0.20.0`.
 
-AscendKit is versioned from `v0.1.0` and follows [Semantic Versioning](https://semver.org/). The `0.y.z` line is usable but still evolving: each tagged release should build, test, and support the documented workflow, while minor versions may still refine command shapes before `1.0.0`.
+AscendKit follows [Semantic Versioning](https://semver.org/). The current `0.y.z` line is usable and release-tested, while minor versions may still refine command shapes before `1.0.0`.
 
-AscendKit is an MVP. It has been used end-to-end on a real iOS app release workflow covering local screenshot preparation, metadata, pricing, reviewer information, build selection, screenshot upload, and guarded App Review handoff. App Privacy publishing is currently documented as a boundary where Apple's IRIS endpoint may require App Store Connect UI or future Apple ID web-session support.
+AscendKit has been used end-to-end on real iOS app release workflows covering local screenshot preparation, metadata, pricing, reviewer information, build selection, screenshot upload, and guarded App Review handoff. App Privacy publishing is currently documented as a boundary where Apple's IRIS endpoint may require App Store Connect UI or future Apple ID web-session support.
 
 Implemented today:
 
@@ -24,7 +24,7 @@ Implemented today:
 - Reviewer information, readiness checks, review handoff, and submission result persistence.
 - Local IAP subscription template validation.
 
-Out of scope for the current MVP:
+Out of scope for the current release:
 
 - Binary upload.
 - Archive/sign/export replacement.
@@ -788,7 +788,7 @@ ascendkit iap template init --workspace "$WORKSPACE" --json
 ascendkit iap validate --workspace "$WORKSPACE" --json
 ```
 
-This is a local validation layer. Remote IAP creation and subscription sync are not part of the current MVP command surface.
+This is a local validation layer. Remote IAP creation and subscription sync are not part of the current command surface.
 
 ## Workspace Layout
 

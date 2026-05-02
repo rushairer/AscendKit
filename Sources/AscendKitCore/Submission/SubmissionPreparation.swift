@@ -227,7 +227,7 @@ public struct ReviewSubmissionPlanBuilder {
                 findings.append("App Privacy answers are not recorded as published. Run asc privacy status, then complete App Privacy in App Store Connect UI or run asc privacy confirm-manual after publishing.")
             }
         }
-        findings.append("Remote review submission execution is intentionally disabled in this MVP boundary.")
+        findings.append("Remote review submission execution is intentionally disabled by the current AscendKit boundary.")
 
         let reviewerName = reviewInfo.map {
             "\($0.contact.firstName) \($0.contact.lastName)".trimmingCharacters(in: .whitespacesAndNewlines)
@@ -405,7 +405,7 @@ public struct ReviewHandoffMarkdown {
 
         ## Boundary
 
-        AscendKit MVP does not execute remote review submission. Use this handoff to complete the final submit-for-review action manually in App Store Connect.
+        AscendKit does not execute remote review submission. Use this handoff to complete the final submit-for-review action manually in App Store Connect.
         """
     }
 }
