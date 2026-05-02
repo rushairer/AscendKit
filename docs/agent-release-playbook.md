@@ -48,7 +48,7 @@ If App Privacy cannot be published through the API, stop at the documented App S
 Prefer Homebrew for normal use:
 
 ```bash
-brew tap rushairer/ascendkit https://github.com/rushairer/AscendKit
+brew tap rushairer/ascendkit
 brew install ascendkit
 ascendkit --version
 ascendkit version --json

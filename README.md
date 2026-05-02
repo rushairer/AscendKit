@@ -6,7 +6,7 @@ The project is designed for AI-assisted release work without handing raw secrets
 
 ## Current Status
 
-Current documented release: `v0.33.0`.
+Current documented release: `v0.34.0`.
 
 AscendKit follows [Semantic Versioning](https://semver.org/). The current `0.y.z` line is usable and release-tested, and the project is in `v1.0.0` release-candidate hardening. Command groups documented in `docs/v1-command-surface.md` should now be treated as v1-stable unless a safety issue requires a final pre-1.0 change.
 
@@ -48,7 +48,7 @@ Final `v1.0.0` readiness is tracked in `docs/v1-release-readiness.md`.
 Prefer Homebrew for normal use. Until AscendKit has a dedicated tap repository, tap this repository explicitly:
 
 ```bash
-brew tap rushairer/ascendkit https://github.com/rushairer/AscendKit
+brew tap rushairer/ascendkit
 brew install ascendkit
 ascendkit --version
 ascendkit --help
@@ -60,7 +60,7 @@ After installation, run `ascendkit` from any app project directory. User-facing 
 Alternative direct installer from a source checkout or release asset:
 
 ```bash
-scripts/install-ascendkit.sh --version 0.33.0
+scripts/install-ascendkit.sh --version 0.34.0
 ASCENDKIT_INSTALL_DIR=/usr/local/bin scripts/install-ascendkit.sh
 ```
 
@@ -69,7 +69,7 @@ The installer downloads the macOS arm64 release archive from GitHub Releases, ve
 Verify a published release before announcing it:
 
 ```bash
-scripts/verify-release-assets.sh --version 0.33.0
+scripts/verify-release-assets.sh --version 0.34.0
 ```
 
 The verifier checks for the expected GitHub Release assets and performs a temporary installer smoke test.
@@ -95,7 +95,7 @@ Homebrew formula maintenance:
 
 ```bash
 scripts/update-homebrew-formula.sh
-scripts/verify-homebrew-formula.sh --version 0.33.0
+scripts/verify-homebrew-formula.sh --version 0.34.0
 ruby -c Formula/ascendkit.rb
 ```
 

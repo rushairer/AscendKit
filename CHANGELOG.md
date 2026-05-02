@@ -6,6 +6,12 @@ AscendKit follows [Semantic Versioning](https://semver.org/). During `0.y.z`, th
 
 No unreleased changes.
 
+## 0.34.0 - 2026-05-02
+
+### Changed
+
+- Updated Homebrew install guidance and version reports to use the dedicated `rushairer/homebrew-ascendkit` tap.
+
 ## 0.33.0 - 2026-05-02
 
 ### Added

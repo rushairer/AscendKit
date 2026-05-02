@@ -5,7 +5,7 @@ import Testing
 struct CLISmokeTests {
     @Test("reports current semantic version")
     func reportsCurrentSemanticVersion() {
-        #expect(AscendKitVersion.current == "0.33.0")
+        #expect(AscendKitVersion.current == "0.34.0")
     }
 
     @Test("core JSON encoder produces sorted manifest output")
@@ -32,6 +32,7 @@ struct CLISmokeTests {
         #expect(output.contains("https://github.com/rushairer/AscendKit/releases/tag/v9.8.7"))
         #expect(output.contains("brew tap rushairer/ascendkit"))
         #expect(output.contains("brew install ascendkit"))
+        #expect(!output.contains("brew tap rushairer/ascendkit https://github.com/rushairer/AscendKit"))
         #expect(output.contains("ascendkit --version && ascendkit version --json"))
     }
 
