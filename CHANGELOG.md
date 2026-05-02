@@ -6,6 +6,12 @@ AscendKit follows [Semantic Versioning](https://semver.org/). During `0.y.z`, th
 
 No unreleased changes.
 
+## 0.12.1 - 2026-05-02
+
+### Fixed
+
+- README now documents the CI and release GitHub Actions added in `0.12.0`.
+
 ## 0.12.0 - 2026-05-02
 
 ### Added

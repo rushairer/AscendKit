@@ -841,6 +841,11 @@ Release checklist:
 9. Use `workspace export-summary --workspace "$WORKSPACE" --output FILE` when handing state to another agent instead of sharing `.ascendkit/`.
 10. Prefer small, deterministic command outputs that can be consumed by scripts and agents.
 
+GitHub Actions:
+
+- `.github/workflows/ci.yml` runs on `main` pushes and pull requests. It runs tests, whitespace checks, release packaging, and checksum verification.
+- `.github/workflows/release.yml` runs on `v*` tags. It runs tests, builds the CLI archive, verifies the checksum, and uploads the archive plus `.sha256` to the GitHub Release.
+
 Fastlane removal roadmap:
 
 1. Keep `import-fastlane` commands only as migration helpers.
