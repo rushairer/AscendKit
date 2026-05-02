@@ -4,7 +4,9 @@ AscendKit follows [Semantic Versioning](https://semver.org/). During `0.y.z`, th
 
 ## Unreleased
 
-No unreleased changes.
+### Added
+
+- Public-release preflight script runs tests, CLI smoke checks, shell syntax checks, packaging, checksum verification, Homebrew formula validation, whitespace checks, and sensitive marker scanning.
 
 ## 0.16.0 - 2026-05-02
 

@@ -843,11 +843,7 @@ Remote mutation commands require explicit flags:
 Run this before committing:
 
 ```bash
-swift test
-swift run ascendkit --help
-scripts/package-release.sh
-bash -n scripts/*.sh
-git diff --check
+scripts/preflight-public-release.sh
 ```
 
 Recommended local security scan:
@@ -869,6 +865,7 @@ Release checklist:
 8. Use `workspace next-steps --workspace "$WORKSPACE" --json` to give agents a command-oriented recovery plan.
 9. Use `workspace export-summary --workspace "$WORKSPACE" --output FILE` when handing state to another agent instead of sharing `.ascendkit/`.
 10. Prefer small, deterministic command outputs that can be consumed by scripts and agents.
+11. Before `v1.0.0`, do a full README rewrite pass: install paths, first-release workflow, command reference, safety boundaries, release checklist, and maintainer workflow.
 
 GitHub Actions:
 
