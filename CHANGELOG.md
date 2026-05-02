@@ -4,6 +4,10 @@ AscendKit follows [Semantic Versioning](https://semver.org/). During `0.y.z`, th
 
 ## Unreleased
 
+No unreleased changes.
+
+## 0.9.0 - 2026-05-02
+
 ### Added
 
 - `workspace export-summary --workspace PATH --output FILE [--json]` writes a sanitized handoff JSON report without raw release artifacts or absolute workspace paths.
