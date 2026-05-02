@@ -53,7 +53,7 @@ ascendkit version --json
 Installer script from a source checkout or release asset:
 
 ```bash
-scripts/install-ascendkit.sh --version 0.16.0
+scripts/install-ascendkit.sh --version 0.17.0
 ASCENDKIT_INSTALL_DIR=/usr/local/bin scripts/install-ascendkit.sh
 ```
 
@@ -62,7 +62,7 @@ The installer downloads the macOS arm64 release archive from GitHub Releases, ve
 Verify a published release before announcing it:
 
 ```bash
-scripts/verify-release-assets.sh --version 0.16.0
+scripts/verify-release-assets.sh --version 0.17.0
 ```
 
 The verifier checks for the expected GitHub Release assets and performs a temporary installer smoke test.
