@@ -1,5 +1,6 @@
 public enum AscendKitCommandCatalog {
     public static let usageLines: [String] = [
+        "ascendkit version [--json]",
         "ascendkit workspace status --workspace PATH [--json]",
         "ascendkit workspace summary --workspace PATH [--json]",
         "ascendkit workspace hygiene --workspace PATH [--json]",

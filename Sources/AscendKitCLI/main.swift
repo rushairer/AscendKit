@@ -39,6 +39,8 @@ struct CLIRunner {
         let tail = Array(args.dropFirst())
 
         switch group {
+        case "version":
+            return try version(json: json)
         case "workspace":
             return try workspace(tail, json: json)
         case "intake":
@@ -57,6 +59,19 @@ struct CLIRunner {
             return try iap(tail, json: json)
         default:
             throw AscendKitError.invalidArguments("Unknown command group: \(group)")
+        }
+    }
+
+    private func version(json: Bool) throws -> String {
+        let report = AscendKitVersionReport()
+        return try render(report, json: json) {
+            [
+                "ascendkit \(report.version)",
+                "Platform: \(report.platform) \(report.architecture)",
+                "Release: \(report.releaseURL)",
+                "Install: \(report.installCommand)",
+                "Verify release assets: \(report.verifyCommand)"
+            ].joined(separator: "\n")
         }
     }
 

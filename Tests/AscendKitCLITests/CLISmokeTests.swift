@@ -23,6 +23,17 @@ struct CLISmokeTests {
         #expect(output.contains("\"schemaVersion\" : 1"))
     }
 
+    @Test("version report exposes install and verification commands")
+    func versionReportExposesInstallAndVerificationCommands() throws {
+        let report = AscendKitVersionReport(version: "9.8.7", platform: "macOS", architecture: "arm64")
+        let output = try AscendKitJSON.encodeString(report)
+
+        #expect(output.contains("\"version\" : \"9.8.7\""))
+        #expect(output.contains("https://github.com/rushairer/AscendKit/releases/tag/v9.8.7"))
+        #expect(output.contains("scripts/install-ascendkit.sh --version 9.8.7"))
+        #expect(output.contains("scripts/verify-release-assets.sh --version 9.8.7"))
+    }
+
     @Test("command catalog renders complete help without duplicate usage lines")
     func commandCatalogRendersCompleteHelp() {
         let usageLines = AscendKitCommandCatalog.usageLines
@@ -88,6 +99,7 @@ struct CLISmokeTests {
         #expect(readme.contains("scripts/install-ascendkit.sh"))
         #expect(readme.contains("scripts/verify-release-assets.sh"))
         #expect(readme.contains("scripts/update-homebrew-formula.sh"))
+        #expect(readme.contains("ascendkit version --json"))
         #expect(readme.contains("GitHub release archives"))
         #expect(readme.contains("install -m 0755 bin/ascendkit"))
         #expect(ciWorkflow.contains("swift test"))

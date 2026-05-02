@@ -47,6 +47,7 @@ For normal use, install the `ascendkit` binary somewhere on your `PATH` and run 
 install -m 0755 bin/ascendkit ~/.local/bin/ascendkit
 ascendkit --version
 ascendkit --help
+ascendkit version --json
 ```
 
 Installer script from a source checkout or release asset:
@@ -90,6 +91,7 @@ For development, run from the source checkout:
 swift test
 swift run ascendkit --help
 swift run ascendkit --version
+swift run ascendkit version --json
 ```
 
 If you are handing AscendKit to another AI agent, start with `docs/agent-release-playbook.md`. Use a short prompt plus that playbook; do not rely on a long one-off prompt as the only operating manual.

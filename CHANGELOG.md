@@ -4,7 +4,9 @@ AscendKit follows [Semantic Versioning](https://semver.org/). During `0.y.z`, th
 
 ## Unreleased
 
-No unreleased changes.
+### Added
+
+- `ascendkit version [--json]` reports the installed version, platform, release URL, and release install/verify commands.
 
 ## 0.15.1 - 2026-05-02
 
