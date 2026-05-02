@@ -7,6 +7,7 @@ AscendKit follows [Semantic Versioning](https://semver.org/). The `1.x` line kee
 ### Added
 
 - Added a read-only Homebrew installation diagnostic script for tap, formula, version, universal binary, and release checksum troubleshooting.
+- Screenshot upload status now summarizes App Store Connect asset delivery states, pending processing, failed delivery, and remote recovery guidance.
 
 ## 1.1.0 - 2026-05-02
 

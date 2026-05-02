@@ -735,8 +735,18 @@ struct CLIRunner {
             "AscendKit version: \(status.ascendKitVersion ?? "unknown")",
             "Planned screenshots: \(status.plannedCount.map(String.init) ?? "unknown")",
             "Executed: \(status.executed.map { $0 ? "yes" : "no" } ?? "unknown")",
+            "Delivery: \(status.deliveryCompleteCount) complete, \(status.deliveryPendingCount) pending, \(status.deliveryFailedCount) failed, \(status.deliveryUnknownCount) unknown",
+            "Requires remote recovery: \(status.requiresRemoteRecovery ? "yes" : "no")",
             "Ready for retry: \(status.readyForRetry ? "yes" : "no")"
         ]
+        if !status.deliveryFailedItemIDs.isEmpty {
+            lines.append("Delivery failed item(s):")
+            lines.append(contentsOf: status.deliveryFailedItemIDs.map { "- \($0)" })
+        }
+        if !status.deliveryPendingItemIDs.isEmpty {
+            lines.append("Delivery pending item(s):")
+            lines.append(contentsOf: status.deliveryPendingItemIDs.map { "- \($0)" })
+        }
         if !status.retryPlanItemIDs.isEmpty {
             lines.append("Retry plan item(s):")
             lines.append(contentsOf: status.retryPlanItemIDs.map { "- \($0)" })

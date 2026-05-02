@@ -1684,6 +1684,13 @@ public struct ScreenshotUploadStatusReport: Codable, Equatable, Sendable {
     public var uploadedCount: Int
     public var failedCount: Int
     public var deletedCount: Int
+    public var deliveryCompleteCount: Int
+    public var deliveryFailedCount: Int
+    public var deliveryPendingCount: Int
+    public var deliveryUnknownCount: Int
+    public var deliveryFailedItemIDs: [String]
+    public var deliveryPendingItemIDs: [String]
+    public var requiresRemoteRecovery: Bool
     public var readyForRetry: Bool
     public var retryPlanItemIDs: [String]
     public var findings: [String]
@@ -1697,6 +1704,13 @@ public struct ScreenshotUploadStatusReport: Codable, Equatable, Sendable {
         uploadedCount: Int,
         failedCount: Int,
         deletedCount: Int,
+        deliveryCompleteCount: Int = 0,
+        deliveryFailedCount: Int = 0,
+        deliveryPendingCount: Int = 0,
+        deliveryUnknownCount: Int = 0,
+        deliveryFailedItemIDs: [String] = [],
+        deliveryPendingItemIDs: [String] = [],
+        requiresRemoteRecovery: Bool = false,
         readyForRetry: Bool,
         retryPlanItemIDs: [String],
         findings: [String],
@@ -1709,6 +1723,13 @@ public struct ScreenshotUploadStatusReport: Codable, Equatable, Sendable {
         self.uploadedCount = uploadedCount
         self.failedCount = failedCount
         self.deletedCount = deletedCount
+        self.deliveryCompleteCount = deliveryCompleteCount
+        self.deliveryFailedCount = deliveryFailedCount
+        self.deliveryPendingCount = deliveryPendingCount
+        self.deliveryUnknownCount = deliveryUnknownCount
+        self.deliveryFailedItemIDs = deliveryFailedItemIDs
+        self.deliveryPendingItemIDs = deliveryPendingItemIDs
+        self.requiresRemoteRecovery = requiresRemoteRecovery
         self.readyForRetry = readyForRetry
         self.retryPlanItemIDs = retryPlanItemIDs
         self.findings = findings
@@ -1739,18 +1760,39 @@ public struct ScreenshotUploadStatusBuilder {
 
         let failedItems = result.failedItems ?? []
         let retryPlanItemIDs = failedItems.compactMap(\.planItemID).sorted()
+        let deliverySummary = deliveryStateSummary(items: result.items)
+        let deletionFailed = failedItems.contains(where: { $0.phase == "delete" })
+        let requiresRemoteRecovery = deletionFailed || !deliverySummary.failedItemIDs.isEmpty
+        var findings = result.findings
+        if !deliverySummary.failedItemIDs.isEmpty {
+            findings.append("Screenshot asset delivery failed for \(deliverySummary.failedItemIDs.count) uploaded item(s).")
+        }
+        if !deliverySummary.pendingItemIDs.isEmpty {
+            findings.append("Screenshot asset delivery is still pending for \(deliverySummary.pendingItemIDs.count) uploaded item(s).")
+        }
+        if deliverySummary.unknownCount > 0 {
+            findings.append("Screenshot asset delivery state is unknown for \(deliverySummary.unknownCount) uploaded item(s).")
+        }
         var nextActions: [String] = []
         if !failedItems.isEmpty {
             nextActions.append("Inspect failedItems in screenshots/manifests/upload-result.json.")
             if !retryPlanItemIDs.isEmpty {
                 nextActions.append("Fix the failed local assets or transient ASC issue, then rerun screenshots upload with the same workspace.")
             }
-            if failedItems.contains(where: { $0.phase == "delete" }) {
+            if deletionFailed {
                 nextActions.append("Resolve remote screenshot deletion failures before retrying replace-existing upload.")
             }
-        } else if result.executed {
+        }
+        if !deliverySummary.failedItemIDs.isEmpty {
+            nextActions.append("Open App Store Connect or re-run asc metadata observe to inspect failed screenshot processing before replacing remote screenshots.")
+            nextActions.append("If failed screenshots remain in the target set, run screenshots upload-plan --replace-existing and review planned deletions before retrying.")
+        }
+        if !deliverySummary.pendingItemIDs.isEmpty {
+            nextActions.append("Wait for App Store Connect screenshot processing, then re-run screenshots upload-status after refreshing observed state if needed.")
+        }
+        if nextActions.isEmpty && result.executed {
             nextActions.append("Run screenshots workflow status or workspace summary to confirm no screenshot blockers remain.")
-        } else {
+        } else if nextActions.isEmpty {
             nextActions.append("Run screenshots upload --workspace PATH --confirm-remote-mutation when ready to mutate App Store Connect.")
         }
 
@@ -1760,10 +1802,52 @@ public struct ScreenshotUploadStatusBuilder {
             uploadedCount: result.uploadedCount,
             failedCount: failedItems.count,
             deletedCount: result.deletedScreenshots?.count ?? 0,
+            deliveryCompleteCount: deliverySummary.completeCount,
+            deliveryFailedCount: deliverySummary.failedItemIDs.count,
+            deliveryPendingCount: deliverySummary.pendingItemIDs.count,
+            deliveryUnknownCount: deliverySummary.unknownCount,
+            deliveryFailedItemIDs: deliverySummary.failedItemIDs,
+            deliveryPendingItemIDs: deliverySummary.pendingItemIDs,
+            requiresRemoteRecovery: requiresRemoteRecovery,
             readyForRetry: !retryPlanItemIDs.isEmpty,
             retryPlanItemIDs: retryPlanItemIDs,
-            findings: result.findings,
+            findings: Array(Set(findings)).sorted(),
             nextActions: nextActions
+        )
+    }
+
+    private func deliveryStateSummary(items: [ScreenshotUploadExecutionItem]) -> (
+        completeCount: Int,
+        failedItemIDs: [String],
+        pendingItemIDs: [String],
+        unknownCount: Int
+    ) {
+        var completeCount = 0
+        var failedItemIDs: [String] = []
+        var pendingItemIDs: [String] = []
+        var unknownCount = 0
+
+        for item in items {
+            guard let rawState = item.assetDeliveryState?.trimmingCharacters(in: .whitespacesAndNewlines),
+                  !rawState.isEmpty else {
+                unknownCount += 1
+                continue
+            }
+            switch rawState.uppercased() {
+            case "COMPLETE":
+                completeCount += 1
+            case "FAILED":
+                failedItemIDs.append(item.planItemID)
+            default:
+                pendingItemIDs.append(item.planItemID)
+            }
+        }
+
+        return (
+            completeCount,
+            failedItemIDs.sorted(),
+            pendingItemIDs.sorted(),
+            unknownCount
         )
     }
 }

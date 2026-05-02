@@ -370,6 +370,87 @@ struct ScreenshotTests {
         #expect(status.nextActions.contains { $0.contains("rerun screenshots upload") })
     }
 
+    @Test("summarizes screenshot asset delivery recovery status")
+    func summarizesScreenshotAssetDeliveryRecoveryStatus() {
+        let plan = ScreenshotUploadPlan(
+            sourceKind: .composed,
+            items: [
+                ScreenshotUploadPlanItem(
+                    locale: "en-US",
+                    platform: .iOS,
+                    displayType: "APP_IPHONE_67",
+                    appStoreVersionLocalizationID: "version-loc-1",
+                    sourcePath: "/tmp/home.png",
+                    fileName: "home.png",
+                    order: 1
+                ),
+                ScreenshotUploadPlanItem(
+                    locale: "en-US",
+                    platform: .iOS,
+                    displayType: "APP_IPHONE_67",
+                    appStoreVersionLocalizationID: "version-loc-1",
+                    sourcePath: "/tmp/settings.png",
+                    fileName: "settings.png",
+                    order: 2
+                ),
+                ScreenshotUploadPlanItem(
+                    locale: "en-US",
+                    platform: .iOS,
+                    displayType: "APP_IPHONE_67",
+                    appStoreVersionLocalizationID: "version-loc-1",
+                    sourcePath: "/tmp/paywall.png",
+                    fileName: "paywall.png",
+                    order: 3
+                )
+            ]
+        )
+        let result = ScreenshotUploadExecutionResult(
+            executed: true,
+            uploadedCount: 3,
+            items: [
+                ScreenshotUploadExecutionItem(
+                    planItemID: "en-US:iOS:APP_IPHONE_67:1:home.png",
+                    appScreenshotSetID: "set-1",
+                    appScreenshotID: "screenshot-1",
+                    fileName: "home.png",
+                    checksum: "checksum-1",
+                    assetDeliveryState: "COMPLETE"
+                ),
+                ScreenshotUploadExecutionItem(
+                    planItemID: "en-US:iOS:APP_IPHONE_67:2:settings.png",
+                    appScreenshotSetID: "set-1",
+                    appScreenshotID: "screenshot-2",
+                    fileName: "settings.png",
+                    checksum: "checksum-2",
+                    assetDeliveryState: "FAILED"
+                ),
+                ScreenshotUploadExecutionItem(
+                    planItemID: "en-US:iOS:APP_IPHONE_67:3:paywall.png",
+                    appScreenshotSetID: "set-1",
+                    appScreenshotID: "screenshot-3",
+                    fileName: "paywall.png",
+                    checksum: "checksum-3",
+                    assetDeliveryState: "PROCESSING"
+                )
+            ]
+        )
+
+        let status = ScreenshotUploadStatusBuilder().build(plan: plan, result: result)
+
+        #expect(status.deliveryCompleteCount == 1)
+        #expect(status.deliveryFailedCount == 1)
+        #expect(status.deliveryPendingCount == 1)
+        #expect(status.deliveryUnknownCount == 0)
+        #expect(status.deliveryFailedItemIDs == ["en-US:iOS:APP_IPHONE_67:2:settings.png"])
+        #expect(status.deliveryPendingItemIDs == ["en-US:iOS:APP_IPHONE_67:3:paywall.png"])
+        #expect(status.requiresRemoteRecovery)
+        #expect(status.readyForRetry == false)
+        #expect(status.findings.contains("Screenshot asset delivery failed for 1 uploaded item(s)."))
+        #expect(status.findings.contains("Screenshot asset delivery is still pending for 1 uploaded item(s)."))
+        #expect(status.nextActions.contains { $0.contains("upload-plan --replace-existing") })
+        #expect(status.nextActions.contains { $0.contains("Wait for App Store Connect screenshot processing") })
+    }
+
     @Test("summarizes screenshot locale and display type coverage")
     func summarizesScreenshotCoverage() {
         let plan = ScreenshotPlan(

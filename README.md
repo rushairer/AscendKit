@@ -592,7 +592,7 @@ Executes native screenshot upload through App Store Connect by optionally deleti
 If `screenshots upload-plan` has findings, execution refuses to proceed.
 Transient ASC and asset-upload requests are retried with bounded backoff. If one screenshot fails after execution starts, AscendKit records the failure in `failedItems` and continues with remaining screenshots when possible.
 After each commit, AscendKit polls `assetDeliveryState` for a bounded number of attempts and records both the final state and `assetDeliveryPollAttempts` for each uploaded screenshot.
-Use `screenshots upload-status` to summarize uploaded, failed, deleted, and retryable screenshot items without making network requests.
+Use `screenshots upload-status` to summarize uploaded, failed, deleted, retryable screenshot items, asset delivery states, pending processing, failed delivery, and remote recovery guidance without making network requests.
 
 ### `asc auth`
 
