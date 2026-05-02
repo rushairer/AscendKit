@@ -6,6 +6,7 @@ AscendKit follows [Semantic Versioning](https://semver.org/). During `0.y.z`, th
 
 ### Added
 
+- Workspace status, hygiene, gitignore, and list reports now include the generating AscendKit CLI version for agent handoff traceability.
 - Workspace next-step plans now include the generating AscendKit CLI version for agent recovery traceability.
 
 ## 0.25.0 - 2026-05-02

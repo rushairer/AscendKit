@@ -45,6 +45,7 @@ struct WorkspaceTests {
 
         let status = WorkspaceStatusReader().read(workspace: workspace)
 
+        #expect(status.ascendKitVersion == AscendKitVersion.current)
         #expect(status.steps.first { $0.id == "manifest" }?.state == .present)
         #expect(status.steps.first { $0.id == "metadata-source" }?.state == .present)
         #expect(status.steps.first { $0.id == "doctor" }?.state == .missing)
@@ -158,6 +159,7 @@ struct WorkspaceTests {
 
         let report = WorkspaceHygieneScanner().scan(workspace: workspace)
 
+        #expect(report.ascendKitVersion == AscendKitVersion.current)
         #expect(report.safeForPublicCommit == false)
         #expect(report.findings.contains { $0.id == "workspace.local-artifacts" })
         #expect(report.findings.contains { $0.id.hasPrefix("workspace.secret-key-file.") && $0.path == "asc/AuthKey_TEST.p8" })
@@ -180,6 +182,7 @@ struct WorkspaceTests {
         let guardrail = WorkspaceGitignoreGuard()
         let missingReport = try guardrail.check(workspace: workspace)
 
+        #expect(missingReport.ascendKitVersion == AscendKitVersion.current)
         #expect(missingReport.hasAscendKitRule == false)
         #expect(missingReport.changed == false)
         #expect(missingReport.projectRoot == root.url.standardizedFileURL.path)
@@ -304,6 +307,7 @@ struct WorkspaceTests {
 
         let list = WorkspaceLister().list(baseDirectory: root.url)
 
+        #expect(list.ascendKitVersion == AscendKitVersion.current)
         #expect(Set(list.releases.map(\.releaseID)) == ["demo-1", "demo-2"])
         #expect(list.releases.allSatisfy { $0.totalStepCount == 34 })
         #expect(list.releases.allSatisfy { $0.completeStepCount >= 2 })

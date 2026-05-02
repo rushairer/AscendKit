@@ -23,12 +23,20 @@ public struct WorkspaceStatus: Codable, Equatable, Sendable {
     public var releaseID: String
     public var root: String
     public var generatedAt: Date
+    public var ascendKitVersion: String?
     public var steps: [WorkspaceStepStatus]
 
-    public init(releaseID: String, root: String, generatedAt: Date = Date(), steps: [WorkspaceStepStatus]) {
+    public init(
+        releaseID: String,
+        root: String,
+        generatedAt: Date = Date(),
+        ascendKitVersion: String? = AscendKitVersion.current,
+        steps: [WorkspaceStepStatus]
+    ) {
         self.releaseID = releaseID
         self.root = root
         self.generatedAt = generatedAt
+        self.ascendKitVersion = ascendKitVersion
         self.steps = steps
     }
 
@@ -118,6 +126,7 @@ public struct WorkspaceHygieneFinding: Codable, Equatable, Identifiable, Sendabl
 
 public struct WorkspaceHygieneReport: Codable, Equatable, Sendable {
     public var generatedAt: Date
+    public var ascendKitVersion: String?
     public var releaseID: String
     public var root: String
     public var safeForPublicCommit: Bool
@@ -126,12 +135,14 @@ public struct WorkspaceHygieneReport: Codable, Equatable, Sendable {
 
     public init(
         generatedAt: Date = Date(),
+        ascendKitVersion: String? = AscendKitVersion.current,
         releaseID: String,
         root: String,
         findings: [WorkspaceHygieneFinding],
         nextActions: [String]
     ) {
         self.generatedAt = generatedAt
+        self.ascendKitVersion = ascendKitVersion
         self.releaseID = releaseID
         self.root = root
         self.findings = findings
@@ -142,6 +153,7 @@ public struct WorkspaceHygieneReport: Codable, Equatable, Sendable {
 
 public struct WorkspaceGitignoreReport: Codable, Equatable, Sendable {
     public var generatedAt: Date
+    public var ascendKitVersion: String?
     public var releaseID: String
     public var workspaceRoot: String
     public var projectRoot: String?
@@ -152,6 +164,7 @@ public struct WorkspaceGitignoreReport: Codable, Equatable, Sendable {
 
     public init(
         generatedAt: Date = Date(),
+        ascendKitVersion: String? = AscendKitVersion.current,
         releaseID: String,
         workspaceRoot: String,
         projectRoot: String?,
@@ -161,6 +174,7 @@ public struct WorkspaceGitignoreReport: Codable, Equatable, Sendable {
         nextActions: [String]
     ) {
         self.generatedAt = generatedAt
+        self.ascendKitVersion = ascendKitVersion
         self.releaseID = releaseID
         self.workspaceRoot = workspaceRoot
         self.projectRoot = projectRoot
@@ -1167,11 +1181,18 @@ public struct WorkspaceSummary: Codable, Equatable, Identifiable, Sendable {
 public struct WorkspaceList: Codable, Equatable, Sendable {
     public var baseDirectory: String
     public var generatedAt: Date
+    public var ascendKitVersion: String?
     public var releases: [WorkspaceSummary]
 
-    public init(baseDirectory: String, generatedAt: Date = Date(), releases: [WorkspaceSummary]) {
+    public init(
+        baseDirectory: String,
+        generatedAt: Date = Date(),
+        ascendKitVersion: String? = AscendKitVersion.current,
+        releases: [WorkspaceSummary]
+    ) {
         self.baseDirectory = baseDirectory
         self.generatedAt = generatedAt
+        self.ascendKitVersion = ascendKitVersion
         self.releases = releases
     }
 }

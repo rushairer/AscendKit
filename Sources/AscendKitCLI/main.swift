@@ -81,7 +81,10 @@ struct CLIRunner {
             let workspace = try loadWorkspace(from: args)
             let status = WorkspaceStatusReader(fileManager: fileManager).read(workspace: workspace)
             return try render(status, json: json) {
-                "Workspace \(status.releaseID): \(status.completeStepCount)/\(status.steps.count) step file(s) present"
+                [
+                    "Workspace \(status.releaseID): \(status.completeStepCount)/\(status.steps.count) step file(s) present",
+                    "AscendKit version: \(status.ascendKitVersion ?? "unknown")"
+                ].joined(separator: "\n")
             }
         case "summary":
             let workspace = try loadWorkspace(from: args)
@@ -146,11 +149,16 @@ struct CLIRunner {
             let list = WorkspaceLister(fileManager: fileManager).list(baseDirectory: root)
             return try render(list, json: json) {
                 if list.releases.isEmpty {
-                    return "No release workspaces found under \(root.path)"
+                    return [
+                        "No release workspaces found under \(root.path)",
+                        "AscendKit version: \(list.ascendKitVersion ?? "unknown")"
+                    ].joined(separator: "\n")
                 }
-                return list.releases.map {
+                return ([
+                    "AscendKit version: \(list.ascendKitVersion ?? "unknown")"
+                ] + list.releases.map {
                     "\($0.releaseID): \($0.completeStepCount)/\($0.totalStepCount) step file(s) present"
-                }.joined(separator: "\n")
+                }).joined(separator: "\n")
             }
         default:
             throw AscendKitError.invalidArguments("Usage: ascendkit workspace status|summary|hygiene|gitignore|export-summary|validate-handoff|next-steps|audit --workspace PATH [--json] OR ascendkit workspace list [--root PATH] [--json]")
@@ -180,6 +188,7 @@ struct CLIRunner {
     private func renderWorkspaceHygieneText(_ report: WorkspaceHygieneReport) -> String {
         var lines = [
             "Workspace hygiene: \(report.safeForPublicCommit ? "safe" : "not safe") for public commit",
+            "AscendKit version: \(report.ascendKitVersion ?? "unknown")",
             "Findings: \(report.findings.count)"
         ]
         if !report.findings.isEmpty {
@@ -198,6 +207,7 @@ struct CLIRunner {
     private func renderWorkspaceGitignoreText(_ report: WorkspaceGitignoreReport) -> String {
         var lines = [
             "Workspace gitignore: \(report.hasAscendKitRule ? "protected" : "missing .ascendkit/ rule")",
+            "AscendKit version: \(report.ascendKitVersion ?? "unknown")",
             "Changed: \(report.changed ? "yes" : "no")",
             "Project root: \(report.projectRoot ?? "unknown")",
             "Gitignore: \(report.gitignorePath ?? "unknown")"
