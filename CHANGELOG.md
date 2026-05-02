@@ -1,10 +1,17 @@
 # Changelog
 
-AscendKit follows [Semantic Versioning](https://semver.org/). During `0.y.z`, the project is usable but still evolving quickly; minor versions may introduce breaking workflow changes when needed, and patch versions are reserved for compatible fixes.
+AscendKit follows [Semantic Versioning](https://semver.org/). The `1.x` line keeps the documented v1 command surface stable; breaking workflow changes require a new major version.
 
 ## Unreleased
 
 No unreleased changes.
+
+## 1.0.0 - 2026-05-02
+
+### Changed
+
+- Declared the documented v1 command surface stable for the `1.x` release line.
+- Updated README status and release guidance from release-candidate hardening to v1 stable distribution.
 
 ## 0.35.0 - 2026-05-02
 

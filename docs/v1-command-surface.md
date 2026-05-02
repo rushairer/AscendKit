@@ -1,6 +1,6 @@
 # AscendKit v1 Command Surface
 
-This document defines the public command surface that should remain stable for `v1.0.0`.
+This document defines the public command surface that remains stable for `1.x`.
 
 Final release gates are tracked in `docs/v1-release-readiness.md`.
 
@@ -35,7 +35,7 @@ These command groups are expected to remain available through `v1.x`:
 - `submit`
 - `iap`
 
-Flag names used in README examples and `docs/agent-release-playbook.md` should be treated as v1-stable unless there is a clear safety reason to change them before `v1.0.0`.
+Flag names used in README examples and `docs/agent-release-playbook.md` should be treated as v1-stable. Breaking workflow changes require a new major version.
 
 ## Migration Compatibility Commands
 
@@ -50,9 +50,9 @@ They should remain documented as optional migration paths only. AscendKit must n
 
 `submit execute --confirm-remote-submission` is intentionally boundary-disabled. It records non-execution and tells the user to complete final submit-for-review manually in App Store Connect.
 
-Do not enable remote review submission execution before `v1.0.0`.
+Do not enable remote review submission execution in `1.x` without a deliberate scope change and explicit safety review.
 
-## Out-of-Scope for v1.0.0
+## Out-of-Scope for 1.x
 
 These remain out of scope:
 

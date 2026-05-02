@@ -5,7 +5,7 @@ import Testing
 struct CLISmokeTests {
     @Test("reports current semantic version")
     func reportsCurrentSemanticVersion() {
-        #expect(AscendKitVersion.current == "0.35.0")
+        #expect(AscendKitVersion.current == "1.0.0")
     }
 
     @Test("core JSON encoder produces sorted manifest output")
@@ -119,7 +119,8 @@ struct CLISmokeTests {
         #expect(playbook.contains("ascendKitVersion"))
         #expect(readme.contains("ascendKitVersion"))
         #expect(readme.contains("docs/v1-release-readiness.md"))
-        #expect(readme.contains("release-candidate hardening"))
+        #expect(readme.contains("v1 command surface is stable for `1.x`"))
+        #expect(!readme.contains("release-candidate hardening"))
         #expect(!readme.contains("Until AscendKit has a dedicated tap repository"))
         #expect(commandSurface.contains("`swift run ascendkit ...` is a contributor-only"))
         #expect(commandSurface.contains("docs/v1-release-readiness.md"))

@@ -6,9 +6,9 @@ The project is designed for AI-assisted release work without handing raw secrets
 
 ## Current Status
 
-Current documented release: `v0.35.0`.
+Current documented release: `v1.0.0`.
 
-AscendKit follows [Semantic Versioning](https://semver.org/). The current `0.y.z` line is usable and release-tested, and the project is in `v1.0.0` release-candidate hardening. Command groups documented in `docs/v1-command-surface.md` should now be treated as v1-stable unless a safety issue requires a final pre-1.0 change.
+AscendKit follows [Semantic Versioning](https://semver.org/). The v1 command surface is stable for `1.x`: breaking workflow changes require a new major version, while compatible commands, flags, diagnostics, and documentation can continue to evolve through minor releases.
 
 AscendKit has been used end-to-end on real iOS app release workflows covering local screenshot preparation, metadata, pricing, reviewer information, build selection, screenshot upload, and guarded App Review handoff. App Privacy publishing is currently documented as a boundary where Apple's IRIS endpoint may require App Store Connect UI or future Apple ID web-session support.
 
@@ -33,7 +33,7 @@ Out of scope for the current release:
 - Fully managed App Store Connect pricing/App Privacy abstractions for every Apple API edge case.
 - Broad remote screenshot lifecycle management beyond guarded replace-existing deletion.
 
-Final `v1.0.0` readiness is tracked in `docs/v1-release-readiness.md`.
+`v1.0.0` release readiness is tracked in `docs/v1-release-readiness.md`.
 
 ## Requirements
 
@@ -60,7 +60,7 @@ After installation, run `ascendkit` from any app project directory. User-facing 
 Alternative direct installer from a source checkout or release asset:
 
 ```bash
-scripts/install-ascendkit.sh --version 0.35.0
+scripts/install-ascendkit.sh --version 1.0.0
 ASCENDKIT_INSTALL_DIR=/usr/local/bin scripts/install-ascendkit.sh
 ```
 
@@ -69,12 +69,12 @@ The installer downloads the macOS arm64 release archive from GitHub Releases, ve
 Verify a published release before announcing it:
 
 ```bash
-scripts/verify-release-assets.sh --version 0.35.0
+scripts/verify-release-assets.sh --version 1.0.0
 ```
 
 The verifier checks for the expected GitHub Release assets and performs a temporary installer smoke test.
 
-Run the v1 representative app smoke against a local app project before a release candidate:
+Run the v1 representative app smoke against a local app project before a public release:
 
 ```bash
 scripts/v1-representative-app-smoke.sh --app-root /path/to/YourApp
@@ -95,9 +95,9 @@ Homebrew formula maintenance:
 
 ```bash
 scripts/update-homebrew-formula.sh
-scripts/verify-homebrew-formula.sh --version 0.35.0
+scripts/verify-homebrew-formula.sh --version 1.0.0
 scripts/sync-homebrew-tap.sh --commit --push
-scripts/v1-release-readiness.sh --version 0.35.0 --app-root /path/to/RepresentativeApp
+scripts/v1-release-readiness.sh --version 1.0.0 --app-root /path/to/RepresentativeApp
 ruby -c Formula/ascendkit.rb
 ```
 
@@ -904,7 +904,7 @@ Release checklist:
 9. Use `workspace export-summary --workspace "$WORKSPACE" --output FILE` when handing state to another agent instead of sharing `.ascendkit/`.
 10. Prefer small, deterministic command outputs that can be consumed by scripts and agents.
 11. After the GitHub Release workflow succeeds, run `scripts/update-homebrew-formula.sh` and `scripts/verify-homebrew-formula.sh --version VERSION`, then commit any formula checksum sync.
-12. Before tagging `v1.0.0`, complete `docs/v1-release-readiness.md`, run `scripts/preflight-public-release.sh`, verify Homebrew install from the published formula, and confirm this README's Current Status, command examples, safety boundaries, release checklist, and maintainer workflow match the tagged release.
+12. Before tagging any public release, complete the applicable gates in `docs/v1-release-readiness.md`, run `scripts/preflight-public-release.sh`, verify Homebrew install from the published formula, and confirm this README's Current Status, command examples, safety boundaries, release checklist, and maintainer workflow match the tagged release.
 13. Run `scripts/v1-representative-app-smoke.sh --app-root PATH` against a representative app using the installed Homebrew binary.
 14. Sync the dedicated Homebrew tap with `scripts/sync-homebrew-tap.sh --commit --push`, then verify `brew reinstall rushairer/ascendkit/ascendkit`.
 15. Run `scripts/v1-release-readiness.sh --version VERSION --app-root PATH` as the combined final v1 gate after the GitHub Release and tap are published.

@@ -36,4 +36,4 @@ This checklist defines the final gates before tagging `v1.0.0`.
 
 ## v1 Status Language
 
-Before the `v1.0.0` tag, README may describe the project as being in release-candidate hardening. At the `v1.0.0` tag, README should no longer describe command shapes as still evolving before `1.0.0`; it should describe the v1 command surface as stable for `1.x` except for SemVer-compatible additions.
+At the `v1.0.0` tag, README must describe the v1 command surface as stable for `1.x` except for SemVer-compatible additions. It must not describe command shapes as release-candidate hardening or still evolving before `1.0.0`.
