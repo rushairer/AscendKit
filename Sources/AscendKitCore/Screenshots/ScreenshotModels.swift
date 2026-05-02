@@ -372,6 +372,106 @@ public struct ScreenshotCaptureExecutionResult: Codable, Equatable, Sendable {
     }
 }
 
+public struct ScreenshotAttachmentImportResult: Equatable, Sendable {
+    public var importedFiles: [String]
+    public var findings: [String]
+
+    public init(importedFiles: [String] = [], findings: [String] = []) {
+        self.importedFiles = importedFiles
+        self.findings = findings
+    }
+}
+
+public struct ScreenshotAttachmentImporter {
+    public let fileManager: FileManager
+
+    public init(fileManager: FileManager = .default) {
+        self.fileManager = fileManager
+    }
+
+    public func `import`(exportedAttachmentsDirectory: URL, rawOutputDirectory: URL) throws -> ScreenshotAttachmentImportResult {
+        let manifestURL = exportedAttachmentsDirectory.appendingPathComponent("manifest.json")
+        guard fileManager.fileExists(atPath: manifestURL.path) else {
+            return ScreenshotAttachmentImportResult(findings: ["No xcresult attachment manifest was generated."])
+        }
+
+        let suites = try JSONDecoder().decode(
+            [XcresultAttachmentSuite].self,
+            from: Data(contentsOf: manifestURL)
+        )
+        let attachments = suites.flatMap(\.attachments).sorted { lhs, rhs in
+            lhs.timestamp < rhs.timestamp
+        }
+        try fileManager.createDirectory(at: rawOutputDirectory, withIntermediateDirectories: true)
+
+        var importedFiles: [String] = []
+        var usedNames = Set<String>()
+        for attachment in attachments {
+            let sourceURL = exportedAttachmentsDirectory.appendingPathComponent(attachment.exportedFileName)
+            guard fileManager.fileExists(atPath: sourceURL.path),
+                  let baseName = orderedScreenshotBaseName(from: attachment.suggestedHumanReadableName) else {
+                continue
+            }
+
+            let pathExtension = sourceURL.pathExtension.isEmpty ? "png" : sourceURL.pathExtension.lowercased()
+            let uniqueBaseName = uniqueName(baseName, used: &usedNames)
+            let destinationURL = rawOutputDirectory.appendingPathComponent("\(uniqueBaseName).\(pathExtension)")
+            if fileManager.fileExists(atPath: destinationURL.path) {
+                try fileManager.removeItem(at: destinationURL)
+            }
+            try fileManager.copyItem(at: sourceURL, to: destinationURL)
+            importedFiles.append(destinationURL.path)
+        }
+
+        let findings = importedFiles.isEmpty
+            ? ["No ordered screenshot attachments were found in xcresult. Name XCTest attachments like 01-home, 02-settings, etc."]
+            : []
+        return ScreenshotAttachmentImportResult(importedFiles: importedFiles.sorted(), findings: findings)
+    }
+
+    private func orderedScreenshotBaseName(from value: String) -> String? {
+        let stem = URL(fileURLWithPath: value).deletingPathExtension().lastPathComponent
+        let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-_"))
+        let prefix = String(stem.unicodeScalars.prefix { allowed.contains($0) })
+            .trimmingCharacters(in: CharacterSet(charactersIn: "-_"))
+        guard prefix.count >= 4 else { return nil }
+
+        let separatorIndex = prefix.index(prefix.startIndex, offsetBy: 2)
+        guard prefix.prefix(2).allSatisfy(\.isNumber),
+              prefix[separatorIndex] == "-" || prefix[separatorIndex] == "_" else {
+            return nil
+        }
+        let nameStart = prefix.index(after: separatorIndex)
+        let suffixStart = prefix[nameStart...].firstIndex(of: "_") ?? prefix.endIndex
+        let baseName = String(prefix[..<suffixStart])
+        return baseName.replacingOccurrences(of: "_", with: "-")
+    }
+
+    private func uniqueName(_ preferredName: String, used: inout Set<String>) -> String {
+        if used.insert(preferredName).inserted {
+            return preferredName
+        }
+        var index = 2
+        while true {
+            let candidate = "\(preferredName)-\(index)"
+            if used.insert(candidate).inserted {
+                return candidate
+            }
+            index += 1
+        }
+    }
+}
+
+private struct XcresultAttachmentSuite: Codable {
+    var attachments: [XcresultAttachment]
+}
+
+private struct XcresultAttachment: Codable {
+    var exportedFileName: String
+    var suggestedHumanReadableName: String
+    var timestamp: Double
+}
+
 public struct ScreenshotLocalWorkflowResult: Codable, Equatable, Sendable {
     public var generatedAt: Date
     public var succeeded: Bool
@@ -585,9 +685,12 @@ public struct ScreenshotCaptureExecutor {
         }
 
         let failed = items.filter { !$0.succeeded }
-        let findings = failed.map {
+        var findings = failed.map {
             "Capture command \($0.commandID) failed with exit code \($0.exitCode). See \($0.stderrLogPath ?? "stderr log")."
         }
+        findings.append(contentsOf: items.filter(\.succeeded).filter(\.outputFiles.isEmpty).map {
+            "Capture command \($0.commandID) completed but produced no screenshot files in \($0.rawOutputDirectory)."
+        })
         return ScreenshotCaptureExecutionResult(executed: true, items: items, findings: findings)
     }
 
@@ -614,6 +717,18 @@ public struct ScreenshotCaptureExecutor {
             exitCode = try runProcess(command: command.command, environment: command.environment, stdoutURL: stdoutURL, stderrURL: stderrURL)
         }
 
+        let rawOutputURL = URL(fileURLWithPath: command.rawOutputDirectory)
+        var outputFiles = imageFiles(in: rawOutputURL, modifiedSince: start).map(\.path)
+        if exitCode == 0 && outputFiles.isEmpty {
+            outputFiles = try importOrderedAttachmentsIfPresent(
+                resultBundleURL: resultBundleURL,
+                rawOutputDirectory: rawOutputURL,
+                logsDirectory: logsDirectory,
+                commandID: command.id,
+                modifiedSince: start
+            )
+        }
+
         return ScreenshotCaptureExecutionItem(
             commandID: command.id,
             locale: command.locale,
@@ -624,9 +739,55 @@ public struct ScreenshotCaptureExecutor {
             rawOutputDirectory: command.rawOutputDirectory,
             stdoutLogPath: stdoutURL.path,
             stderrLogPath: stderrURL.path,
-            outputFiles: imageFiles(in: URL(fileURLWithPath: command.rawOutputDirectory), modifiedSince: start).map(\.path),
+            outputFiles: outputFiles,
             durationSeconds: Date().timeIntervalSince(start)
         )
+    }
+
+    private func importOrderedAttachmentsIfPresent(
+        resultBundleURL: URL,
+        rawOutputDirectory: URL,
+        logsDirectory: URL,
+        commandID: String,
+        modifiedSince start: Date
+    ) throws -> [String] {
+        guard fileManager.fileExists(atPath: resultBundleURL.path) else {
+            return []
+        }
+
+        let attachmentsDirectory = logsDirectory.appendingPathComponent("\(safeFileName(commandID)).attachments")
+        if fileManager.fileExists(atPath: attachmentsDirectory.path) {
+            try fileManager.removeItem(at: attachmentsDirectory)
+        }
+        try fileManager.createDirectory(at: attachmentsDirectory, withIntermediateDirectories: true)
+
+        let exportExitCode = try runProcess(
+            command: [
+                "xcrun",
+                "xcresulttool",
+                "export",
+                "attachments",
+                "--path",
+                resultBundleURL.path,
+                "--output-path",
+                attachmentsDirectory.path
+            ],
+            environment: [:],
+            stdoutURL: logsDirectory.appendingPathComponent("\(safeFileName(commandID)).attachments.stdout.log"),
+            stderrURL: logsDirectory.appendingPathComponent("\(safeFileName(commandID)).attachments.stderr.log")
+        )
+        guard exportExitCode == 0 else {
+            return []
+        }
+
+        let result = try ScreenshotAttachmentImporter(fileManager: fileManager).import(
+            exportedAttachmentsDirectory: attachmentsDirectory,
+            rawOutputDirectory: rawOutputDirectory
+        )
+        guard result.findings.isEmpty else {
+            return []
+        }
+        return imageFiles(in: rawOutputDirectory, modifiedSince: start).map(\.path)
     }
 
     private func runProcess(command: [String], environment: [String: String], stdoutURL: URL, stderrURL: URL) throws -> Int32 {

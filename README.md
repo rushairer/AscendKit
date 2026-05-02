@@ -6,7 +6,7 @@ The project is designed for AI-assisted release work without handing raw secrets
 
 ## Current Status
 
-Current documented release: `v0.21.0`.
+Current documented release: `v0.22.0`.
 
 AscendKit follows [Semantic Versioning](https://semver.org/). The current `0.y.z` line is usable and release-tested, while minor versions may still refine command shapes before `1.0.0`.
 
@@ -58,7 +58,7 @@ After installation, run `ascendkit` from any app project directory. User-facing 
 Alternative direct installer from a source checkout or release asset:
 
 ```bash
-scripts/install-ascendkit.sh --version 0.21.0
+scripts/install-ascendkit.sh --version 0.22.0
 ASCENDKIT_INSTALL_DIR=/usr/local/bin scripts/install-ascendkit.sh
 ```
 
@@ -67,7 +67,7 @@ The installer downloads the macOS arm64 release archive from GitHub Releases, ve
 Verify a published release before announcing it:
 
 ```bash
-scripts/verify-release-assets.sh --version 0.21.0
+scripts/verify-release-assets.sh --version 0.22.0
 ```
 
 The verifier checks for the expected GitHub Release assets and performs a temporary installer smoke test.
@@ -85,7 +85,7 @@ Homebrew formula maintenance:
 
 ```bash
 scripts/update-homebrew-formula.sh
-scripts/verify-homebrew-formula.sh --version 0.21.0
+scripts/verify-homebrew-formula.sh --version 0.22.0
 ruby -c Formula/ascendkit.rb
 ```
 
@@ -431,11 +431,30 @@ ascendkit screenshots capture-plan \
 
 Writes `screenshots/manifests/capture-plan.json` with deterministic `xcodebuild test` commands, locale flags, result bundle paths, and `ASCENDKIT_SCREENSHOT_OUTPUT_DIR` environment values for UI tests. If `--destination` is omitted, AscendKit recommends an available local simulator. This is a local capture plan only; it does not mutate App Store Connect.
 
+UI tests can produce screenshots in either of two supported ways:
+
+```swift
+let screenshot = XCUIScreen.main.screenshot()
+
+// Preferred when the test runner receives AscendKit environment values.
+let outputURL = URL(fileURLWithPath: ProcessInfo.processInfo.environment["ASCENDKIT_SCREENSHOT_OUTPUT_DIR"]!)
+    .appendingPathComponent("01-home.png")
+try screenshot.pngRepresentation.write(to: outputURL, options: [.atomic])
+
+// Robust fallback: AscendKit also imports ordered XCTest attachments from .xcresult.
+let attachment = XCTAttachment(screenshot: screenshot)
+attachment.name = "01-home.png"
+attachment.lifetime = .keepAlways
+add(attachment)
+```
+
+Attachment names must start with an ordered screenshot stem such as `01-home`, `02-settings`, or `03-paywall`. AscendKit ignores generic attachments such as launch screenshots to avoid importing unrelated diagnostics.
+
 ```bash
 ascendkit screenshots capture --workspace "$WORKSPACE" --json
 ```
 
-Executes the saved capture plan locally, writes `screenshots/manifests/capture-result.json`, stores stdout/stderr logs under `screenshots/capture/logs`, and refreshes the screenshot import manifest when all capture commands succeed.
+Executes the saved capture plan locally, writes `screenshots/manifests/capture-result.json`, stores stdout/stderr logs under `screenshots/capture/logs`, imports ordered `.xcresult` attachments when the raw output directory is empty, and refreshes the screenshot import manifest when all capture commands succeed.
 
 ```bash
 ascendkit screenshots workflow run \

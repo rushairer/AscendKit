@@ -184,6 +184,51 @@ struct ScreenshotTests {
         #expect(FileManager.default.fileExists(atPath: result.items[0].stderrLogPath ?? ""))
     }
 
+    @Test("imports ordered xcresult screenshot attachments")
+    func importsOrderedXcresultScreenshotAttachments() throws {
+        let root = try TemporaryDirectory()
+        let attachmentsDirectory = root.url.appendingPathComponent("attachments")
+        let rawDirectory = root.url.appendingPathComponent("raw")
+        try FileManager.default.createDirectory(at: attachmentsDirectory, withIntermediateDirectories: true)
+        try Data("first".utf8).write(to: attachmentsDirectory.appendingPathComponent("A.png"))
+        try Data("ignored".utf8).write(to: attachmentsDirectory.appendingPathComponent("B.png"))
+        try Data("second".utf8).write(to: attachmentsDirectory.appendingPathComponent("C.png"))
+        let manifest = """
+        [
+          {
+            "attachments": [
+              {
+                "exportedFileName": "B.png",
+                "suggestedHumanReadableName": "Launch Screen.png",
+                "timestamp": 1
+              },
+              {
+                "exportedFileName": "C.png",
+                "suggestedHumanReadableName": "02_history_ABC.png",
+                "timestamp": 3
+              },
+              {
+                "exportedFileName": "A.png",
+                "suggestedHumanReadableName": "01-today_ABC.png",
+                "timestamp": 2
+              }
+            ]
+          }
+        ]
+        """
+        try Data(manifest.utf8).write(to: attachmentsDirectory.appendingPathComponent("manifest.json"))
+
+        let result = try ScreenshotAttachmentImporter().import(
+            exportedAttachmentsDirectory: attachmentsDirectory,
+            rawOutputDirectory: rawDirectory
+        )
+
+        #expect(result.findings.isEmpty)
+        #expect(result.importedFiles.map { URL(fileURLWithPath: $0).lastPathComponent } == ["01-today.png", "02-history.png"])
+        #expect(try String(contentsOf: rawDirectory.appendingPathComponent("01-today.png")) == "first")
+        #expect(try String(contentsOf: rawDirectory.appendingPathComponent("02-history.png")) == "second")
+    }
+
     @Test("serializes local screenshot workflow result")
     func serializesLocalScreenshotWorkflowResult() throws {
         let result = ScreenshotLocalWorkflowResult(

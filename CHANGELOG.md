@@ -6,6 +6,12 @@ AscendKit follows [Semantic Versioning](https://semver.org/). During `0.y.z`, th
 
 No unreleased changes.
 
+## 0.22.0 - 2026-05-02
+
+### Added
+
+- Screenshot capture now imports ordered `XCTAttachment` screenshots from `.xcresult` when UI tests complete without writing raw screenshot files directly.
+
 ## 0.21.0 - 2026-05-02
 
 ### Changed

@@ -19,6 +19,9 @@ Capture should rely on:
 - stable launch arguments and fixtures
 - explicit device and locale matrices
 - predictable output naming
+- ordered screenshot artifacts, either written to AscendKit's raw output directory or attached to XCTest as `01-home.png`, `02-settings.png`, etc.
+
+AscendKit should prefer direct raw screenshot files when the UI test runner receives `ASCENDKIT_SCREENSHOT_OUTPUT_DIR`. When that environment bridge is unavailable, it should import ordered `XCTAttachment` screenshots from the `.xcresult` bundle and ignore generic diagnostic attachments.
 
 ### 2.3 Separate capture from marketing composition
 Raw screenshots are one artifact class.
