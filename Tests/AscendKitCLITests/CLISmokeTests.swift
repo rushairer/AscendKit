@@ -32,7 +32,7 @@ struct CLISmokeTests {
         #expect(output.contains("https://github.com/rushairer/AscendKit/releases/tag/v9.8.7"))
         #expect(output.contains("brew tap rushairer/ascendkit"))
         #expect(output.contains("brew install ascendkit"))
-        #expect(output.contains("scripts/verify-release-assets.sh --version 9.8.7"))
+        #expect(output.contains("ascendkit --version && ascendkit version --json"))
     }
 
     @Test("README release version references stay aligned")

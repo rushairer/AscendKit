@@ -18,7 +18,7 @@ public struct AscendKitVersionReport: Codable, Equatable, Sendable {
         self.architecture = architecture
         self.releaseURL = "https://github.com/rushairer/AscendKit/releases/tag/v\(version)"
         self.installCommand = "brew tap rushairer/ascendkit https://github.com/rushairer/AscendKit && brew install ascendkit"
-        self.verifyCommand = "scripts/verify-release-assets.sh --version \(version)"
+        self.verifyCommand = "ascendkit --version && ascendkit version --json"
     }
 
     public static func currentArchitecture() -> String {

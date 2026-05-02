@@ -70,7 +70,7 @@ struct CLIRunner {
                 "Platform: \(report.platform) \(report.architecture)",
                 "Release: \(report.releaseURL)",
                 "Install: \(report.installCommand)",
-                "Verify release assets: \(report.verifyCommand)"
+                "Verify installed CLI: \(report.verifyCommand)"
             ].joined(separator: "\n")
         }
     }
