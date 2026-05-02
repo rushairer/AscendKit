@@ -74,6 +74,12 @@ struct CLIRunner {
             return try render(summary, json: json) {
                 renderReleaseWorkspaceSummaryText(summary)
             }
+        case "hygiene":
+            let workspace = try loadWorkspace(from: args)
+            let report = WorkspaceHygieneScanner(fileManager: fileManager).scan(workspace: workspace)
+            return try render(report, json: json) {
+                renderWorkspaceHygieneText(report)
+            }
         case "audit":
             let workspace = try loadWorkspace(from: args)
             let records = try AuditLogReader(fileManager: fileManager).read(workspace: workspace)
@@ -95,7 +101,7 @@ struct CLIRunner {
                 }.joined(separator: "\n")
             }
         default:
-            throw AscendKitError.invalidArguments("Usage: ascendkit workspace status|summary|audit --workspace PATH [--json] OR ascendkit workspace list [--root PATH] [--json]")
+            throw AscendKitError.invalidArguments("Usage: ascendkit workspace status|summary|hygiene|audit --workspace PATH [--json] OR ascendkit workspace list [--root PATH] [--json]")
         }
     }
 
@@ -115,6 +121,24 @@ struct CLIRunner {
             lines.append(contentsOf: summary.nextActions.map {
                 "- [\($0.severity.rawValue)] \($0.title): \($0.detail)"
             })
+        }
+        return lines.joined(separator: "\n")
+    }
+
+    private func renderWorkspaceHygieneText(_ report: WorkspaceHygieneReport) -> String {
+        var lines = [
+            "Workspace hygiene: \(report.safeForPublicCommit ? "safe" : "not safe") for public commit",
+            "Findings: \(report.findings.count)"
+        ]
+        if !report.findings.isEmpty {
+            lines.append("Finding(s):")
+            lines.append(contentsOf: report.findings.map {
+                "- [\($0.severity.rawValue)] \($0.path): \($0.reason)"
+            })
+        }
+        if !report.nextActions.isEmpty {
+            lines.append("Next action(s):")
+            lines.append(contentsOf: report.nextActions.map { "- \($0)" })
         }
         return lines.joined(separator: "\n")
     }
@@ -1946,6 +1970,7 @@ struct CLIRunner {
     Usage:
       ascendkit workspace status --workspace PATH [--json]
       ascendkit workspace summary --workspace PATH [--json]
+      ascendkit workspace hygiene --workspace PATH [--json]
       ascendkit workspace audit --workspace PATH [--json]
       ascendkit workspace list [--root PATH] [--json]
       ascendkit intake inspect [--root PATH] [--project PATH] [--workspace PATH] [--release-id ID] [--save] [--json]

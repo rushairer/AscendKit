@@ -138,6 +138,33 @@ struct WorkspaceTests {
         #expect(summary.nextActions.contains { $0.id.hasPrefix("screenshots.coverage.finding.") })
     }
 
+    @Test("scans workspace hygiene without exposing contents")
+    func scansWorkspaceHygiene() throws {
+        let root = try TemporaryDirectory()
+        let store = ReleaseWorkspaceStore()
+        let workspace = try store.createWorkspace(
+            baseDirectory: root.url,
+            manifest: ReleaseManifest(releaseID: "hygiene-demo", appSlug: "demo", projects: [], targets: [])
+        )
+        let keyURL = URL(fileURLWithPath: workspace.paths.root)
+            .appendingPathComponent("asc/AuthKey_TEST.p8")
+        try FileManager.default.createDirectory(at: keyURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try "-----BEGIN PRIVATE KEY-----\nfixture\n-----END PRIVATE KEY-----".write(to: keyURL, atomically: true, encoding: .utf8)
+        let screenshotURL = URL(fileURLWithPath: workspace.paths.root)
+            .appendingPathComponent("screenshots/output/home.png")
+        try FileManager.default.createDirectory(at: screenshotURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data([0x89, 0x50, 0x4E, 0x47]).write(to: screenshotURL)
+
+        let report = WorkspaceHygieneScanner().scan(workspace: workspace)
+
+        #expect(report.safeForPublicCommit == false)
+        #expect(report.findings.contains { $0.id == "workspace.local-artifacts" })
+        #expect(report.findings.contains { $0.id.hasPrefix("workspace.secret-key-file.") && $0.path == "asc/AuthKey_TEST.p8" })
+        #expect(report.findings.contains { $0.id.hasPrefix("workspace.sensitive-content.") && $0.path == "asc/AuthKey_TEST.p8" })
+        #expect(report.findings.contains { $0.id.hasPrefix("workspace.screenshot-artifact.") && $0.path == "screenshots/output/home.png" })
+        #expect(report.findings.allSatisfy { !$0.reason.contains("fixture") })
+    }
+
     @Test("lists release workspaces under a project root")
     func listsReleaseWorkspaces() throws {
         let root = try TemporaryDirectory()

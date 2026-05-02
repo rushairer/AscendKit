@@ -97,6 +97,211 @@ public struct WorkspaceStatusReader {
     }
 }
 
+public enum WorkspaceHygieneSeverity: String, Codable, Equatable, Sendable {
+    case warning
+    case blocker
+}
+
+public struct WorkspaceHygieneFinding: Codable, Equatable, Identifiable, Sendable {
+    public var id: String
+    public var severity: WorkspaceHygieneSeverity
+    public var path: String
+    public var reason: String
+
+    public init(id: String, severity: WorkspaceHygieneSeverity, path: String, reason: String) {
+        self.id = id
+        self.severity = severity
+        self.path = path
+        self.reason = reason
+    }
+}
+
+public struct WorkspaceHygieneReport: Codable, Equatable, Sendable {
+    public var generatedAt: Date
+    public var releaseID: String
+    public var root: String
+    public var safeForPublicCommit: Bool
+    public var findings: [WorkspaceHygieneFinding]
+    public var nextActions: [String]
+
+    public init(
+        generatedAt: Date = Date(),
+        releaseID: String,
+        root: String,
+        findings: [WorkspaceHygieneFinding],
+        nextActions: [String]
+    ) {
+        self.generatedAt = generatedAt
+        self.releaseID = releaseID
+        self.root = root
+        self.findings = findings
+        self.safeForPublicCommit = findings.contains { $0.severity == .blocker } == false
+        self.nextActions = nextActions
+    }
+}
+
+public struct WorkspaceHygieneScanner {
+    public let fileManager: FileManager
+
+    public init(fileManager: FileManager = .default) {
+        self.fileManager = fileManager
+    }
+
+    public func scan(workspace: ReleaseWorkspace) -> WorkspaceHygieneReport {
+        let rootURL = URL(fileURLWithPath: workspace.paths.root)
+        let files = workspaceFiles(rootURL: rootURL)
+        var findings: [WorkspaceHygieneFinding] = [
+            WorkspaceHygieneFinding(
+                id: "workspace.local-artifacts",
+                severity: .blocker,
+                path: relativePath(rootURL.path, root: rootURL),
+                reason: "Release workspaces contain release-specific local state and should not be committed."
+            )
+        ]
+
+        for file in files {
+            let relative = relativePath(file.path, root: rootURL)
+            findings.append(contentsOf: pathFindings(relativePath: relative))
+            findings.append(contentsOf: contentFindings(fileURL: file, relativePath: relative))
+        }
+
+        return WorkspaceHygieneReport(
+            releaseID: workspace.releaseID,
+            root: workspace.paths.root,
+            findings: deduplicated(findings).sorted { $0.id < $1.id },
+            nextActions: [
+                "Keep .ascendkit/ out of git and public archives.",
+                "Share sanitized command output or workspace summary instead of raw workspace files.",
+                "Store ASC keys outside repositories and reference them through env, file, or keychain providers."
+            ]
+        )
+    }
+
+    private func workspaceFiles(rootURL: URL) -> [URL] {
+        guard let enumerator = fileManager.enumerator(
+            at: rootURL,
+            includingPropertiesForKeys: [.isRegularFileKey],
+            options: []
+        ) else {
+            return []
+        }
+        return enumerator.compactMap { item in
+            guard let url = item as? URL,
+                  (try? url.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile) == true else {
+                return nil
+            }
+            return url
+        }
+    }
+
+    private func pathFindings(relativePath: String) -> [WorkspaceHygieneFinding] {
+        var findings: [WorkspaceHygieneFinding] = []
+        let lowercased = relativePath.lowercased()
+        if lowercased.hasSuffix(".p8") || lowercased.hasSuffix(".pem") || lowercased.hasSuffix(".key") {
+            findings.append(.init(
+                id: "workspace.secret-key-file.\(stableID(relativePath))",
+                severity: .blocker,
+                path: relativePath,
+                reason: "Potential private key file found in the workspace."
+            ))
+        }
+        if lowercased.hasPrefix("review/") {
+            findings.append(.init(
+                id: "workspace.review-artifact.\(stableID(relativePath))",
+                severity: .blocker,
+                path: relativePath,
+                reason: "Review artifacts can contain reviewer contact, access notes, or submission state."
+            ))
+        }
+        if lowercased.hasPrefix("screenshots/") && isImagePath(lowercased) {
+            findings.append(.init(
+                id: "workspace.screenshot-artifact.\(stableID(relativePath))",
+                severity: .blocker,
+                path: relativePath,
+                reason: "Screenshot image artifacts can contain unreleased product or user data."
+            ))
+        }
+        if lowercased == "asc/auth.json" {
+            findings.append(.init(
+                id: "workspace.asc-auth-config",
+                severity: .blocker,
+                path: relativePath,
+                reason: "ASC auth config should contain references only, but still reveals key identifiers and provider paths."
+            ))
+        }
+        if lowercased.hasPrefix("asc/") {
+            findings.append(.init(
+                id: "workspace.asc-state.\(stableID(relativePath))",
+                severity: .warning,
+                path: relativePath,
+                reason: "ASC state files can reveal app identifiers, build IDs, metadata, pricing, or App Privacy state."
+            ))
+        }
+        return findings
+    }
+
+    private func contentFindings(fileURL: URL, relativePath: String) -> [WorkspaceHygieneFinding] {
+        guard let data = try? Data(contentsOf: fileURL),
+              data.count <= 1_000_000,
+              let content = String(data: data, encoding: .utf8) else {
+            return []
+        }
+        let sensitiveMarkers = [
+            "BEGIN PRIVATE KEY",
+            "BEGIN EC PRIVATE KEY",
+            "BEGIN OPENSSH PRIVATE KEY",
+            "PRIVATE KEY",
+            "bearer "
+        ]
+        guard sensitiveMarkers.contains(where: { content.localizedCaseInsensitiveContains($0) }) else {
+            return []
+        }
+        return [
+            WorkspaceHygieneFinding(
+                id: "workspace.sensitive-content.\(stableID(relativePath))",
+                severity: .blocker,
+                path: relativePath,
+                reason: "Potential plaintext secret material was detected by marker scan."
+            )
+        ]
+    }
+
+    private func relativePath(_ path: String, root: URL) -> String {
+        let rootPath = root.standardizedFileURL.path
+        let standardizedPath = URL(fileURLWithPath: path).standardizedFileURL.path
+        guard standardizedPath.hasPrefix(rootPath) else {
+            return path
+        }
+        let remainder = String(standardizedPath.dropFirst(rootPath.count))
+        return remainder.trimmingCharacters(in: CharacterSet(charactersIn: "/")).isEmpty
+            ? "."
+            : remainder.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+    }
+
+    private func isImagePath(_ path: String) -> Bool {
+        [".png", ".jpg", ".jpeg", ".heic", ".tif", ".tiff", ".webp"].contains { path.hasSuffix($0) }
+    }
+
+    private func deduplicated(_ findings: [WorkspaceHygieneFinding]) -> [WorkspaceHygieneFinding] {
+        var seen = Set<String>()
+        return findings.filter { seen.insert($0.id).inserted }
+    }
+
+    private func stableID(_ value: String) -> String {
+        value
+            .lowercased()
+            .map { character in
+                character.isLetter || character.isNumber ? character : "-"
+            }
+            .reduce(into: "") { result, character in
+                if character != "-" || result.last != "-" {
+                    result.append(character)
+                }
+            }
+            .trimmingCharacters(in: CharacterSet(charactersIn: "-"))
+    }
+}
+
 public enum ReleaseActionSeverity: String, Codable, Equatable, Sendable {
     case info
     case warning

@@ -257,9 +257,10 @@ Inspect existing release workspace state.
 swift run ascendkit workspace status --workspace "$WORKSPACE"
 swift run ascendkit workspace status --workspace "$WORKSPACE" --json
 swift run ascendkit workspace summary --workspace "$WORKSPACE" --json
+swift run ascendkit workspace hygiene --workspace "$WORKSPACE" --json
 ```
 
-`workspace status` shows which expected files exist, such as manifest, metadata, screenshots, ASC auth, readiness, and review artifacts. `workspace summary` reads the persisted release artifacts and emits final readiness state plus deduplicated next actions for agents.
+`workspace status` shows which expected files exist, such as manifest, metadata, screenshots, ASC auth, readiness, and review artifacts. `workspace summary` reads the persisted release artifacts and emits final readiness state plus deduplicated next actions for agents. `workspace hygiene` checks whether the local workspace contains release artifacts or potential secrets that must not be committed.
 
 ```bash
 swift run ascendkit workspace audit --workspace "$WORKSPACE"
