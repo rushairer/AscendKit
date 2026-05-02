@@ -6,6 +6,7 @@ AscendKit follows [Semantic Versioning](https://semver.org/). During `0.y.z`, th
 
 ### Added
 
+- Screenshot workflow and upload status reports now include the generating AscendKit CLI version for screenshot release traceability.
 - Submission readiness, preparation, review-plan, handoff, and execution-result reports now include the generating AscendKit CLI version for review workflow traceability.
 
 ## 0.27.0 - 2026-05-02

@@ -311,6 +311,7 @@ struct ScreenshotTests {
         )
 
         #expect(report.readyForUploadPlan)
+        #expect(report.ascendKitVersion == AscendKitVersion.current)
         #expect(report.steps.map(\.state).allSatisfy { $0 == .complete })
         #expect(report.steps.contains { $0.id == "copy-lint" })
         #expect(report.findings.isEmpty)
@@ -358,6 +359,7 @@ struct ScreenshotTests {
         let status = ScreenshotUploadStatusBuilder().build(plan: plan, result: result)
 
         #expect(status.plannedCount == 2)
+        #expect(status.ascendKitVersion == AscendKitVersion.current)
         #expect(status.executed == true)
         #expect(status.uploadedCount == 1)
         #expect(status.failedCount == 1)

@@ -694,12 +694,13 @@ struct CLIRunner {
         let header = status.readyForUploadPlan
             ? "Screenshot workflow ready for upload-plan."
             : "Screenshot workflow is not ready for upload-plan."
+        let version = "AscendKit version: \(status.ascendKitVersion ?? "unknown")"
         let stepLines = status.steps.map { "\($0.id): \($0.state.rawValue)\($0.detail.map { " (\($0))" } ?? "")" }
         guard !status.findings.isEmpty else {
-            return ([header] + stepLines).joined(separator: "\n")
+            return ([header, version] + stepLines).joined(separator: "\n")
         }
         let findingLines = status.findings.map { "- \($0)" }
-        return ([header] + stepLines + ["Workflow finding(s):"] + findingLines).joined(separator: "\n")
+        return ([header, version] + stepLines + ["Workflow finding(s):"] + findingLines).joined(separator: "\n")
     }
 
     private func renderScreenshotUploadPlanText(_ plan: ScreenshotUploadPlan) -> String {
@@ -726,6 +727,7 @@ struct CLIRunner {
     private func renderScreenshotUploadStatusText(_ status: ScreenshotUploadStatusReport) -> String {
         var lines = [
             "Screenshot upload status: \(status.uploadedCount) uploaded, \(status.failedCount) failed, \(status.deletedCount) deleted",
+            "AscendKit version: \(status.ascendKitVersion ?? "unknown")",
             "Planned screenshots: \(status.plannedCount.map(String.init) ?? "unknown")",
             "Executed: \(status.executed.map { $0 ? "yes" : "no" } ?? "unknown")",
             "Ready for retry: \(status.readyForRetry ? "yes" : "no")"

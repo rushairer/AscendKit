@@ -539,16 +539,19 @@ public struct ScreenshotWorkflowStepStatus: Codable, Equatable, Identifiable, Se
 
 public struct ScreenshotWorkflowStatusReport: Codable, Equatable, Sendable {
     public var generatedAt: Date
+    public var ascendKitVersion: String?
     public var readyForUploadPlan: Bool
     public var steps: [ScreenshotWorkflowStepStatus]
     public var findings: [String]
 
     public init(
         generatedAt: Date = Date(),
+        ascendKitVersion: String? = AscendKitVersion.current,
         steps: [ScreenshotWorkflowStepStatus],
         findings: [String] = []
     ) {
         self.generatedAt = generatedAt
+        self.ascendKitVersion = ascendKitVersion
         self.steps = steps
         self.findings = findings
         self.readyForUploadPlan = steps.allSatisfy { $0.state == .complete } && findings.isEmpty
@@ -1666,6 +1669,7 @@ public struct ScreenshotUploadFailure: Codable, Equatable, Identifiable, Sendabl
 
 public struct ScreenshotUploadStatusReport: Codable, Equatable, Sendable {
     public var generatedAt: Date
+    public var ascendKitVersion: String?
     public var plannedCount: Int?
     public var executed: Bool?
     public var uploadedCount: Int
@@ -1678,6 +1682,7 @@ public struct ScreenshotUploadStatusReport: Codable, Equatable, Sendable {
 
     public init(
         generatedAt: Date = Date(),
+        ascendKitVersion: String? = AscendKitVersion.current,
         plannedCount: Int?,
         executed: Bool?,
         uploadedCount: Int,
@@ -1689,6 +1694,7 @@ public struct ScreenshotUploadStatusReport: Codable, Equatable, Sendable {
         nextActions: [String]
     ) {
         self.generatedAt = generatedAt
+        self.ascendKitVersion = ascendKitVersion
         self.plannedCount = plannedCount
         self.executed = executed
         self.uploadedCount = uploadedCount
