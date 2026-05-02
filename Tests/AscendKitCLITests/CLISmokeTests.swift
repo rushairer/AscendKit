@@ -99,6 +99,7 @@ struct CLISmokeTests {
         let commandSurface = try String(contentsOfFile: "docs/v1-command-surface.md", encoding: .utf8)
         let automationBoundaries = try String(contentsOfFile: "docs/automation-boundaries.md", encoding: .utf8)
         let architecture = try String(contentsOfFile: "docs/architecture.md", encoding: .utf8)
+        let releaseReadiness = try String(contentsOfFile: "docs/v1-release-readiness.md", encoding: .utf8)
         let requiredFragments = [
             "workspace summary",
             "workspace hygiene",
@@ -116,11 +117,17 @@ struct CLISmokeTests {
         #expect(playbook.contains("brew install ascendkit"))
         #expect(playbook.contains("ascendKitVersion"))
         #expect(readme.contains("ascendKitVersion"))
+        #expect(readme.contains("docs/v1-release-readiness.md"))
+        #expect(readme.contains("release-candidate hardening"))
         #expect(commandSurface.contains("`swift run ascendkit ...` is a contributor-only"))
+        #expect(commandSurface.contains("docs/v1-release-readiness.md"))
         #expect(commandSurface.contains("metadata import-fastlane"))
         #expect(commandSurface.contains("submit execute --confirm-remote-submission"))
+        #expect(releaseReadiness.contains("Remote review submission execution remains boundary-disabled."))
+        #expect(releaseReadiness.contains("Fastlane commands remain migration helpers only"))
+        #expect(releaseReadiness.contains("Homebrew reinstall from the synced formula reports the tagged version"))
 
-        let v1Docs = [readme, playbook, commandSurface, automationBoundaries, architecture]
+        let v1Docs = [readme, playbook, commandSurface, automationBoundaries, architecture, releaseReadiness]
         let retiredCommandFragments = [
             "metadata sync",
             "submit review --",

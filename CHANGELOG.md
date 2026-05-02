@@ -4,7 +4,9 @@ AscendKit follows [Semantic Versioning](https://semver.org/). During `0.y.z`, th
 
 ## Unreleased
 
-No unreleased changes.
+### Added
+
+- Added a v1 release-readiness checklist and tightened README status language around v1 command-surface hardening.
 
 ## 0.31.0 - 2026-05-02
 

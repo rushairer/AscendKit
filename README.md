@@ -8,7 +8,7 @@ The project is designed for AI-assisted release work without handing raw secrets
 
 Current documented release: `v0.31.0`.
 
-AscendKit follows [Semantic Versioning](https://semver.org/). The current `0.y.z` line is usable and release-tested, while minor versions may still refine command shapes before `1.0.0`.
+AscendKit follows [Semantic Versioning](https://semver.org/). The current `0.y.z` line is usable and release-tested, and the project is in `v1.0.0` release-candidate hardening. Command groups documented in `docs/v1-command-surface.md` should now be treated as v1-stable unless a safety issue requires a final pre-1.0 change.
 
 AscendKit has been used end-to-end on real iOS app release workflows covering local screenshot preparation, metadata, pricing, reviewer information, build selection, screenshot upload, and guarded App Review handoff. App Privacy publishing is currently documented as a boundary where Apple's IRIS endpoint may require App Store Connect UI or future Apple ID web-session support.
 
@@ -32,6 +32,8 @@ Out of scope for the current release:
 - Deep MCP integration.
 - Fully managed App Store Connect pricing/App Privacy abstractions for every Apple API edge case.
 - Broad remote screenshot lifecycle management beyond guarded replace-existing deletion.
+
+Final `v1.0.0` readiness is tracked in `docs/v1-release-readiness.md`.
 
 ## Requirements
 
@@ -892,7 +894,7 @@ Release checklist:
 9. Use `workspace export-summary --workspace "$WORKSPACE" --output FILE` when handing state to another agent instead of sharing `.ascendkit/`.
 10. Prefer small, deterministic command outputs that can be consumed by scripts and agents.
 11. After the GitHub Release workflow succeeds, run `scripts/update-homebrew-formula.sh` and `scripts/verify-homebrew-formula.sh --version VERSION`, then commit any formula checksum sync.
-12. Before tagging `v1.0.0`, run `scripts/preflight-public-release.sh`, verify Homebrew install from the published formula, and confirm this README's Current Status, command examples, safety boundaries, release checklist, and maintainer workflow match the tagged release.
+12. Before tagging `v1.0.0`, complete `docs/v1-release-readiness.md`, run `scripts/preflight-public-release.sh`, verify Homebrew install from the published formula, and confirm this README's Current Status, command examples, safety boundaries, release checklist, and maintainer workflow match the tagged release.
 
 GitHub Actions:
 

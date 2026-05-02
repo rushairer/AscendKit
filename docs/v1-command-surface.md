@@ -2,6 +2,8 @@
 
 This document defines the public command surface that should remain stable for `v1.0.0`.
 
+Final release gates are tracked in `docs/v1-release-readiness.md`.
+
 ## Install and Runtime Assumption
 
 Normal users and release agents should run the installed binary:
