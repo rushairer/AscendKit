@@ -224,6 +224,34 @@ struct WorkspaceTests {
         #expect(!exportedText.contains(root.url.standardizedFileURL.path))
     }
 
+    @Test("validates agent handoff separately from release readiness")
+    func validatesAgentHandoff() throws {
+        let root = try TemporaryDirectory()
+        let store = ReleaseWorkspaceStore()
+        let workspace = try store.createWorkspace(
+            baseDirectory: root.url,
+            manifest: ReleaseManifest(releaseID: "handoff-demo", appSlug: "demo", projects: [], targets: [])
+        )
+
+        let blocked = try HandoffValidator().validate(workspace: workspace)
+
+        #expect(blocked.readyForAgentHandoff == false)
+        #expect(blocked.releaseBlockerCount > 0)
+        #expect(blocked.items.contains { $0.id == "workspace.gitignore.missing" && $0.severity == .blocker })
+        #expect(blocked.items.contains { $0.id == "release.blockers.present" && $0.severity == .warning })
+
+        _ = try WorkspaceGitignoreGuard().check(workspace: workspace, fix: true)
+        let exportURL = root.url.appendingPathComponent("handoff/export.json")
+        let ready = try HandoffValidator().validate(workspace: workspace, exportURL: exportURL)
+
+        #expect(ready.readyForAgentHandoff == true)
+        #expect(ready.releaseBlockerCount > 0)
+        #expect(ready.sanitizedExportPath == "export.json")
+        #expect(ready.items.contains { $0.id == "workspace.export-summary.generated" && $0.severity == .pass })
+        #expect(ready.items.contains { $0.id == "release.blockers.present" && $0.severity == .warning })
+        #expect(FileManager.default.fileExists(atPath: exportURL.path))
+    }
+
     @Test("lists release workspaces under a project root")
     func listsReleaseWorkspaces() throws {
         let root = try TemporaryDirectory()

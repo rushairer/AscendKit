@@ -4,7 +4,9 @@ AscendKit follows [Semantic Versioning](https://semver.org/). During `0.y.z`, th
 
 ## Unreleased
 
-No unreleased changes.
+### Added
+
+- `workspace validate-handoff --workspace PATH [--export FILE] [--json]` validates whether another agent can safely take over a release workspace, while keeping release blockers separate from handoff blockers.
 
 ## 0.9.0 - 2026-05-02
 

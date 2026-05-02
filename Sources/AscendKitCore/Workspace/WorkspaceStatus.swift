@@ -385,6 +385,195 @@ public struct SanitizedWorkspaceSummaryExporter {
     }
 }
 
+public enum HandoffValidationSeverity: String, Codable, Equatable, Sendable {
+    case pass
+    case warning
+    case blocker
+}
+
+public struct HandoffValidationItem: Codable, Equatable, Identifiable, Sendable {
+    public var id: String
+    public var title: String
+    public var severity: HandoffValidationSeverity
+    public var detail: String
+    public var nextAction: String?
+
+    public init(
+        id: String,
+        title: String,
+        severity: HandoffValidationSeverity,
+        detail: String,
+        nextAction: String? = nil
+    ) {
+        self.id = id
+        self.title = title
+        self.severity = severity
+        self.detail = detail
+        self.nextAction = nextAction
+    }
+}
+
+public struct HandoffValidationReport: Codable, Equatable, Sendable {
+    public var generatedAt: Date
+    public var releaseID: String
+    public var readyForAgentHandoff: Bool
+    public var releaseBlockerCount: Int
+    public var releaseWarningCount: Int
+    public var sanitizedExportPath: String?
+    public var items: [HandoffValidationItem]
+
+    public init(
+        generatedAt: Date = Date(),
+        releaseID: String,
+        readyForAgentHandoff: Bool,
+        releaseBlockerCount: Int,
+        releaseWarningCount: Int,
+        sanitizedExportPath: String?,
+        items: [HandoffValidationItem]
+    ) {
+        self.generatedAt = generatedAt
+        self.releaseID = releaseID
+        self.readyForAgentHandoff = readyForAgentHandoff
+        self.releaseBlockerCount = releaseBlockerCount
+        self.releaseWarningCount = releaseWarningCount
+        self.sanitizedExportPath = sanitizedExportPath
+        self.items = items
+    }
+}
+
+public struct HandoffValidator {
+    public let fileManager: FileManager
+
+    public init(fileManager: FileManager = .default) {
+        self.fileManager = fileManager
+    }
+
+    public func validate(workspace: ReleaseWorkspace, exportURL: URL? = nil) throws -> HandoffValidationReport {
+        let status = WorkspaceStatusReader(fileManager: fileManager).read(workspace: workspace)
+        let summary = ReleaseWorkspaceSummaryReader(fileManager: fileManager).read(workspace: workspace)
+        let hygiene = WorkspaceHygieneScanner(fileManager: fileManager).scan(workspace: workspace)
+        let gitignore = try WorkspaceGitignoreGuard(fileManager: fileManager).check(workspace: workspace)
+        var sanitizedExportPath: String?
+        var items: [HandoffValidationItem] = []
+
+        if status.steps.contains(where: { $0.id == "manifest" && $0.state == .present }) {
+            items.append(.init(
+                id: "workspace.manifest.present",
+                title: "Workspace manifest exists",
+                severity: .pass,
+                detail: "The release workspace can be loaded by another agent."
+            ))
+        } else {
+            items.append(.init(
+                id: "workspace.manifest.missing",
+                title: "Workspace manifest is missing",
+                severity: .blocker,
+                detail: "The release workspace is incomplete.",
+                nextAction: "Run intake inspect --save or recreate the workspace before handoff."
+            ))
+        }
+
+        if gitignore.hasAscendKitRule {
+            items.append(.init(
+                id: "workspace.gitignore.protected",
+                title: ".ascendkit is ignored",
+                severity: .pass,
+                detail: "The app repository is configured to keep release workspace artifacts out of git."
+            ))
+        } else {
+            items.append(.init(
+                id: "workspace.gitignore.missing",
+                title: ".ascendkit is not ignored",
+                severity: .blocker,
+                detail: "The app repository can accidentally commit local release artifacts.",
+                nextAction: "Run workspace gitignore --workspace PATH --fix."
+            ))
+        }
+
+        if hygiene.findings.contains(where: { $0.id.hasPrefix("workspace.sensitive-content.") || $0.id.hasPrefix("workspace.secret-key-file.") }) {
+            items.append(.init(
+                id: "workspace.secrets.detected",
+                title: "Potential secret material detected",
+                severity: .blocker,
+                detail: "Workspace hygiene found private-key-like paths or content markers.",
+                nextAction: "Run workspace hygiene --workspace PATH and remove secret material from the workspace."
+            ))
+        } else {
+            items.append(.init(
+                id: "workspace.secrets.not-detected",
+                title: "No plaintext secret markers detected",
+                severity: .pass,
+                detail: "Workspace hygiene did not find private-key files or plaintext secret markers."
+            ))
+        }
+
+        if hygiene.safeForPublicCommit {
+            items.append(.init(
+                id: "workspace.raw-sharing.unexpectedly-safe",
+                title: "Raw workspace sharing policy needs review",
+                severity: .warning,
+                detail: "The raw workspace did not produce blocker hygiene findings.",
+                nextAction: "Prefer workspace export-summary for handoff; do not share raw workspace files unless reviewed."
+            ))
+        } else {
+            items.append(.init(
+                id: "workspace.raw-sharing.blocked",
+                title: "Raw workspace is marked non-public",
+                severity: .pass,
+                detail: "The handoff should use sanitized output instead of raw .ascendkit files."
+            ))
+        }
+
+        if let exportURL {
+            let export = try SanitizedWorkspaceSummaryExporter(fileManager: fileManager).export(workspace: workspace, outputURL: exportURL)
+            sanitizedExportPath = export.exportPath
+            items.append(.init(
+                id: "workspace.export-summary.generated",
+                title: "Sanitized export generated",
+                severity: .pass,
+                detail: "A status-only handoff export was written.",
+                nextAction: export.exportPath
+            ))
+        } else {
+            items.append(.init(
+                id: "workspace.export-summary.not-requested",
+                title: "Sanitized export was not generated",
+                severity: .warning,
+                detail: "The validation report is safe to read, but a standalone export is easier to hand to another agent.",
+                nextAction: "Rerun with --export FILE or run workspace export-summary --workspace PATH --output FILE."
+            ))
+        }
+
+        let releaseBlockers = summary.nextActions.filter { $0.severity == .blocker }
+        let releaseWarnings = summary.nextActions.filter { $0.severity == .warning }
+        if releaseBlockers.isEmpty {
+            items.append(.init(
+                id: "release.blockers.none",
+                title: "No release blockers in workspace summary",
+                severity: .pass,
+                detail: "The receiving agent can proceed toward handoff or review submission checks."
+            ))
+        } else {
+            items.append(.init(
+                id: "release.blockers.present",
+                title: "Release blockers remain",
+                severity: .warning,
+                detail: "\(releaseBlockers.count) release blocker(s) remain in workspace summary.",
+                nextAction: "Run workspace summary --workspace PATH --json and resolve nextActions before App Review submission."
+            ))
+        }
+
+        return HandoffValidationReport(
+            releaseID: workspace.releaseID,
+            readyForAgentHandoff: items.contains { $0.severity == .blocker } == false,
+            releaseBlockerCount: releaseBlockers.count,
+            releaseWarningCount: releaseWarnings.count,
+            sanitizedExportPath: sanitizedExportPath,
+            items: items
+        )
+    }
+}
+
 public struct WorkspaceHygieneScanner {
     public let fileManager: FileManager
 

@@ -101,6 +101,16 @@ struct CLIRunner {
             return try render(report, json: json) {
                 renderSanitizedWorkspaceSummaryExportText(report)
             }
+        case "validate-handoff":
+            let workspace = try loadWorkspace(from: args)
+            let exportURL = value(after: "--export", in: args).map { URL(fileURLWithPath: $0) }
+            let report = try HandoffValidator(fileManager: fileManager).validate(
+                workspace: workspace,
+                exportURL: exportURL
+            )
+            return try render(report, json: json) {
+                renderHandoffValidationText(report)
+            }
         case "audit":
             let workspace = try loadWorkspace(from: args)
             let records = try AuditLogReader(fileManager: fileManager).read(workspace: workspace)
@@ -122,7 +132,7 @@ struct CLIRunner {
                 }.joined(separator: "\n")
             }
         default:
-            throw AscendKitError.invalidArguments("Usage: ascendkit workspace status|summary|hygiene|gitignore|export-summary|audit --workspace PATH [--json] OR ascendkit workspace list [--root PATH] [--json]")
+            throw AscendKitError.invalidArguments("Usage: ascendkit workspace status|summary|hygiene|gitignore|export-summary|validate-handoff|audit --workspace PATH [--json] OR ascendkit workspace list [--root PATH] [--json]")
         }
     }
 
@@ -187,6 +197,24 @@ struct CLIRunner {
             "Hygiene finding(s): \(report.hygieneFindings.count)",
             "Raw workspace safe for public commit: \(report.hygieneSafeForPublicCommit ? "yes" : "no")"
         ].joined(separator: "\n")
+    }
+
+    private func renderHandoffValidationText(_ report: HandoffValidationReport) -> String {
+        var lines = [
+            "Agent handoff: \(report.readyForAgentHandoff ? "ready" : "blocked")",
+            "Release: \(report.releaseID)",
+            "Release blocker(s): \(report.releaseBlockerCount)",
+            "Release warning(s): \(report.releaseWarningCount)"
+        ]
+        if let path = report.sanitizedExportPath {
+            lines.append("Sanitized export: \(path)")
+        }
+        lines.append("Validation item(s):")
+        lines.append(contentsOf: report.items.map { item in
+            let next = item.nextAction.map { " Next: \($0)" } ?? ""
+            return "- [\(item.severity.rawValue)] \(item.title): \(item.detail)\(next)"
+        })
+        return lines.joined(separator: "\n")
     }
 
     private func intake(_ args: [String], json: Bool) throws -> String {
@@ -2019,6 +2047,7 @@ struct CLIRunner {
       ascendkit workspace hygiene --workspace PATH [--json]
       ascendkit workspace gitignore --workspace PATH [--fix] [--json]
       ascendkit workspace export-summary --workspace PATH --output FILE [--json]
+      ascendkit workspace validate-handoff --workspace PATH [--export FILE] [--json]
       ascendkit workspace audit --workspace PATH [--json]
       ascendkit workspace list [--root PATH] [--json]
       ascendkit intake inspect [--root PATH] [--project PATH] [--workspace PATH] [--release-id ID] [--save] [--json]
