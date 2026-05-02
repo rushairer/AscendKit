@@ -1,3 +1,3 @@
 public enum AscendKitVersion {
-    public static let current = "0.11.0"
+    public static let current = "0.12.0"
 }

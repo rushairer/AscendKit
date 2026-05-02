@@ -5,7 +5,7 @@ import Testing
 struct CLISmokeTests {
     @Test("reports current semantic version")
     func reportsCurrentSemanticVersion() {
-        #expect(AscendKitVersion.current == "0.11.0")
+        #expect(AscendKitVersion.current == "0.12.0")
     }
 
     @Test("core JSON encoder produces sorted manifest output")
@@ -58,6 +58,8 @@ struct CLISmokeTests {
     func releasePackagingScriptAndDocsStayDiscoverable() throws {
         let script = try String(contentsOfFile: "scripts/package-release.sh", encoding: .utf8)
         let readme = try String(contentsOfFile: "README.md", encoding: .utf8)
+        let ciWorkflow = try String(contentsOfFile: ".github/workflows/ci.yml", encoding: .utf8)
+        let releaseWorkflow = try String(contentsOfFile: ".github/workflows/release.yml", encoding: .utf8)
 
         #expect(script.contains("swift build -c release --product ascendkit"))
         #expect(script.contains("shasum -a 256"))
@@ -65,5 +67,9 @@ struct CLISmokeTests {
         #expect(readme.contains("scripts/package-release.sh"))
         #expect(readme.contains("GitHub release archives"))
         #expect(readme.contains("install -m 0755 bin/ascendkit"))
+        #expect(ciWorkflow.contains("swift test"))
+        #expect(ciWorkflow.contains("scripts/package-release.sh"))
+        #expect(releaseWorkflow.contains("softprops/action-gh-release"))
+        #expect(releaseWorkflow.contains("dist/*.tar.gz.sha256"))
     }
 }
