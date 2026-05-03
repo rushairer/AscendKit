@@ -4,7 +4,9 @@ AscendKit follows [Semantic Versioning](https://semver.org/). The `1.x` line kee
 
 ## Unreleased
 
-No unreleased changes.
+### Added
+
+- Added a Homebrew release finalizer script that refreshes Formula checksum state from the completed GitHub Release workflow, syncs the tap, and optionally verifies reinstall diagnostics.
 
 ## 1.4.0 - 2026-05-03
 

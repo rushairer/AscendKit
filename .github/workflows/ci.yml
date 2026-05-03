@@ -41,6 +41,7 @@ jobs:
             scripts/create-agent-handoff-prompt.sh \
             scripts/v1-representative-app-smoke.sh \
             scripts/v1-release-readiness.sh \
+            scripts/finalize-homebrew-release.sh \
             scripts/sync-homebrew-tap.sh
 
       - name: Package release archive

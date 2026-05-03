@@ -98,11 +98,20 @@ scripts/update-homebrew-formula.sh
 scripts/verify-homebrew-formula.sh --version 1.4.0
 scripts/diagnose-homebrew-install.sh --version 1.4.0
 scripts/sync-homebrew-tap.sh --commit --push
+scripts/finalize-homebrew-release.sh --version 1.4.0 --commit --push --reinstall
 scripts/v1-release-readiness.sh --version 1.4.0 --app-root /path/to/RepresentativeApp
 ruby -c Formula/ascendkit.rb
 ```
 
 The generated formula points at the GitHub Release archive for the current `ascendkit --version`. If the matching GitHub Release exists, the script uses the uploaded release asset digest, or downloads the published asset and computes its checksum if the digest is temporarily unavailable. It only falls back to the local package checksum before a release exists. After a release workflow succeeds, run `scripts/update-homebrew-formula.sh` again and commit any checksum update so `Formula/ascendkit.rb` matches the published asset digest. Then sync the dedicated `rushairer/homebrew-ascendkit` tap with `scripts/sync-homebrew-tap.sh --commit --push`. Maintainers should keep both formula copies aligned with every public release so users can install with `brew install ascendkit`.
+
+For normal post-tag release finalization, prefer the single finalizer:
+
+```bash
+scripts/finalize-homebrew-release.sh --version 1.4.0 --commit --push --reinstall
+```
+
+Run it only after `.github/workflows/release.yml` has completed for the tag. It refreshes the formula from the final GitHub Release asset digest, verifies the formula, syncs the Homebrew tap, and optionally reinstalls and diagnoses the installed Homebrew binary.
 
 If Homebrew reports a checksum mismatch, stale formula, wrong tap, or unexpected installed version, run:
 
@@ -929,7 +938,7 @@ Release checklist:
 11. After the GitHub Release workflow succeeds, run `scripts/update-homebrew-formula.sh` and `scripts/verify-homebrew-formula.sh --version VERSION`, then commit any formula checksum sync.
 12. Before tagging any public release, complete the applicable gates in `docs/v1-release-readiness.md`, run `scripts/preflight-public-release.sh`, verify Homebrew install from the published formula, and confirm this README's Current Status, command examples, safety boundaries, release checklist, and maintainer workflow match the tagged release.
 13. Run `scripts/v1-representative-app-smoke.sh --app-root PATH` against a representative app using the installed Homebrew binary.
-14. Sync the dedicated Homebrew tap with `scripts/sync-homebrew-tap.sh --commit --push`, then verify `brew reinstall rushairer/ascendkit/ascendkit`.
+14. Prefer `scripts/finalize-homebrew-release.sh --version VERSION --commit --push --reinstall` after the tag release workflow completes; otherwise manually sync the dedicated Homebrew tap with `scripts/sync-homebrew-tap.sh --commit --push`, then verify `brew reinstall rushairer/ascendkit/ascendkit`.
 15. Run `scripts/v1-release-readiness.sh --version VERSION --app-root PATH` as the combined final v1 gate after the GitHub Release and tap are published.
 16. If install or checksum reports differ across machines, run `scripts/diagnose-homebrew-install.sh --version VERSION` before changing release assets.
 

@@ -38,6 +38,13 @@ This roadmap keeps the v1 command surface stable while improving distribution, r
 - Prefer published release asset digests, then downloaded published release assets, before falling back to local package checksums for unreleased versions.
 - Keep checksum mismatch recovery documented and executable through `scripts/diagnose-homebrew-install.sh`.
 
+## v1.5 Release Finalization Safety
+
+- Treat the GitHub Release workflow as the authoritative publisher of release assets.
+- Finalize Homebrew only after the release workflow has completed so the formula uses the final published asset digest.
+- Provide one maintainer command that refreshes the formula, verifies the published digest, syncs the tap, and optionally reinstalls and diagnoses Homebrew.
+- Keep the finalizer local and explicit; it must not upload binaries, submit App Store reviews, or mutate App Store Connect.
+
 ## Long-term Boundaries
 
 - Binary upload remains low priority and out of scope for the current roadmap.
