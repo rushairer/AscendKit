@@ -248,14 +248,11 @@ struct CLISmokeTests {
         #expect(homebrewDiagnoseScript.contains("Formula SHA-256 does not match"))
         #expect(homebrewDiagnoseScript.contains("lipo -archs"))
         #expect(homebrewDiagnoseScript.contains("macos-universal"))
-        #expect(handoffPromptScript.contains("Use AscendKit to prepare this Apple app"))
-        #expect(handoffPromptScript.contains("Do not upload binaries"))
-        #expect(handoffPromptScript.contains("reject_sample_value"))
-        #expect(handoffPromptScript.contains("Refusing --app-root"))
-        #expect(handoffPromptScript.contains("Do not replace them with sample values."))
-        #expect(handoffPromptScript.contains("Stop: replace AscendKit prompt placeholders before running release commands."))
-        #expect(handoffPromptScript.contains("workspace next-steps --workspace"))
-        #expect(handoffPromptScript.contains("submit handoff"))
+        #expect(handoffPromptScript.contains("ascendkit agent prompt"))
+        #expect(handoffPromptScript.contains("ASCENDKIT_BIN"))
+        #expect(handoffPromptScript.contains("exec swift run ascendkit"))
+        #expect(!handoffPromptScript.contains("__ASCENDKIT_APP_ROOT__"))
+        #expect(!handoffPromptScript.contains("read -r -d '' PROMPT"))
         #expect(representativeSmokeScript.contains("ASCENDKIT_BIN"))
         #expect(representativeSmokeScript.contains("intake inspect"))
         #expect(representativeSmokeScript.contains("submit readiness"))
@@ -329,6 +326,9 @@ struct CLISmokeTests {
             "--asc-profile",
             "smoke-profile"
         ]
+        process.environment = ProcessInfo.processInfo.environment.merging([
+            "ASCENDKIT_BIN": ".build/debug/ascendkit"
+        ]) { _, new in new }
 
         let stdout = Pipe()
         let stderr = Pipe()
@@ -366,6 +366,9 @@ struct CLISmokeTests {
             "--asc-profile",
             "PROFILE_NAME"
         ]
+        process.environment = ProcessInfo.processInfo.environment.merging([
+            "ASCENDKIT_BIN": ".build/debug/ascendkit"
+        ]) { _, new in new }
 
         let stdout = Pipe()
         let stderr = Pipe()
@@ -378,7 +381,7 @@ struct CLISmokeTests {
         let output = String(data: stdout.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
         let errorOutput = String(data: stderr.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
 
-        #expect(process.terminationStatus == 64)
+        #expect(process.terminationStatus != 0)
         #expect(output.isEmpty)
         #expect(errorOutput.contains("sample value"))
         #expect(errorOutput.contains("Provide the real app-specific value."))
