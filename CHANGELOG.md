@@ -4,6 +4,10 @@ AscendKit follows [Semantic Versioning](https://semver.org/). The `1.x` line kee
 
 ## Unreleased
 
+No unreleased changes.
+
+## 1.2.0 - 2026-05-03
+
 ### Added
 
 - Added a read-only Homebrew installation diagnostic script for tap, formula, version, universal binary, and release checksum troubleshooting.
