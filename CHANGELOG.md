@@ -4,6 +4,10 @@ AscendKit follows [Semantic Versioning](https://semver.org/). The `1.x` line kee
 
 ## Unreleased
 
+No unreleased changes.
+
+## 1.4.0 - 2026-05-03
+
 ### Added
 
 - Hardened Homebrew formula generation so published release checksums are preferred over local rebuild checksums.
