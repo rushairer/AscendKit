@@ -9,6 +9,7 @@ AscendKit follows [Semantic Versioning](https://semver.org/). The `1.x` line kee
 - Hardened Homebrew formula generation so published release checksums are preferred over local rebuild checksums.
 - Improved Homebrew diagnostics for stale local tap checkouts and direct tap fast-forward repair.
 - Added Homebrew diagnostic verification to the combined v1 release-readiness gate.
+- Expanded CI shell syntax checks to cover all release and handoff scripts directly.
 
 ## 1.3.0 - 2026-05-03
 
