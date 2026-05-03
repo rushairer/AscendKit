@@ -28,6 +28,7 @@ This roadmap keeps the v1 command surface stable while improving distribution, r
 ## v1.3 Agent Handoff Productization
 
 - Keep `docs/agent-release-playbook.md` as the single source of truth for AI-agent operation.
+- Generate short, copyable handoff prompts with `scripts/create-agent-handoff-prompt.sh` instead of relying on long one-off prompts.
 - Improve `workspace export-summary`, `workspace validate-handoff`, and `workspace next-steps` for shorter agent prompts.
 - Consider a thin Codex Skill only after the CLI and playbook remain stable across repeated real app releases.
 

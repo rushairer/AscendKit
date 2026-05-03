@@ -17,11 +17,26 @@ Do not package this as a Codex Skill yet unless your team repeatedly runs this w
 
 ## Minimal Agent Prompt
 
+Generate this prompt from the AscendKit repository when possible:
+
+```bash
+scripts/create-agent-handoff-prompt.sh \
+  --app-root /path/to/App \
+  --release-id app-1.0-b1 \
+  --asc-profile PROFILE_NAME \
+  --output /tmp/ascendkit-agent-prompt.txt
+```
+
+The generator is read-only and should not include secrets, screenshots, reviewer information, binaries, or raw `.ascendkit/` workspace contents in the prompt.
+
+If you need to write the prompt manually, use this shape:
+
 ```text
 Use AscendKit to prepare this Apple app for App Store submission.
 
 App project root: /path/to/App
 Release id: app-1.0-b1
+Release workspace: /path/to/App/.ascendkit/releases/app-1.0-b1
 ASC profile: PROFILE_NAME
 
 Follow /path/to/AscendKit/docs/agent-release-playbook.md.

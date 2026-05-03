@@ -123,6 +123,18 @@ swift run ascendkit version --json
 
 If you are handing AscendKit to another AI agent, start with `docs/agent-release-playbook.md`. Use a short prompt plus that playbook; do not rely on a long one-off prompt as the only operating manual.
 
+Generate a short handoff prompt from this repository when assigning a release to another agent:
+
+```bash
+scripts/create-agent-handoff-prompt.sh \
+  --app-root /path/to/YourApp \
+  --release-id app-1.0-b1 \
+  --asc-profile production \
+  --output /tmp/ascendkit-agent-prompt.txt
+```
+
+The prompt generator is read-only. It references the playbook, uses installed `ascendkit` commands, and keeps secrets, screenshots, reviewer data, binaries, and raw `.ascendkit/` workspaces out of the prompt.
+
 ## Quick Start: Submit an App Store Release
 
 The typical flow is:

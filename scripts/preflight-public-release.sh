@@ -16,6 +16,7 @@ bash -n scripts/package-release.sh \
   scripts/update-homebrew-formula.sh \
   scripts/verify-homebrew-formula.sh \
   scripts/diagnose-homebrew-install.sh \
+  scripts/create-agent-handoff-prompt.sh \
   scripts/install-ascendkit.sh \
   scripts/verify-release-assets.sh \
   scripts/v1-representative-app-smoke.sh \
