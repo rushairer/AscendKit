@@ -437,6 +437,26 @@ Use the handoff to complete the final submit-for-review action manually in App S
 
 All commands support `--json` where shown in `ascendkit --help`. JSON output is intended for scripts, CI, and AI-agent wrappers.
 
+### `agent`
+
+Generate safe, concrete prompts for handing an app release to an AI coding agent.
+
+```bash
+ascendkit agent prompt \
+  --app-root "$APP_ROOT" \
+  --release-id "$RELEASE_ID" \
+  --asc-profile "$ASC_PROFILE" \
+  --output /tmp/ascendkit-agent-prompt.txt
+
+ascendkit agent prompt \
+  --app-root "$APP_ROOT" \
+  --release-id "$RELEASE_ID" \
+  --asc-profile "$ASC_PROFILE" \
+  --json
+```
+
+`agent prompt` refuses placeholder-style sample values such as `<<...>>`, `/path/to/App`, and `app-1.0-b1`. The output prompt includes the release workspace, the selected ASC profile name, safety boundaries, and the first deterministic commands an agent should run. It does not include secrets, reviewer details, screenshots, binaries, or raw `.ascendkit/` contents.
+
 ### `workspace`
 
 Inspect existing release workspace state.

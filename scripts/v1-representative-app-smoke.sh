@@ -80,6 +80,14 @@ echo "==> Intake"
 echo "==> Workspace gitignore"
 "${ASCENDKIT_BIN}" workspace gitignore --workspace "${WORKSPACE}" --fix --json >/dev/null
 
+echo "==> Agent prompt"
+"${ASCENDKIT_BIN}" agent prompt \
+  --app-root "${APP_ROOT}" \
+  --release-id "${RELEASE_ID}" \
+  --asc-profile representative-smoke-profile \
+  --output "${WORKSPACE}/agent-prompt.txt" \
+  --json >/dev/null
+
 echo "==> Doctor"
 "${ASCENDKIT_BIN}" doctor release --workspace "${WORKSPACE}" --json >/dev/null
 
