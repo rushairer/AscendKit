@@ -20,27 +20,39 @@ Do not package this as a Codex Skill yet unless your team repeatedly runs this w
 Generate this prompt from the AscendKit repository when possible:
 
 ```bash
+APP_ROOT="<<ABSOLUTE_APP_PROJECT_ROOT>>"
+RELEASE_ID="<<RELEASE_ID_FOR_THIS_APP_VERSION>>"
+ASC_PROFILE="<<ASC_PROFILE_NAME_OR_ASK_ME_TO_CREATE_ONE>>"
+
+case "$APP_ROOT $RELEASE_ID $ASC_PROFILE" in
+  *'<<'*'>>'*)
+    echo "Stop: replace AscendKit prompt placeholders before generating the handoff prompt." >&2
+    exit 64
+    ;;
+esac
+
 scripts/create-agent-handoff-prompt.sh \
-  --app-root /path/to/App \
-  --release-id app-1.0-b1 \
-  --asc-profile PROFILE_NAME \
+  --app-root "$APP_ROOT" \
+  --release-id "$RELEASE_ID" \
+  --asc-profile "$ASC_PROFILE" \
   --output /tmp/ascendkit-agent-prompt.txt
 ```
 
-The generator is read-only and should not include secrets, screenshots, reviewer information, binaries, or raw `.ascendkit/` workspace contents in the prompt.
+The generator is read-only and should not include secrets, screenshots, reviewer information, binaries, or raw `.ascendkit/` workspace contents in the prompt. It refuses common placeholder-style sample values; if you do not know a value, ask the user instead of guessing.
 
 If you need to write the prompt manually, use this shape:
 
 ```text
 Use AscendKit to prepare this Apple app for App Store submission.
 
-App project root: /path/to/App
-Release id: app-1.0-b1
-Release workspace: /path/to/App/.ascendkit/releases/app-1.0-b1
-ASC profile: PROFILE_NAME
+App project root: <<ABSOLUTE_APP_PROJECT_ROOT>>
+Release id: <<RELEASE_ID_FOR_THIS_APP_VERSION>>
+Release workspace: <<ABSOLUTE_APP_PROJECT_ROOT>>/.ascendkit/releases/<<RELEASE_ID_FOR_THIS_APP_VERSION>>
+ASC profile: <<ASC_PROFILE_NAME_OR_ASK_ME_TO_CREATE_ONE>>
 
-Follow /path/to/AscendKit/docs/agent-release-playbook.md.
+Follow <<ABSOLUTE_ASCENDKIT_CHECKOUT>>/docs/agent-release-playbook.md.
 
+Before running commands, verify that every <<...>> placeholder has been replaced with a real value. If any placeholder remains, stop and ask the user for the missing value.
 Do not commit secrets, .ascendkit workspaces, screenshots, reviewer info, or App Store Connect credentials.
 Do not upload binaries. Xcode Cloud handles binary upload.
 Use AscendKit confirmation flags for remote ASC mutations only after dry-run plans are clean.

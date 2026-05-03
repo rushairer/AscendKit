@@ -118,6 +118,11 @@ struct CLISmokeTests {
         }
         #expect(!playbook.contains("swift run ascendkit"))
         #expect(playbook.contains("brew install ascendkit"))
+        #expect(playbook.contains("It refuses common placeholder-style sample values"))
+        #expect(playbook.contains("<<ABSOLUTE_APP_PROJECT_ROOT>>"))
+        #expect(playbook.contains("Before running commands, verify that every <<...>> placeholder has been replaced with a real value."))
+        #expect(playbook.contains("Stop: replace AscendKit prompt placeholders before generating the handoff prompt."))
+        #expect(playbook.contains("--app-root \"$APP_ROOT\""))
         #expect(playbook.contains("ascendKitVersion"))
         #expect(readme.contains("ascendKitVersion"))
         #expect(readme.contains("## AI Agent Quick Start"))
@@ -126,6 +131,8 @@ struct CLISmokeTests {
         #expect(readme.contains("The values wrapped in <<...>> are placeholders"))
         #expect(readme.contains("Do not run commands with placeholder values."))
         #expect(readme.contains("Stop: replace AscendKit prompt placeholders before running release commands."))
+        #expect(readme.contains("Stop: replace AscendKit prompt placeholders before generating the handoff prompt."))
+        #expect(readme.contains("--app-root \"$APP_ROOT\""))
         #expect(!readme.contains("APP_ROOT=\"/absolute/path/to/MyApp\""))
         #expect(readme.contains("First, learn AscendKit from its README and docs/agent-release-playbook.md."))
         #expect(readme.contains("use the installed ascendkit binary, not swift run"))
@@ -238,6 +245,8 @@ struct CLISmokeTests {
         #expect(homebrewDiagnoseScript.contains("macos-universal"))
         #expect(handoffPromptScript.contains("Use AscendKit to prepare this Apple app"))
         #expect(handoffPromptScript.contains("Do not upload binaries"))
+        #expect(handoffPromptScript.contains("reject_sample_value"))
+        #expect(handoffPromptScript.contains("Refusing --app-root"))
         #expect(handoffPromptScript.contains("Do not replace them with sample values."))
         #expect(handoffPromptScript.contains("Stop: replace AscendKit prompt placeholders before running release commands."))
         #expect(handoffPromptScript.contains("workspace next-steps --workspace"))
@@ -336,5 +345,37 @@ struct CLISmokeTests {
         #expect(output.contains("ascendkit workspace next-steps --workspace \"$WORKSPACE\" --json"))
         #expect(!output.contains("__ASCENDKIT_"))
         #expect(!output.contains("<<ABSOLUTE_APP_PROJECT_ROOT>>"))
+    }
+
+    @Test("agent handoff prompt script refuses placeholder inputs")
+    func agentHandoffPromptScriptRefusesPlaceholderInputs() throws {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+        process.arguments = [
+            "bash",
+            "scripts/create-agent-handoff-prompt.sh",
+            "--app-root",
+            "/path/to/App",
+            "--release-id",
+            "app-1.0-b1",
+            "--asc-profile",
+            "PROFILE_NAME"
+        ]
+
+        let stdout = Pipe()
+        let stderr = Pipe()
+        process.standardOutput = stdout
+        process.standardError = stderr
+
+        try process.run()
+        process.waitUntilExit()
+
+        let output = String(data: stdout.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+        let errorOutput = String(data: stderr.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+
+        #expect(process.terminationStatus == 64)
+        #expect(output.isEmpty)
+        #expect(errorOutput.contains("sample value"))
+        #expect(errorOutput.contains("Provide the real app-specific value."))
     }
 }

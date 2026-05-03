@@ -23,9 +23,28 @@ Environment:
   ASCENDKIT_AGENT_PLAYBOOK_PATH   Default playbook path when --playbook is omitted.
 
 Examples:
-  scripts/create-agent-handoff-prompt.sh --app-root /path/to/App --release-id app-1.0-b1 --asc-profile production
-  scripts/create-agent-handoff-prompt.sh --app-root /path/to/App --release-id app-1.0-b1 --asc-profile production --output /tmp/ascendkit-agent-prompt.txt
+  scripts/create-agent-handoff-prompt.sh --app-root /Users/alex/Projects/AcmeWeather --release-id acme-weather-2.3.0-b4 --asc-profile acme-appstore-prod
+  scripts/create-agent-handoff-prompt.sh --app-root /Users/alex/Projects/AcmeWeather --release-id acme-weather-2.3.0-b4 --asc-profile acme-appstore-prod --output /tmp/ascendkit-agent-prompt.txt
 USAGE
+}
+
+reject_sample_value() {
+  local label="$1"
+  local value="$2"
+  shift 2
+
+  if [[ "${value}" == *"<<"*">>"* ]]; then
+    echo "Refusing ${label}: replace <<...>> placeholders with a real value before generating an agent prompt." >&2
+    exit 64
+  fi
+
+  local sample
+  for sample in "$@"; do
+    if [[ "${value}" == "${sample}" ]]; then
+      echo "Refusing ${label}: '${value}' is a sample value. Provide the real app-specific value." >&2
+      exit 64
+    fi
+  done
 }
 
 while [[ $# -gt 0 ]]; do
@@ -67,6 +86,15 @@ if [[ -z "${APP_ROOT}" || -z "${RELEASE_ID}" || -z "${ASC_PROFILE}" ]]; then
   usage >&2
   exit 64
 fi
+
+if [[ "${APP_ROOT}" != /* ]]; then
+  echo "Refusing --app-root: provide an absolute path to the real app project root." >&2
+  exit 64
+fi
+
+reject_sample_value "--app-root" "${APP_ROOT}" "/path/to/App" "/absolute/path/to/MyApp" "/Users/me/Projects/RealApp"
+reject_sample_value "--release-id" "${RELEASE_ID}" "app-1.0-b1" "myapp-1.0-b1" "realapp-1.0-b1" "real-app-1.0-b1"
+reject_sample_value "--asc-profile" "${ASC_PROFILE}" "PROFILE_NAME" "real-profile" "real-profile-name"
 
 if [[ -z "${PLAYBOOK_PATH}" ]]; then
   ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

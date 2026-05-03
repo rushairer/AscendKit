@@ -114,10 +114,21 @@ Finish by reporting AscendKit version, bundle id, app version, selected ASC buil
 For an existing AscendKit checkout, maintainers can also generate a shorter app-specific prompt:
 
 ```bash
+APP_ROOT="<<ABSOLUTE_APP_PROJECT_ROOT>>"
+RELEASE_ID="<<RELEASE_ID_FOR_THIS_APP_VERSION>>"
+ASC_PROFILE="<<ASC_PROFILE_NAME_OR_ASK_ME_TO_CREATE_ONE>>"
+
+case "$APP_ROOT $RELEASE_ID $ASC_PROFILE" in
+  *'<<'*'>>'*)
+    echo "Stop: replace AscendKit prompt placeholders before generating the handoff prompt." >&2
+    exit 64
+    ;;
+esac
+
 scripts/create-agent-handoff-prompt.sh \
-  --app-root /real/path/to/App \
-  --release-id real-app-1.0-b1 \
-  --asc-profile real-profile-name \
+  --app-root "$APP_ROOT" \
+  --release-id "$RELEASE_ID" \
+  --asc-profile "$ASC_PROFILE" \
   --output /tmp/ascendkit-agent-prompt.txt
 ```
 
