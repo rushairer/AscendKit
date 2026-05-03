@@ -43,6 +43,75 @@ Out of scope for the current release:
 - Optional: `fastlane` only if you are migrating existing metadata or screenshot folders. It is not required for the core workflow.
 - Optional for contributors: Swift 6.1 or later when building from source.
 
+## AI Agent Quick Start
+
+AscendKit is designed so a developer can hand the release workflow to an AI coding agent without giving the agent raw secrets or uncontrolled App Store Connect authority.
+
+Copy this prompt into your AI Agent and replace the placeholders:
+
+```text
+You are helping me prepare an Apple app for App Store submission with AscendKit.
+
+AscendKit repository: https://github.com/rushairer/AscendKit
+App project root: /absolute/path/to/MyApp
+Release id: myapp-1.0-b1
+ASC profile name: production
+
+First, learn AscendKit from its README and docs/agent-release-playbook.md.
+Install AscendKit with Homebrew:
+
+brew tap rushairer/ascendkit
+brew install ascendkit
+ascendkit --version
+ascendkit version --json
+
+Then use the installed ascendkit binary, not swift run, to drive this app from 0 to 1:
+
+1. Inspect the app project and create a release workspace.
+2. Protect the app repo from committing .ascendkit/ artifacts.
+3. Run release doctor checks and report blockers.
+4. Prepare or import App Store metadata.
+5. Use screenshots doctor to decide whether deterministic UI-test-driven screenshots are available.
+6. If UI-test screenshots are missing, generate a scaffold with screenshots scaffold-uitests, review it, and add app-specific deterministic navigation without real credentials.
+7. Generate, import, compose, lint, and upload screenshots only after dry-run plans are clean.
+8. Configure ASC auth through a saved profile or secret reference only; do not paste private key contents into code or prompts.
+9. Observe App Store Connect state, plan metadata changes, and apply remote mutations only with explicit --confirm-remote-mutation after reviewing JSON plans.
+10. Keep binary upload out of scope. Xcode Cloud handles binary upload.
+11. Do not execute final remote review submission. Stop at AscendKit submit handoff and tell me the exact manual App Store Connect submission steps.
+
+Safety boundaries:
+
+- Do not commit secrets, .ascendkit workspaces, screenshots, reviewer info, ASC identifiers, App Store Connect credentials, app binaries, or generated release artifacts.
+- Do not hardcode my app-specific data into AscendKit.
+- Do not use real user credentials in UI Tests or screenshots.
+- If App Privacy cannot be published through the official ASC API, stop and provide a manual App Store Connect UI handoff.
+
+Start with these commands:
+
+APP_ROOT="/absolute/path/to/MyApp"
+RELEASE_ID="myapp-1.0-b1"
+WORKSPACE="$APP_ROOT/.ascendkit/releases/$RELEASE_ID"
+ASC_PROFILE="production"
+
+ascendkit intake inspect --root "$APP_ROOT" --release-id "$RELEASE_ID" --save --json
+ascendkit workspace gitignore --workspace "$WORKSPACE" --fix --json
+ascendkit workspace next-steps --workspace "$WORKSPACE" --json
+
+During the work, prefer workspace next-steps --json, workspace summary --json, workspace validate-handoff --json, and workspace export-summary --json over guessing.
+
+Finish by reporting AscendKit version, bundle id, app version, selected ASC build, metadata status, screenshot status, pricing, App Privacy status, review handoff status, remaining blockers, and validation commands run.
+```
+
+For an existing AscendKit checkout, maintainers can also generate a shorter app-specific prompt:
+
+```bash
+scripts/create-agent-handoff-prompt.sh \
+  --app-root /path/to/App \
+  --release-id app-1.0-b1 \
+  --asc-profile production \
+  --output /tmp/ascendkit-agent-prompt.txt
+```
+
 ## Installation
 
 Prefer Homebrew for normal use:
@@ -452,6 +521,12 @@ ascendkit screenshots doctor --workspace "$WORKSPACE" --json
 ```
 
 Checks whether the project is ready for deterministic UI-test-driven screenshots. It reports the discovered Xcode project/workspace, app target, UI test target(s), screenshot plan state, simulator destination hints, and concrete next commands. If no UI test target exists, AscendKit keeps manual screenshot import available but tells users and AI Agents to scaffold UI Tests for repeatable screenshots.
+
+```bash
+ascendkit screenshots scaffold-uitests --workspace "$WORKSPACE" --json
+```
+
+Writes a reviewable starter UI Test file under `screenshots/scaffold/` plus a JSON manifest. The scaffold uses `--ascendkit-screenshot-mode`, `ASCENDKIT_SCREENSHOT_OUTPUT_DIR`, ordered screenshot names, and `XCTAttachment` fallback capture. It does not edit the Xcode project; users or AI Agents should review the file, add it to the UI test target, and replace placeholder navigation comments with app-specific deterministic steps.
 
 ```bash
 ascendkit screenshots plan \

@@ -119,6 +119,7 @@ If the app has UI-test screenshot flows, plan native local capture without fastl
 
 ```bash
 ascendkit screenshots doctor --workspace "$WORKSPACE" --json
+ascendkit screenshots scaffold-uitests --workspace "$WORKSPACE" --json
 ascendkit screenshots destinations --workspace "$WORKSPACE" --json
 ascendkit screenshots copy init --workspace "$WORKSPACE" --locale en-US --json
 ascendkit screenshots copy refresh --workspace "$WORKSPACE" --locale en-US --json

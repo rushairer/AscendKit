@@ -397,7 +397,7 @@ struct CLIRunner {
 
     private func screenshots(_ args: [String], json: Bool) async throws -> String {
         guard let subcommand = args.first else {
-            throw AscendKitError.invalidArguments("Usage: ascendkit screenshots doctor|destinations|plan|copy|capture-plan|capture|workflow|readiness|compose|coverage|upload-plan|upload|upload-status --workspace PATH")
+            throw AscendKitError.invalidArguments("Usage: ascendkit screenshots doctor|scaffold-uitests|destinations|plan|copy|capture-plan|capture|workflow|readiness|compose|coverage|upload-plan|upload|upload-status --workspace PATH")
         }
         let workspace = try loadWorkspace(from: args)
         let store = ReleaseWorkspaceStore(fileManager: fileManager)
@@ -416,6 +416,30 @@ struct CLIRunner {
             )
             return try render(report, json: json) {
                 renderScreenshotDoctorText(report)
+            }
+        case "scaffold-uitests":
+            let manifest = try store.loadManifest(from: workspace)
+            let screenshotPlan = try loadIfExists(ScreenshotPlan.self, path: workspace.paths.screenshotPlan)
+            let outputURL = URL(fileURLWithPath: value(after: "--output", in: args) ?? defaultScreenshotUITestScaffoldPath(workspace: workspace))
+            let result = ScreenshotUITestScaffoldBuilder().build(
+                manifest: manifest,
+                screenshotPlan: screenshotPlan,
+                outputURL: outputURL
+            )
+            try fileManager.createDirectory(at: outputURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try result.swiftSource.write(to: outputURL, atomically: true, encoding: .utf8)
+            let manifestURL = outputURL.deletingPathExtension().appendingPathExtension("json")
+            try store.save(result, to: manifestURL)
+            try store.appendAudit(
+                .init(
+                    action: .screenshotUITestScaffolded,
+                    summary: "Generated screenshot UI test scaffold",
+                    details: ["path": outputURL.path, "screens": "\(result.screenCount)"]
+                ),
+                to: workspace
+            )
+            return try render(result, json: json) {
+                renderScreenshotUITestScaffoldText(result, manifestPath: manifestURL.path)
             }
         case "destinations":
             let manifest = try store.loadManifest(from: workspace)
@@ -720,6 +744,26 @@ struct CLIRunner {
         lines.append("Next command(s):")
         lines.append(contentsOf: report.nextCommands.map { "- \($0)" })
         return lines.joined(separator: "\n")
+    }
+
+    private func renderScreenshotUITestScaffoldText(_ result: ScreenshotUITestScaffoldResult, manifestPath: String) -> String {
+        var lines = [
+            "Screenshot UI Test scaffold written: \(result.swiftFilePath)",
+            "Manifest: \(manifestPath)",
+            "AscendKit version: \(result.ascendKitVersion ?? "unknown")",
+            "App target: \(result.appTargetName ?? "unknown")",
+            "UI test target(s): \(result.uiTestTargetNames.isEmpty ? "none detected" : result.uiTestTargetNames.joined(separator: ", "))",
+            "Planned screenshot(s): \(result.screenCount)"
+        ]
+        lines.append("Instruction(s):")
+        lines.append(contentsOf: result.instructions.map { "- \($0)" })
+        return lines.joined(separator: "\n")
+    }
+
+    private func defaultScreenshotUITestScaffoldPath(workspace: ReleaseWorkspace) -> String {
+        URL(fileURLWithPath: workspace.paths.root)
+            .appendingPathComponent("screenshots/scaffold/AscendKitScreenshotUITests.swift")
+            .path
     }
 
     private func screenshotWorkflowStatus(workspace: ReleaseWorkspace) throws -> ScreenshotWorkflowStatusReport {

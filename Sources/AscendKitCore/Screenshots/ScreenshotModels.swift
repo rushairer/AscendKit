@@ -1267,6 +1267,154 @@ public struct ScreenshotDoctor {
     }
 }
 
+public struct ScreenshotUITestScaffoldResult: Codable, Equatable, Sendable {
+    public var generatedAt: Date
+    public var swiftFilePath: String
+    public var appTargetName: String?
+    public var uiTestTargetNames: [String]
+    public var screenCount: Int
+    public var launchArguments: [String]
+    public var environmentKeys: [String]
+    public var instructions: [String]
+    public var agentPrompt: String
+    public var swiftSource: String
+    public var ascendKitVersion: String?
+
+    public init(
+        generatedAt: Date = Date(),
+        swiftFilePath: String,
+        appTargetName: String?,
+        uiTestTargetNames: [String],
+        screenCount: Int,
+        launchArguments: [String],
+        environmentKeys: [String],
+        instructions: [String],
+        agentPrompt: String,
+        swiftSource: String,
+        ascendKitVersion: String? = AscendKitVersion.current
+    ) {
+        self.generatedAt = generatedAt
+        self.swiftFilePath = swiftFilePath
+        self.appTargetName = appTargetName
+        self.uiTestTargetNames = uiTestTargetNames
+        self.screenCount = screenCount
+        self.launchArguments = launchArguments
+        self.environmentKeys = environmentKeys
+        self.instructions = instructions
+        self.agentPrompt = agentPrompt
+        self.swiftSource = swiftSource
+        self.ascendKitVersion = ascendKitVersion
+    }
+}
+
+public struct ScreenshotUITestScaffoldBuilder {
+    public init() {}
+
+    public func build(
+        manifest: ReleaseManifest,
+        screenshotPlan: ScreenshotPlan?,
+        outputURL: URL
+    ) -> ScreenshotUITestScaffoldResult {
+        let appTarget = manifest.targets.first(where: \.isAppStoreApplication)
+        let uiTestTargets = manifest.targets.filter { target in
+            target.productType?.contains("ui-testing") == true || target.name.localizedCaseInsensitiveContains("UITests")
+        }
+        let items = screenshotPlan?.items.sorted { $0.order < $1.order } ?? [
+            ScreenshotPlanItem(id: "home", screenName: "Home", order: 1, purpose: "Show the app's first meaningful screen."),
+            ScreenshotPlanItem(id: "feature", screenName: "Feature", order: 2, purpose: "Show the primary product value."),
+            ScreenshotPlanItem(id: "paywall", screenName: "Paywall", order: 3, purpose: "Show monetization or upgrade context if applicable.")
+        ]
+        let swiftSource = makeSwiftSource(items: items)
+        return ScreenshotUITestScaffoldResult(
+            swiftFilePath: outputURL.path,
+            appTargetName: appTarget?.name,
+            uiTestTargetNames: uiTestTargets.map(\.name).sorted(),
+            screenCount: items.count,
+            launchArguments: ["--ascendkit-screenshot-mode", "--disable-animations"],
+            environmentKeys: [
+                "ASCENDKIT_SCREENSHOT_OUTPUT_DIR",
+                "ASCENDKIT_SCREENSHOT_LOCALE"
+            ],
+            instructions: [
+                "Review the generated Swift file before adding it to the UI test target.",
+                "Replace placeholder navigation comments with real, deterministic app navigation.",
+                "Use mock data or local fixtures. Do not use real credentials or production accounts.",
+                "Keep screenshot names ordered, for example 01-home.png, 02-feature.png, and 03-paywall.png.",
+                "Run screenshots capture-plan, screenshots capture, and screenshots compose after adding the test."
+            ],
+            agentPrompt: "Add the generated AscendKit screenshot UI test to the app's UI test target. Replace placeholder navigation with stable app-specific steps, keep launch arguments, use deterministic mock data, avoid real credentials, and preserve ordered screenshot file names.",
+            swiftSource: swiftSource
+        )
+    }
+
+    private func makeSwiftSource(items: [ScreenshotPlanItem]) -> String {
+        let captureCalls = items.map { item in
+            let fileName = "\(String(format: "%02d", item.order))-\(safeStem(item.id)).png"
+            return """
+
+                // \(escapeComment(item.purpose))
+                // TODO: Navigate to \(escapeComment(item.screenName)) using stable accessibility identifiers.
+                captureScreenshot(named: "\(fileName)")
+            """
+        }.joined(separator: "\n")
+
+        return """
+        import XCTest
+
+        final class AscendKitScreenshotUITests: XCTestCase {
+            private var app: XCUIApplication!
+
+            override func setUpWithError() throws {
+                continueAfterFailure = false
+                app = XCUIApplication()
+                app.launchArguments += [
+                    "--ascendkit-screenshot-mode",
+                    "--disable-animations"
+                ]
+                app.launch()
+            }
+
+            func testAppStoreScreenshots() throws {
+                // Use deterministic mock data and stable navigation. Do not use real credentials.
+        \(captureCalls)
+            }
+
+            private func captureScreenshot(named fileName: String) {
+                let screenshot = XCUIScreen.main.screenshot()
+                if let outputDirectory = ProcessInfo.processInfo.environment["ASCENDKIT_SCREENSHOT_OUTPUT_DIR"] {
+                    let outputURL = URL(fileURLWithPath: outputDirectory).appendingPathComponent(fileName)
+                    try? FileManager.default.createDirectory(
+                        at: outputURL.deletingLastPathComponent(),
+                        withIntermediateDirectories: true
+                    )
+                    try? screenshot.pngRepresentation.write(to: outputURL, options: [.atomic])
+                }
+
+                let attachment = XCTAttachment(screenshot: screenshot)
+                attachment.name = fileName
+                attachment.lifetime = .keepAlways
+                add(attachment)
+            }
+        }
+
+        """
+    }
+
+    private func safeStem(_ value: String) -> String {
+        let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-_"))
+        let sanitized = value.unicodeScalars
+            .map { allowed.contains($0) ? String($0).lowercased() : "-" }
+            .joined()
+            .split(separator: "-")
+            .joined(separator: "-")
+        return sanitized.isEmpty ? "screenshot" : sanitized
+    }
+
+    private func escapeComment(_ value: String) -> String {
+        value.replacingOccurrences(of: "\n", with: " ")
+    }
+}
+
 public enum ScreenshotReadinessSeverity: String, Codable, Equatable, Sendable {
     case blocker
     case warning

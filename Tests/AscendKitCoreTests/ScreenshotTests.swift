@@ -224,6 +224,49 @@ struct ScreenshotTests {
         #expect(!report.findings.contains { $0.severity == .blocker })
     }
 
+    @Test("builds safe UI test scaffold from screenshot plan")
+    func buildsSafeUITestScaffold() {
+        let manifest = ReleaseManifest(
+            releaseID: "demo-1.0",
+            appSlug: "Demo",
+            projects: [ProjectReference(kind: .xcodeproj, path: "/tmp/Demo/Demo.xcodeproj")],
+            targets: [
+                BundleTarget(name: "Demo", platform: .iOS, productType: "com.apple.product-type.application"),
+                BundleTarget(name: "DemoUITests", platform: .iOS, productType: "com.apple.product-type.bundle.ui-testing")
+            ]
+        )
+        let plan = ScreenshotPlan(
+            inputPath: .uiTestCapture,
+            platforms: [.iOS],
+            locales: ["en-US"],
+            items: [
+                ScreenshotPlanItem(id: "home", screenName: "Home", order: 1, purpose: "Show home"),
+                ScreenshotPlanItem(id: "premium-upgrade", screenName: "Premium Upgrade", order: 2, purpose: "Show upgrade path")
+            ]
+        )
+
+        let result = ScreenshotUITestScaffoldBuilder().build(
+            manifest: manifest,
+            screenshotPlan: plan,
+            outputURL: URL(fileURLWithPath: "/tmp/Demo/AscendKitScreenshotUITests.swift")
+        )
+
+        #expect(result.appTargetName == "Demo")
+        #expect(result.uiTestTargetNames == ["DemoUITests"])
+        #expect(result.screenCount == 2)
+        #expect(result.launchArguments.contains("--ascendkit-screenshot-mode"))
+        #expect(result.environmentKeys.contains("ASCENDKIT_SCREENSHOT_OUTPUT_DIR"))
+        #expect(result.swiftSource.contains("final class AscendKitScreenshotUITests"))
+        #expect(result.swiftSource.contains("captureScreenshot(named: \"01-home.png\")"))
+        #expect(result.swiftSource.contains("captureScreenshot(named: \"02-premium-upgrade.png\")"))
+        #expect(result.swiftSource.contains("XCTAttachment(screenshot: screenshot)"))
+        #expect(result.swiftSource.contains("ASCENDKIT_SCREENSHOT_OUTPUT_DIR"))
+        #expect(result.instructions.contains { $0.contains("Do not use real credentials") })
+        #expect(result.agentPrompt.contains("avoid real credentials"))
+        #expect(!result.swiftSource.localizedCaseInsensitiveContains("password"))
+        #expect(!result.swiftSource.localizedCaseInsensitiveContains("token"))
+    }
+
     @Test("executes screenshot capture command and records output files")
     func executesScreenshotCaptureCommand() throws {
         let root = try TemporaryDirectory()
