@@ -429,6 +429,11 @@ public struct SanitizedWorkspaceSummaryExporter {
                 command: "ascendkit --version"
             ),
             SanitizedHandoffCommand(
+                id: "agent-prompt",
+                title: "Generate a concrete receiving-agent prompt",
+                command: "ascendkit agent prompt --workspace PATH --asc-profile ASC_PROFILE --output FILE"
+            ),
+            SanitizedHandoffCommand(
                 id: "summary",
                 title: "Read current release status",
                 command: "ascendkit workspace summary --workspace PATH --json"
@@ -664,6 +669,7 @@ public struct HandoffValidator {
         var instructions: [String] = [
             "Use the installed ascendkit binary from PATH, not swift run, unless contributing to AscendKit itself.",
             "Do not share raw .ascendkit workspaces, screenshots, reviewer information, ASC credentials, binaries, or generated release artifacts.",
+            "Generate a concrete receiving-agent prompt with agent prompt --workspace PATH --asc-profile ASC_PROFILE when an installed AscendKit binary is available.",
             "Run workspace next-steps --workspace PATH --json first after taking over."
         ]
         if let sanitizedExportPath {

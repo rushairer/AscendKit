@@ -260,7 +260,7 @@ For `framedPoster` screenshot composition, readiness requires `screenshots copy 
 
 Before committing or publishing the app repository, run `workspace hygiene` to confirm raw release artifacts are not safe to share and `workspace gitignore --fix` to make sure `.ascendkit/` is excluded from git.
 
-For agent handoff, share the `workspace export-summary` JSON instead of zipping or copying `.ascendkit/`. The export is intentionally status-only, includes `ascendKitVersion`, `handoffCommands`, and `safetyBoundaries`, and excludes raw release artifacts.
+For agent handoff, share the `workspace export-summary` JSON instead of zipping or copying `.ascendkit/`. The export is intentionally status-only, includes `ascendKitVersion`, `handoffCommands`, and `safetyBoundaries`, and excludes raw release artifacts. Its command hints include `agent prompt --workspace PATH --asc-profile ASC_PROFILE`, so a receiving agent can generate a concrete prompt from the installed CLI without inspecting raw workspace contents.
 
 Use `workspace validate-handoff` as the final machine-readable handoff gate. It treats remaining release blockers as receiving-agent work, but blocks handoff on unsafe sharing conditions such as missing `.gitignore` protection or plaintext secret markers. The report includes `handoffInstructions` so the receiving agent can distinguish safe handoff state from remaining release work.
 

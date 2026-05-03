@@ -225,6 +225,10 @@ struct WorkspaceTests {
         #expect(decoded.steps.contains { $0.id == "manifest" && $0.relativePath == "manifest.json" })
         #expect(decoded.hygieneFindings.contains { $0.id == "workspace.local-artifacts" })
         #expect(decoded.handoffCommands.contains {
+            $0.id == "agent-prompt" &&
+                $0.command == "ascendkit agent prompt --workspace PATH --asc-profile ASC_PROFILE --output FILE"
+        })
+        #expect(decoded.handoffCommands.contains {
             $0.id == "next-steps" &&
                 $0.command == "ascendkit workspace next-steps --workspace PATH --json"
         })
@@ -256,6 +260,7 @@ struct WorkspaceTests {
         #expect(blocked.items.contains { $0.id == "release.blockers.present" && $0.severity == .warning })
         #expect(blocked.handoffInstructions.contains { $0.contains("handoff is blocked") })
         #expect(blocked.handoffInstructions.contains { $0.contains("workspace export-summary") })
+        #expect(blocked.handoffInstructions.contains { $0.contains("agent prompt --workspace") })
 
         _ = try WorkspaceGitignoreGuard().check(workspace: workspace, fix: true)
         let exportURL = root.url.appendingPathComponent("handoff/export.json")
