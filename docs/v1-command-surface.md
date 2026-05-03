@@ -20,6 +20,7 @@ ascendkit version --json
 These command groups are expected to remain available through `v1.x`:
 
 - `version`
+- `agent`
 - `workspace`
 - `intake`
 - `doctor`

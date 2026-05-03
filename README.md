@@ -47,7 +47,7 @@ Out of scope for the current release:
 
 AscendKit is designed so a developer can hand the release workflow to an AI coding agent without giving the agent raw secrets or uncontrolled App Store Connect authority.
 
-Before copying the prompt, replace every `<<...>>` placeholder with a real value. If you do not know a value yet, leave it as `<<...>>`; the prompt instructs the agent to stop and ask for that value instead of guessing or using the placeholder literally. The safest path is to use `scripts/create-agent-handoff-prompt.sh` below because it generates a prompt with concrete app-specific values instead of template placeholders.
+Before copying the prompt, replace every `<<...>>` placeholder with a real value. If you do not know a value yet, leave it as `<<...>>`; the prompt instructs the agent to stop and ask for that value instead of guessing or using the placeholder literally. The safest path is to install AscendKit and run `ascendkit agent prompt` below because it generates a prompt with concrete app-specific values instead of template placeholders.
 
 ```text
 You are helping me prepare an Apple app for App Store submission with AscendKit.
@@ -111,7 +111,7 @@ During the work, prefer workspace next-steps --json, workspace summary --json, w
 Finish by reporting AscendKit version, bundle id, app version, selected ASC build, metadata status, screenshot status, pricing, App Privacy status, review handoff status, remaining blockers, and validation commands run.
 ```
 
-For an existing AscendKit checkout, maintainers can also generate a shorter app-specific prompt:
+Generate a shorter app-specific prompt with the installed CLI:
 
 ```bash
 APP_ROOT="<<ABSOLUTE_APP_PROJECT_ROOT>>"
@@ -125,12 +125,14 @@ case "$APP_ROOT $RELEASE_ID $ASC_PROFILE" in
     ;;
 esac
 
-scripts/create-agent-handoff-prompt.sh \
+ascendkit agent prompt \
   --app-root "$APP_ROOT" \
   --release-id "$RELEASE_ID" \
   --asc-profile "$ASC_PROFILE" \
   --output /tmp/ascendkit-agent-prompt.txt
 ```
+
+For an existing AscendKit source checkout, maintainers can also run `scripts/create-agent-handoff-prompt.sh` with the same `--app-root`, `--release-id`, and `--asc-profile` values. Normal users and release agents should prefer the installed `ascendkit agent prompt` command.
 
 ## Installation
 

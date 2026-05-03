@@ -17,7 +17,7 @@ Do not package this as a Codex Skill yet unless your team repeatedly runs this w
 
 ## Minimal Agent Prompt
 
-Generate this prompt from the AscendKit repository when possible:
+Generate this prompt with the installed AscendKit CLI when possible:
 
 ```bash
 APP_ROOT="<<ABSOLUTE_APP_PROJECT_ROOT>>"
@@ -31,14 +31,14 @@ case "$APP_ROOT $RELEASE_ID $ASC_PROFILE" in
     ;;
 esac
 
-scripts/create-agent-handoff-prompt.sh \
+ascendkit agent prompt \
   --app-root "$APP_ROOT" \
   --release-id "$RELEASE_ID" \
   --asc-profile "$ASC_PROFILE" \
   --output /tmp/ascendkit-agent-prompt.txt
 ```
 
-The generator is read-only and should not include secrets, screenshots, reviewer information, binaries, or raw `.ascendkit/` workspace contents in the prompt. It refuses common placeholder-style sample values; if you do not know a value, ask the user instead of guessing.
+The generator is read-only and should not include secrets, screenshots, reviewer information, binaries, or raw `.ascendkit/` workspace contents in the prompt. It refuses common placeholder-style sample values; if you do not know a value, ask the user instead of guessing. If you are maintaining AscendKit from a source checkout, `scripts/create-agent-handoff-prompt.sh` remains available as a contributor convenience wrapper, but release agents should prefer `ascendkit agent prompt`.
 
 If you need to write the prompt manually, use this shape:
 

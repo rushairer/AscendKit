@@ -57,8 +57,46 @@ struct CLIRunner {
             return try await submit(tail, json: json)
         case "iap":
             return try iap(tail, json: json)
+        case "agent":
+            return try agent(tail, json: json)
         default:
             throw AscendKitError.invalidArguments("Unknown command group: \(group)")
+        }
+    }
+
+    private func agent(_ args: [String], json: Bool) throws -> String {
+        guard args.first == "prompt" else {
+            throw AscendKitError.invalidArguments("Usage: ascendkit agent prompt --app-root PATH --release-id ID --asc-profile NAME [--playbook PATH_OR_URL] [--output FILE] [--json]")
+        }
+        guard let appRoot = value(after: "--app-root", in: args),
+              let releaseID = value(after: "--release-id", in: args),
+              let ascProfile = value(after: "--asc-profile", in: args) else {
+            throw AscendKitError.invalidArguments("Usage: ascendkit agent prompt --app-root PATH --release-id ID --asc-profile NAME [--playbook PATH_OR_URL] [--output FILE] [--json]")
+        }
+
+        let outputPath = value(after: "--output", in: args)
+        let request = AgentHandoffPromptRequest(
+            appRoot: appRoot,
+            releaseID: releaseID,
+            ascProfile: ascProfile,
+            playbookReference: value(after: "--playbook", in: args) ?? "https://github.com/rushairer/AscendKit/blob/main/docs/agent-release-playbook.md"
+        )
+        let report = try AgentHandoffPromptBuilder().build(request: request, outputPath: outputPath)
+        if let outputPath {
+            let outputURL = URL(fileURLWithPath: outputPath)
+            try fileManager.createDirectory(at: outputURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try report.prompt.write(to: outputURL, atomically: true, encoding: .utf8)
+        }
+
+        return try render(report, json: json) {
+            if let outputPath {
+                return [
+                    "Agent handoff prompt written: \(outputPath)",
+                    "AscendKit version: \(report.ascendKitVersion ?? "unknown")",
+                    "Release workspace: \(report.workspacePath)"
+                ].joined(separator: "\n")
+            }
+            return report.prompt
         }
     }
 

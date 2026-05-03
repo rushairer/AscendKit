@@ -72,6 +72,7 @@ struct CLISmokeTests {
         let usageLines = AscendKitCommandCatalog.usageLines
         let stableGroups = [
             "version",
+            "agent",
             "workspace",
             "intake",
             "doctor",
@@ -122,6 +123,7 @@ struct CLISmokeTests {
         #expect(playbook.contains("<<ABSOLUTE_APP_PROJECT_ROOT>>"))
         #expect(playbook.contains("Before running commands, verify that every <<...>> placeholder has been replaced with a real value."))
         #expect(playbook.contains("Stop: replace AscendKit prompt placeholders before generating the handoff prompt."))
+        #expect(playbook.contains("ascendkit agent prompt"))
         #expect(playbook.contains("--app-root \"$APP_ROOT\""))
         #expect(playbook.contains("ascendKitVersion"))
         #expect(readme.contains("ascendKitVersion"))
@@ -132,6 +134,7 @@ struct CLISmokeTests {
         #expect(readme.contains("Do not run commands with placeholder values."))
         #expect(readme.contains("Stop: replace AscendKit prompt placeholders before running release commands."))
         #expect(readme.contains("Stop: replace AscendKit prompt placeholders before generating the handoff prompt."))
+        #expect(readme.contains("ascendkit agent prompt"))
         #expect(readme.contains("--app-root \"$APP_ROOT\""))
         #expect(!readme.contains("APP_ROOT=\"/absolute/path/to/MyApp\""))
         #expect(readme.contains("First, learn AscendKit from its README and docs/agent-release-playbook.md."))
@@ -140,6 +143,7 @@ struct CLISmokeTests {
         #expect(readme.contains("Do not execute final remote review submission."))
         #expect(readme.contains("screenshots scaffold-uitests"))
         #expect(readme.contains("scripts/create-agent-handoff-prompt.sh"))
+        #expect(readme.contains("Normal users and release agents should prefer the installed `ascendkit agent prompt` command."))
         #expect(readme.contains("docs/v1-release-readiness.md"))
         #expect(readme.contains("docs/app-store-growth-copilot-roadmap.md"))
         #expect(readme.contains("ascendkit screenshots doctor --workspace \"$WORKSPACE\" --json"))
@@ -159,6 +163,7 @@ struct CLISmokeTests {
         #expect(commandSurface.contains("`swift run ascendkit ...` is a contributor-only"))
         #expect(commandSurface.contains("docs/v1-release-readiness.md"))
         #expect(commandSurface.contains("metadata import-fastlane"))
+        #expect(commandSurface.contains("- `agent`"))
         #expect(commandSurface.contains("submit execute --confirm-remote-submission"))
         #expect(releaseReadiness.contains("Remote review submission execution remains boundary-disabled."))
         #expect(releaseReadiness.contains("Fastlane commands remain migration helpers only"))

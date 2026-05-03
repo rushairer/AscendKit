@@ -12,6 +12,7 @@ AscendKit follows [Semantic Versioning](https://semver.org/). The `1.x` line kee
 - Added `screenshots scaffold-uitests` to generate a safe local starter XCTest screenshot file and manifest without editing the Xcode project.
 - Added a README AI Agent Quick Start prompt so first-time users can hand AscendKit installation and app release preparation to an AI coding agent.
 - Hardened the README AI Agent prompt with explicit `<<...>>` placeholders and a shell guard so agents do not run release commands with sample paths.
+- Added `agent prompt` so Homebrew users can generate concrete AI-agent handoff prompts without relying on source checkout scripts.
 
 ## 1.4.0 - 2026-05-03
 
