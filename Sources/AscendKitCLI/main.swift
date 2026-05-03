@@ -242,6 +242,8 @@ struct CLIRunner {
         if let path = report.sanitizedExportPath {
             lines.append("Sanitized export: \(path)")
         }
+        lines.append("Handoff instruction(s):")
+        lines.append(contentsOf: report.handoffInstructions.map { "- \($0)" })
         lines.append("Validation item(s):")
         lines.append(contentsOf: report.items.map { item in
             let next = item.nextAction.map { " Next: \($0)" } ?? ""

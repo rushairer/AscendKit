@@ -254,6 +254,8 @@ struct WorkspaceTests {
         #expect(blocked.releaseBlockerCount > 0)
         #expect(blocked.items.contains { $0.id == "workspace.gitignore.missing" && $0.severity == .blocker })
         #expect(blocked.items.contains { $0.id == "release.blockers.present" && $0.severity == .warning })
+        #expect(blocked.handoffInstructions.contains { $0.contains("handoff is blocked") })
+        #expect(blocked.handoffInstructions.contains { $0.contains("workspace export-summary") })
 
         _ = try WorkspaceGitignoreGuard().check(workspace: workspace, fix: true)
         let exportURL = root.url.appendingPathComponent("handoff/export.json")
@@ -265,6 +267,9 @@ struct WorkspaceTests {
         #expect(ready.sanitizedExportPath == "export.json")
         #expect(ready.items.contains { $0.id == "workspace.export-summary.generated" && $0.severity == .pass })
         #expect(ready.items.contains { $0.id == "release.blockers.present" && $0.severity == .warning })
+        #expect(ready.handoffInstructions.contains { $0.contains("handoff is safe") })
+        #expect(ready.handoffInstructions.contains { $0.contains("export.json") })
+        #expect(ready.handoffInstructions.contains { $0.contains("workspace next-steps") })
         #expect(FileManager.default.fileExists(atPath: exportURL.path))
     }
 

@@ -499,6 +499,7 @@ public struct HandoffValidationReport: Codable, Equatable, Sendable {
     public var releaseWarningCount: Int
     public var sanitizedExportPath: String?
     public var items: [HandoffValidationItem]
+    public var handoffInstructions: [String]
 
     public init(
         generatedAt: Date = Date(),
@@ -508,7 +509,8 @@ public struct HandoffValidationReport: Codable, Equatable, Sendable {
         releaseBlockerCount: Int,
         releaseWarningCount: Int,
         sanitizedExportPath: String?,
-        items: [HandoffValidationItem]
+        items: [HandoffValidationItem],
+        handoffInstructions: [String]
     ) {
         self.generatedAt = generatedAt
         self.ascendKitVersion = ascendKitVersion
@@ -518,6 +520,7 @@ public struct HandoffValidationReport: Codable, Equatable, Sendable {
         self.releaseWarningCount = releaseWarningCount
         self.sanitizedExportPath = sanitizedExportPath
         self.items = items
+        self.handoffInstructions = handoffInstructions
     }
 }
 
@@ -649,8 +652,31 @@ public struct HandoffValidator {
             releaseBlockerCount: releaseBlockers.count,
             releaseWarningCount: releaseWarnings.count,
             sanitizedExportPath: sanitizedExportPath,
-            items: items
+            items: items,
+            handoffInstructions: handoffInstructions(
+                readyForAgentHandoff: items.contains { $0.severity == .blocker } == false,
+                sanitizedExportPath: sanitizedExportPath
+            )
         )
+    }
+
+    private func handoffInstructions(readyForAgentHandoff: Bool, sanitizedExportPath: String?) -> [String] {
+        var instructions: [String] = [
+            "Use the installed ascendkit binary from PATH, not swift run, unless contributing to AscendKit itself.",
+            "Do not share raw .ascendkit workspaces, screenshots, reviewer information, ASC credentials, binaries, or generated release artifacts.",
+            "Run workspace next-steps --workspace PATH --json first after taking over."
+        ]
+        if let sanitizedExportPath {
+            instructions.append("Use the sanitized export at \(sanitizedExportPath) as status context; do not request raw workspace files unless a specific blocker requires local inspection.")
+        } else {
+            instructions.append("Generate a sanitized export with workspace export-summary --workspace PATH --output FILE before handing state to another agent.")
+        }
+        if readyForAgentHandoff {
+            instructions.append("Agent handoff is safe; remaining release blockers are receiving-agent work, not handoff blockers.")
+        } else {
+            instructions.append("Agent handoff is blocked; resolve blocker validation items before asking another agent to continue.")
+        }
+        return instructions
     }
 }
 
