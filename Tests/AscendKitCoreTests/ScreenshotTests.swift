@@ -140,7 +140,7 @@ struct ScreenshotTests {
     }
 
     @Test("screenshot doctor guides projects without UI test automation")
-    func screenshotDoctorGuidesMissingUITestAutomation() {
+    func screenshotDoctorGuidesMissingUITestAutomation() throws {
         let manifest = ReleaseManifest(
             releaseID: "demo-1.0",
             appSlug: "Demo",
@@ -171,7 +171,11 @@ struct ScreenshotTests {
         #expect(report.findings.contains { $0.id == "screenshots.doctor.destinations.missing" && $0.severity == .warning })
         #expect(report.uiTestGuidance.contains { $0.contains("UI Tests") })
         #expect(report.uiTestAgentPrompt.contains("no real credentials"))
+        #expect(report.nextCommands.contains("screenshots scaffold-uitests --workspace PATH --json"))
         #expect(report.nextCommands.contains("screenshots capture-plan --workspace PATH --json"))
+        let scaffoldIndex = try #require(report.nextCommands.firstIndex(of: "screenshots scaffold-uitests --workspace PATH --json"))
+        let capturePlanIndex = try #require(report.nextCommands.firstIndex(of: "screenshots capture-plan --workspace PATH --json"))
+        #expect(scaffoldIndex < capturePlanIndex)
         #expect(report.platformSupport.contains {
             $0.platform == .iOS &&
                 $0.deterministicCapture == "default-supported" &&
@@ -227,6 +231,7 @@ struct ScreenshotTests {
         #expect(report.screenshotPlanPresent == true)
         #expect(report.findings.contains { $0.id == "screenshots.doctor.uitest-target.present" && $0.severity == .info })
         #expect(!report.findings.contains { $0.severity == .blocker })
+        #expect(!report.nextCommands.contains("screenshots scaffold-uitests --workspace PATH --json"))
     }
 
     @Test("screenshot doctor explains non-default platform capture support")

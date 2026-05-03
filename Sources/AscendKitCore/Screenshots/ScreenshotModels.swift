@@ -1294,7 +1294,7 @@ public struct ScreenshotDoctor {
                 severity: .blocker,
                 title: "No UI test target detected",
                 detail: "Manual screenshot import can still work, but deterministic screenshot capture requires UI Tests.",
-                nextAction: "Create a UI test target or use the upcoming screenshots scaffold-uitests command, then run screenshots capture-plan."
+                nextAction: "Create a UI test target or run screenshots scaffold-uitests --workspace PATH --json, review the generated file, add it to the UI test target, then run screenshots capture-plan."
             ))
         }
 
@@ -1338,13 +1338,18 @@ public struct ScreenshotDoctor {
             ))
         }
 
-        let nextCommands = [
+        var nextCommands = [
             "screenshots plan --workspace PATH --screens Home,Feature,Paywall --features A,B --platforms iOS,iPadOS --locales en-US --json",
-            "screenshots destinations --workspace PATH --json",
+            "screenshots destinations --workspace PATH --json"
+        ]
+        if uiTestTargets.isEmpty {
+            nextCommands.append("screenshots scaffold-uitests --workspace PATH --json")
+        }
+        nextCommands.append(contentsOf: [
             "screenshots capture-plan --workspace PATH --json",
             "screenshots capture --workspace PATH --json",
             "screenshots compose --workspace PATH --mode framedPoster --json"
-        ]
+        ])
 
         return ScreenshotDoctorReport(
             projectReference: projectReference,
