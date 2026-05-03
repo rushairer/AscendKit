@@ -100,6 +100,16 @@ if [[ -n "${TAP_REPO}" && -d "${TAP_REPO}/.git" ]] && command -v git >/dev/null 
   if [[ -n "${TAP_REMOTE}" && "${TAP_REMOTE}" != "${EXPECTED_TAP_REMOTE_HTTPS}" && "${TAP_REMOTE}" != "${EXPECTED_TAP_REMOTE_SSH}" ]]; then
     warn "Tap remote does not look like ${EXPECTED_TAP_REMOTE_HTTPS}."
   fi
+  TAP_BRANCH="$(git -C "${TAP_REPO}" rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
+  TAP_HEAD="$(git -C "${TAP_REPO}" rev-parse HEAD 2>/dev/null || true)"
+  if [[ -n "${TAP_BRANCH}" && "${TAP_BRANCH}" != "HEAD" && -n "${TAP_HEAD}" ]]; then
+    REMOTE_HEAD="$(git -C "${TAP_REPO}" ls-remote origin "refs/heads/${TAP_BRANCH}" 2>/dev/null | awk '{print $1}' || true)"
+    echo "Tap local HEAD: $(value_or_unknown "${TAP_HEAD}")"
+    echo "Tap remote HEAD: $(value_or_unknown "${REMOTE_HEAD}")"
+    if [[ -n "${REMOTE_HEAD}" && "${REMOTE_HEAD}" != "${TAP_HEAD}" ]]; then
+      warn "Tap checkout is not aligned with origin/${TAP_BRANCH}; Homebrew may read a stale Formula."
+    fi
+  fi
 fi
 
 FORMULA_PATH=""
@@ -195,6 +205,7 @@ cat <<REPAIR
 Diagnosis found ${ISSUES} issue(s).
 
 Suggested repair commands:
+$(if [[ -n "${TAP_REPO}" ]]; then echo "  git -C ${TAP_REPO} pull --ff-only"; fi)
   brew untap ${TAP} 2>/dev/null || true
   brew tap ${TAP}
   brew update

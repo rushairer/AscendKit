@@ -112,6 +112,8 @@ scripts/diagnose-homebrew-install.sh --version 1.3.0
 
 The diagnostic is read-only. It checks the installed `ascendkit` binary, universal architectures, tap remote, formula URL, formula SHA-256, and GitHub Release asset digest, then prints repair commands such as re-tapping and reinstalling from `rushairer/ascendkit`.
 
+If full `brew update` is slow or blocked by unrelated Homebrew remotes, the diagnostic also reports whether the local `rushairer/ascendkit` tap checkout is behind its remote and prints a direct `git -C ... pull --ff-only` repair command for that tap.
+
 For development, run from the source checkout:
 
 ```bash
