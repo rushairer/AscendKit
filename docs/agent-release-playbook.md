@@ -241,7 +241,7 @@ For agent handoff, share the `workspace export-summary` JSON instead of zipping 
 
 Use `workspace validate-handoff` as the final machine-readable handoff gate. It treats remaining release blockers as receiving-agent work, but blocks handoff on unsafe sharing conditions such as missing `.gitignore` protection or plaintext secret markers.
 
-Use `workspace next-steps` after any failed readiness or handoff check. It returns priority-sorted steps with command hints, so the receiving agent can act without parsing prose.
+Use `workspace next-steps` after any failed readiness or handoff check. It returns priority-sorted steps with command hints and directly executable commands, so the receiving agent can act without parsing prose or replacing placeholders by hand.
 
 Only complete final review submission when readiness and the review plan are clean. AscendKit stops at the handoff boundary; use the generated handoff and submit manually in App Store Connect.
 

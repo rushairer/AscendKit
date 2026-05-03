@@ -288,12 +288,20 @@ struct WorkspaceTests {
                 $0.command == "submit readiness --workspace PATH --json"
         })
         #expect(plan.steps.contains {
+            $0.sourceActionID == "readiness.missing" &&
+                $0.executableCommand == "ascendkit submit readiness --workspace '\(workspace.paths.root)' --json"
+        })
+        #expect(plan.steps.contains {
             $0.sourceActionID == "review-plan.missing" &&
                 $0.command == "submit review-plan --workspace PATH --json"
         })
         #expect(plan.steps.contains {
             $0.sourceActionID == "workspace.hygiene.public-commit" &&
                 $0.command == "workspace hygiene --workspace PATH --json"
+        })
+        #expect(plan.steps.contains {
+            $0.sourceActionID == "workspace.hygiene.public-commit" &&
+                $0.executableCommand == "ascendkit workspace hygiene --workspace '\(workspace.paths.root)' --json"
         })
         #expect(plan.steps.allSatisfy { step in
             step.sourceActionID.hasPrefix("review-plan.") == false ||
@@ -359,6 +367,10 @@ struct WorkspaceTests {
         #expect(plan.steps.contains {
             $0.sourceActionID == "screenshots.upload.recovery-command.3" &&
                 $0.command == "screenshots upload --workspace PATH --replace-existing --confirm-remote-mutation --json"
+        })
+        #expect(plan.steps.contains {
+            $0.sourceActionID == "screenshots.upload.recovery-command.3" &&
+                $0.executableCommand == "ascendkit screenshots upload --workspace '\(workspace.paths.root)' --replace-existing --confirm-remote-mutation --json"
         })
     }
 

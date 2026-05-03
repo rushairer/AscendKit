@@ -662,6 +662,7 @@ public struct WorkspaceNextStep: Codable, Equatable, Identifiable, Sendable {
     public var title: String
     public var detail: String
     public var command: String?
+    public var executableCommand: String?
 
     public init(
         id: String,
@@ -670,7 +671,8 @@ public struct WorkspaceNextStep: Codable, Equatable, Identifiable, Sendable {
         severity: ReleaseActionSeverity,
         title: String,
         detail: String,
-        command: String?
+        command: String?,
+        executableCommand: String? = nil
     ) {
         self.id = id
         self.sourceActionID = sourceActionID
@@ -679,6 +681,7 @@ public struct WorkspaceNextStep: Codable, Equatable, Identifiable, Sendable {
         self.title = title
         self.detail = detail
         self.command = command
+        self.executableCommand = executableCommand
     }
 }
 
@@ -721,22 +724,24 @@ public struct WorkspaceNextStepsPlanner {
         let steps = summary.nextActions
             .enumerated()
             .map { index, action in
-                WorkspaceNextStep(
+                let commandTemplate = self.command(for: action)
+                return WorkspaceNextStep(
                     id: "next-step.\(index + 1)",
                     sourceActionID: action.id,
                     priority: priority(for: action, fallback: index),
                     severity: action.severity,
                     title: action.title,
                     detail: action.detail,
-                    command: command(for: action)
+                    command: commandTemplate,
+                    executableCommand: self.executableCommand(for: commandTemplate, workspace: workspace)
                 )
             }
-            .sorted { left, right in
+            .sorted(by: { left, right in
                 if left.priority != right.priority {
                     return left.priority < right.priority
                 }
                 return left.id < right.id
-            }
+            })
 
         return WorkspaceNextStepsPlan(releaseID: workspace.releaseID, steps: steps)
     }
@@ -805,6 +810,18 @@ public struct WorkspaceNextStepsPlanner {
             return "submit review-plan --workspace PATH --json"
         }
         return nil
+    }
+
+    private func executableCommand(for command: String?, workspace: ReleaseWorkspace) -> String? {
+        guard let command else {
+            return nil
+        }
+        let resolved = command.replacingOccurrences(of: "PATH", with: shellQuoted(workspace.paths.root))
+        return "ascendkit \(resolved)"
+    }
+
+    private func shellQuoted(_ value: String) -> String {
+        "'\(value.replacingOccurrences(of: "'", with: "'\\''"))'"
     }
 }
 
