@@ -4,6 +4,10 @@ AscendKit follows [Semantic Versioning](https://semver.org/). The `1.x` line kee
 
 ## Unreleased
 
+No unreleased changes.
+
+## 1.3.0 - 2026-05-03
+
 ### Added
 
 - Added a read-only agent handoff prompt generator for creating short, safety-bounded AscendKit release prompts.

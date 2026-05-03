@@ -6,7 +6,7 @@ The project is designed for AI-assisted release work without handing raw secrets
 
 ## Current Status
 
-Current documented release: `v1.2.0`.
+Current documented release: `v1.3.0`.
 
 AscendKit follows [Semantic Versioning](https://semver.org/). The v1 command surface is stable for `1.x`: breaking workflow changes require a new major version, while compatible commands, flags, diagnostics, and documentation can continue to evolve through minor releases.
 
@@ -60,7 +60,7 @@ After installation, run `ascendkit` from any app project directory. User-facing 
 Alternative direct installer from a source checkout or release asset:
 
 ```bash
-scripts/install-ascendkit.sh --version 1.2.0
+scripts/install-ascendkit.sh --version 1.3.0
 ASCENDKIT_INSTALL_DIR=/usr/local/bin scripts/install-ascendkit.sh
 ```
 
@@ -69,7 +69,7 @@ The installer downloads the macOS universal release archive from GitHub Releases
 Verify a published release before announcing it:
 
 ```bash
-scripts/verify-release-assets.sh --version 1.2.0
+scripts/verify-release-assets.sh --version 1.3.0
 ```
 
 The verifier checks for the expected GitHub Release assets and performs a temporary installer smoke test.
@@ -95,10 +95,10 @@ Homebrew formula maintenance:
 
 ```bash
 scripts/update-homebrew-formula.sh
-scripts/verify-homebrew-formula.sh --version 1.2.0
-scripts/diagnose-homebrew-install.sh --version 1.2.0
+scripts/verify-homebrew-formula.sh --version 1.3.0
+scripts/diagnose-homebrew-install.sh --version 1.3.0
 scripts/sync-homebrew-tap.sh --commit --push
-scripts/v1-release-readiness.sh --version 1.2.0 --app-root /path/to/RepresentativeApp
+scripts/v1-release-readiness.sh --version 1.3.0 --app-root /path/to/RepresentativeApp
 ruby -c Formula/ascendkit.rb
 ```
 
@@ -107,7 +107,7 @@ The generated formula points at the GitHub Release archive for the current `asce
 If Homebrew reports a checksum mismatch, stale formula, wrong tap, or unexpected installed version, run:
 
 ```bash
-scripts/diagnose-homebrew-install.sh --version 1.2.0
+scripts/diagnose-homebrew-install.sh --version 1.3.0
 ```
 
 The diagnostic is read-only. It checks the installed `ascendkit` binary, universal architectures, tap remote, formula URL, formula SHA-256, and GitHub Release asset digest, then prints repair commands such as re-tapping and reinstalling from `rushairer/ascendkit`.
