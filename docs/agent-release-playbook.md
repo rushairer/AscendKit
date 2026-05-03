@@ -38,6 +38,15 @@ ascendkit agent prompt \
   --output /tmp/ascendkit-agent-prompt.txt
 ```
 
+If the release workspace already exists, the agent can generate the same prompt from the workspace path:
+
+```bash
+ascendkit agent prompt \
+  --workspace "$WORKSPACE" \
+  --asc-profile "$ASC_PROFILE" \
+  --output /tmp/ascendkit-agent-prompt.txt
+```
+
 The generator is read-only and should not include secrets, screenshots, reviewer information, binaries, or raw `.ascendkit/` workspace contents in the prompt. It refuses common placeholder-style sample values; if you do not know a value, ask the user instead of guessing. If you are maintaining AscendKit from a source checkout, `scripts/create-agent-handoff-prompt.sh` remains available as a contributor convenience wrapper, but release agents should prefer `ascendkit agent prompt`.
 
 If you need to write the prompt manually, use this shape:

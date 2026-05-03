@@ -56,6 +56,39 @@ public struct AgentHandoffPromptReport: Codable, Equatable, Sendable {
 public struct AgentHandoffPromptBuilder: Sendable {
     public init() {}
 
+    public func request(
+        workspacePath: String,
+        ascProfile: String,
+        playbookReference: String = "https://github.com/rushairer/AscendKit/blob/main/docs/agent-release-playbook.md"
+    ) throws -> AgentHandoffPromptRequest {
+        let workspace = workspacePath.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !workspace.isEmpty else {
+            throw AscendKitError.invalidArguments("Missing required --workspace value.")
+        }
+        guard workspace.hasPrefix("/") else {
+            throw AscendKitError.invalidArguments("Refusing --workspace: provide an absolute release workspace path.")
+        }
+
+        let standardizedPath = URL(fileURLWithPath: workspace).standardizedFileURL.path
+        let components = URL(fileURLWithPath: standardizedPath).pathComponents
+        guard let ascendKitIndex = components.lastIndex(of: ".ascendkit"),
+              components.indices.contains(ascendKitIndex + 2),
+              components[ascendKitIndex + 1] == "releases",
+              components.count == ascendKitIndex + 3 else {
+            throw AscendKitError.invalidArguments("Refusing --workspace: expected PATH/.ascendkit/releases/RELEASE_ID.")
+        }
+
+        let appRootComponents = Array(components[..<ascendKitIndex])
+        let appRoot = NSString.path(withComponents: appRootComponents)
+        let releaseID = components[ascendKitIndex + 2]
+        return AgentHandoffPromptRequest(
+            appRoot: appRoot,
+            releaseID: releaseID,
+            ascProfile: ascProfile,
+            playbookReference: playbookReference
+        )
+    }
+
     public func build(request: AgentHandoffPromptRequest, outputPath: String? = nil) throws -> AgentHandoffPromptReport {
         try validate(request: request)
 

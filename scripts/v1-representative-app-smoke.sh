@@ -82,8 +82,7 @@ echo "==> Workspace gitignore"
 
 echo "==> Agent prompt"
 "${ASCENDKIT_BIN}" agent prompt \
-  --app-root "${APP_ROOT}" \
-  --release-id "${RELEASE_ID}" \
+  --workspace "${WORKSPACE}" \
   --asc-profile representative-smoke-profile \
   --output "${WORKSPACE}/agent-prompt.txt" \
   --json >/dev/null

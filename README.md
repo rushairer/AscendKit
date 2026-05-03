@@ -449,13 +449,18 @@ ascendkit agent prompt \
   --output /tmp/ascendkit-agent-prompt.txt
 
 ascendkit agent prompt \
+  --workspace "$WORKSPACE" \
+  --asc-profile "$ASC_PROFILE" \
+  --output /tmp/ascendkit-agent-prompt.txt
+
+ascendkit agent prompt \
   --app-root "$APP_ROOT" \
   --release-id "$RELEASE_ID" \
   --asc-profile "$ASC_PROFILE" \
   --json
 ```
 
-`agent prompt` refuses placeholder-style sample values such as `<<...>>`, `/path/to/App`, and `app-1.0-b1`. The output prompt includes the release workspace, the selected ASC profile name, safety boundaries, and the first deterministic commands an agent should run. It does not include secrets, reviewer details, screenshots, binaries, or raw `.ascendkit/` contents.
+`agent prompt` refuses placeholder-style sample values such as `<<...>>`, `/path/to/App`, and `app-1.0-b1`. Use `--workspace` when a release workspace already exists; AscendKit derives the app root and release id from `PATH/.ascendkit/releases/RELEASE_ID` without reading workspace contents or writing audit records. The output prompt includes the release workspace, the selected ASC profile name, safety boundaries, and the first deterministic commands an agent should run. It does not include secrets, reviewer details, screenshots, binaries, or raw `.ascendkit/` contents.
 
 ### `workspace`
 

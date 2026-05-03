@@ -61,4 +61,35 @@ struct AgentHandoffPromptTests {
             )
         }
     }
+
+    @Test("derives request from release workspace path")
+    func derivesRequestFromReleaseWorkspacePath() throws {
+        let request = try AgentHandoffPromptBuilder().request(
+            workspacePath: "/tmp/AscendKitSmokeApp/.ascendkit/releases/smoke-1.0-b1",
+            ascProfile: "smoke-profile",
+            playbookReference: "local-playbook.md"
+        )
+
+        #expect(request.appRoot == "/tmp/AscendKitSmokeApp")
+        #expect(request.releaseID == "smoke-1.0-b1")
+        #expect(request.ascProfile == "smoke-profile")
+        #expect(request.playbookReference == "local-playbook.md")
+    }
+
+    @Test("refuses invalid workspace path")
+    func refusesInvalidWorkspacePath() throws {
+        #expect(throws: AscendKitError.invalidArguments("Refusing --workspace: expected PATH/.ascendkit/releases/RELEASE_ID.")) {
+            try AgentHandoffPromptBuilder().request(
+                workspacePath: "/tmp/AscendKitSmokeApp/releases/smoke-1.0-b1",
+                ascProfile: "smoke-profile"
+            )
+        }
+
+        #expect(throws: AscendKitError.invalidArguments("Refusing --workspace: provide an absolute release workspace path.")) {
+            try AgentHandoffPromptBuilder().request(
+                workspacePath: "Relative/.ascendkit/releases/smoke-1.0-b1",
+                ascProfile: "smoke-profile"
+            )
+        }
+    }
 }

@@ -66,22 +66,34 @@ struct CLIRunner {
 
     private func agent(_ args: [String], json: Bool) throws -> String {
         guard args.first == "prompt" else {
-            throw AscendKitError.invalidArguments("Usage: ascendkit agent prompt --app-root PATH --release-id ID --asc-profile NAME [--playbook PATH_OR_URL] [--output FILE] [--json]")
+            throw AscendKitError.invalidArguments("Usage: ascendkit agent prompt (--app-root PATH --release-id ID | --workspace PATH) --asc-profile NAME [--playbook PATH_OR_URL] [--output FILE] [--json]")
         }
-        guard let appRoot = value(after: "--app-root", in: args),
-              let releaseID = value(after: "--release-id", in: args),
-              let ascProfile = value(after: "--asc-profile", in: args) else {
-            throw AscendKitError.invalidArguments("Usage: ascendkit agent prompt --app-root PATH --release-id ID --asc-profile NAME [--playbook PATH_OR_URL] [--output FILE] [--json]")
+        guard let ascProfile = value(after: "--asc-profile", in: args) else {
+            throw AscendKitError.invalidArguments("Usage: ascendkit agent prompt (--app-root PATH --release-id ID | --workspace PATH) --asc-profile NAME [--playbook PATH_OR_URL] [--output FILE] [--json]")
         }
 
         let outputPath = value(after: "--output", in: args)
-        let request = AgentHandoffPromptRequest(
-            appRoot: appRoot,
-            releaseID: releaseID,
-            ascProfile: ascProfile,
-            playbookReference: value(after: "--playbook", in: args) ?? "https://github.com/rushairer/AscendKit/blob/main/docs/agent-release-playbook.md"
-        )
-        let report = try AgentHandoffPromptBuilder().build(request: request, outputPath: outputPath)
+        let playbookReference = value(after: "--playbook", in: args) ?? "https://github.com/rushairer/AscendKit/blob/main/docs/agent-release-playbook.md"
+        let builder = AgentHandoffPromptBuilder()
+        let request: AgentHandoffPromptRequest
+        if let workspacePath = value(after: "--workspace", in: args) {
+            request = try builder.request(
+                workspacePath: workspacePath,
+                ascProfile: ascProfile,
+                playbookReference: playbookReference
+            )
+        } else if let appRoot = value(after: "--app-root", in: args),
+                  let releaseID = value(after: "--release-id", in: args) {
+            request = AgentHandoffPromptRequest(
+                appRoot: appRoot,
+                releaseID: releaseID,
+                ascProfile: ascProfile,
+                playbookReference: playbookReference
+            )
+        } else {
+            throw AscendKitError.invalidArguments("Usage: ascendkit agent prompt (--app-root PATH --release-id ID | --workspace PATH) --asc-profile NAME [--playbook PATH_OR_URL] [--output FILE] [--json]")
+        }
+        let report = try builder.build(request: request, outputPath: outputPath)
         if let outputPath {
             let outputURL = URL(fileURLWithPath: outputPath)
             try fileManager.createDirectory(at: outputURL.deletingLastPathComponent(), withIntermediateDirectories: true)

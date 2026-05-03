@@ -1,7 +1,7 @@
 public enum AscendKitCommandCatalog {
     public static let usageLines: [String] = [
         "ascendkit version [--json]",
-        "ascendkit agent prompt --app-root PATH --release-id ID --asc-profile NAME [--playbook PATH_OR_URL] [--output FILE] [--json]",
+        "ascendkit agent prompt (--app-root PATH --release-id ID | --workspace PATH) --asc-profile NAME [--playbook PATH_OR_URL] [--output FILE] [--json]",
         "ascendkit workspace status --workspace PATH [--json]",
         "ascendkit workspace summary --workspace PATH [--json]",
         "ascendkit workspace hygiene --workspace PATH [--json]",
