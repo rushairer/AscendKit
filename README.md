@@ -102,7 +102,7 @@ scripts/v1-release-readiness.sh --version 1.3.0 --app-root /path/to/Representati
 ruby -c Formula/ascendkit.rb
 ```
 
-The generated formula points at the GitHub Release archive for the current `ascendkit --version`. If the matching GitHub Release exists, the script uses the uploaded release asset digest; otherwise it falls back to the local package checksum. After a release workflow succeeds, run `scripts/update-homebrew-formula.sh` again and commit any checksum update so `Formula/ascendkit.rb` matches the published asset digest. Then sync the dedicated `rushairer/homebrew-ascendkit` tap with `scripts/sync-homebrew-tap.sh --commit --push`. Maintainers should keep both formula copies aligned with every public release so users can install with `brew install ascendkit`.
+The generated formula points at the GitHub Release archive for the current `ascendkit --version`. If the matching GitHub Release exists, the script uses the uploaded release asset digest, or downloads the published asset and computes its checksum if the digest is temporarily unavailable. It only falls back to the local package checksum before a release exists. After a release workflow succeeds, run `scripts/update-homebrew-formula.sh` again and commit any checksum update so `Formula/ascendkit.rb` matches the published asset digest. Then sync the dedicated `rushairer/homebrew-ascendkit` tap with `scripts/sync-homebrew-tap.sh --commit --push`. Maintainers should keep both formula copies aligned with every public release so users can install with `brew install ascendkit`.
 
 If Homebrew reports a checksum mismatch, stale formula, wrong tap, or unexpected installed version, run:
 

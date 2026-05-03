@@ -32,6 +32,12 @@ This roadmap keeps the v1 command surface stable while improving distribution, r
 - Improve `workspace export-summary`, `workspace validate-handoff`, and `workspace next-steps` for shorter agent prompts.
 - Consider a thin Codex Skill only after the CLI and playbook remain stable across repeated real app releases.
 
+## v1.4 Distribution Checksum Safety
+
+- Prevent Homebrew formula updates from accidentally using a locally rebuilt archive checksum after a GitHub Release already exists.
+- Prefer published release asset digests, then downloaded published release assets, before falling back to local package checksums for unreleased versions.
+- Keep checksum mismatch recovery documented and executable through `scripts/diagnose-homebrew-install.sh`.
+
 ## Long-term Boundaries
 
 - Binary upload remains low priority and out of scope for the current roadmap.
