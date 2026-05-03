@@ -251,6 +251,7 @@ struct CLISmokeTests {
         #expect(homebrewDiagnoseScript.contains("lipo -archs"))
         #expect(homebrewDiagnoseScript.contains("macos-universal"))
         #expect(handoffPromptScript.contains("ascendkit agent prompt"))
+        #expect(handoffPromptScript.contains("--workspace"))
         #expect(handoffPromptScript.contains("ASCENDKIT_BIN"))
         #expect(handoffPromptScript.contains("exec swift run ascendkit"))
         #expect(!handoffPromptScript.contains("__ASCENDKIT_APP_ROOT__"))
@@ -394,5 +395,39 @@ struct CLISmokeTests {
         #expect(output.isEmpty)
         #expect(errorOutput.contains("sample value"))
         #expect(errorOutput.contains("Provide the real app-specific value."))
+    }
+
+    @Test("agent handoff prompt script accepts workspace input")
+    func agentHandoffPromptScriptAcceptsWorkspaceInput() throws {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+        process.arguments = [
+            "bash",
+            "scripts/create-agent-handoff-prompt.sh",
+            "--workspace",
+            "/tmp/AscendKitSmokeApp/.ascendkit/releases/smoke-1.0-b1",
+            "--asc-profile",
+            "smoke-profile"
+        ]
+        process.environment = ProcessInfo.processInfo.environment.merging([
+            "ASCENDKIT_BIN": ".build/debug/ascendkit"
+        ]) { _, new in new }
+
+        let stdout = Pipe()
+        let stderr = Pipe()
+        process.standardOutput = stdout
+        process.standardError = stderr
+
+        try process.run()
+        process.waitUntilExit()
+
+        let output = String(data: stdout.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+        let errorOutput = String(data: stderr.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+
+        #expect(process.terminationStatus == 0, "stderr: \(errorOutput)")
+        #expect(output.contains("App project root: /tmp/AscendKitSmokeApp"))
+        #expect(output.contains("Release id: smoke-1.0-b1"))
+        #expect(output.contains("Release workspace: /tmp/AscendKitSmokeApp/.ascendkit/releases/smoke-1.0-b1"))
+        #expect(output.contains("ASC profile: smoke-profile"))
     }
 }

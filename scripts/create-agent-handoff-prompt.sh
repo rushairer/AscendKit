@@ -3,16 +3,17 @@ set -euo pipefail
 
 APP_ROOT=""
 RELEASE_ID=""
+WORKSPACE=""
 ASC_PROFILE=""
 PLAYBOOK_PATH="${ASCENDKIT_AGENT_PLAYBOOK_PATH:-}"
 OUTPUT_PATH=""
 
 usage() {
   cat <<USAGE
-Usage: scripts/create-agent-handoff-prompt.sh --app-root PATH --release-id ID --asc-profile NAME [--playbook PATH_OR_URL] [--output FILE]
+Usage: scripts/create-agent-handoff-prompt.sh (--app-root PATH --release-id ID | --workspace PATH) --asc-profile NAME [--playbook PATH_OR_URL] [--output FILE]
 
 Contributor convenience wrapper around:
-  ascendkit agent prompt --app-root PATH --release-id ID --asc-profile NAME
+  ascendkit agent prompt (--app-root PATH --release-id ID | --workspace PATH) --asc-profile NAME
 
 Normal users and release agents should use the installed ascendkit command
 directly. This wrapper exists for source checkouts and keeps prompt generation
@@ -24,6 +25,7 @@ Environment:
 
 Examples:
   scripts/create-agent-handoff-prompt.sh --app-root /Users/alex/Projects/AcmeWeather --release-id acme-weather-2.3.0-b4 --asc-profile acme-appstore-prod
+  scripts/create-agent-handoff-prompt.sh --workspace /Users/alex/Projects/AcmeWeather/.ascendkit/releases/acme-weather-2.3.0-b4 --asc-profile acme-appstore-prod
   scripts/create-agent-handoff-prompt.sh --app-root /Users/alex/Projects/AcmeWeather --release-id acme-weather-2.3.0-b4 --asc-profile acme-appstore-prod --output /tmp/ascendkit-agent-prompt.txt
 USAGE
 }
@@ -36,6 +38,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --release-id)
       RELEASE_ID="${2:?Missing value for --release-id}"
+      shift 2
+      ;;
+    --workspace)
+      WORKSPACE="${2:?Missing value for --workspace}"
       shift 2
       ;;
     --asc-profile)
@@ -62,8 +68,8 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-if [[ -z "${APP_ROOT}" || -z "${RELEASE_ID}" || -z "${ASC_PROFILE}" ]]; then
-  echo "Missing required --app-root, --release-id, or --asc-profile." >&2
+if [[ -z "${ASC_PROFILE}" || ( -z "${WORKSPACE}" && ( -z "${APP_ROOT}" || -z "${RELEASE_ID}" ) ) ]]; then
+  echo "Missing required --asc-profile plus either --workspace or --app-root with --release-id." >&2
   usage >&2
   exit 64
 fi
@@ -75,11 +81,15 @@ fi
 
 ARGS=(
   agent prompt
-  --app-root "${APP_ROOT}"
-  --release-id "${RELEASE_ID}"
   --asc-profile "${ASC_PROFILE}"
   --playbook "${PLAYBOOK_PATH}"
 )
+
+if [[ -n "${WORKSPACE}" ]]; then
+  ARGS+=(--workspace "${WORKSPACE}")
+else
+  ARGS+=(--app-root "${APP_ROOT}" --release-id "${RELEASE_ID}")
+fi
 
 if [[ -n "${OUTPUT_PATH}" ]]; then
   ARGS+=(--output "${OUTPUT_PATH}")
