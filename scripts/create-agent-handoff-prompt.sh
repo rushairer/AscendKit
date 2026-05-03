@@ -75,39 +75,47 @@ fi
 
 WORKSPACE="${APP_ROOT%/}/.ascendkit/releases/${RELEASE_ID}"
 
-PROMPT="$(cat <<PROMPT
+read -r -d '' PROMPT <<'PROMPT' || true
 Use AscendKit to prepare this Apple app for App Store submission.
 
-App project root: ${APP_ROOT}
-Release id: ${RELEASE_ID}
-Release workspace: ${WORKSPACE}
-ASC profile: ${ASC_PROFILE}
-AscendKit playbook: ${PLAYBOOK_PATH}
+App project root: __ASCENDKIT_APP_ROOT__
+Release id: __ASCENDKIT_RELEASE_ID__
+Release workspace: __ASCENDKIT_WORKSPACE__
+ASC profile: __ASCENDKIT_ASC_PROFILE__
+AscendKit playbook: __ASCENDKIT_PLAYBOOK_PATH__
 
-Follow the playbook exactly. Use the installed \`ascendkit\` binary from PATH, not \`swift run\`, unless you are contributing to AscendKit itself.
+These are concrete values supplied by the user or maintainer. Do not replace them with sample values. If any path, release id, or ASC profile appears invalid, stop and ask the user instead of guessing.
+
+Follow the playbook exactly. Use the installed ascendkit binary from PATH, not swift run, unless you are contributing to AscendKit itself.
 
 Safety boundaries:
 - Do not commit secrets, .ascendkit workspaces, screenshots, reviewer info, ASC identifiers, App Store Connect credentials, or generated release artifacts.
 - Do not upload binaries. Xcode Cloud handles binary upload.
-- Do not execute final remote review submission. AscendKit stops at \`submit handoff\`; complete final submission manually in App Store Connect.
+- Do not execute final remote review submission. AscendKit stops at submit handoff; complete final submission manually in App Store Connect.
 - Before any remote ASC mutation, run the corresponding dry-run or plan command and inspect JSON output.
-- Use \`--confirm-remote-mutation\` only for the specific intended ASC metadata, pricing, privacy, or screenshot mutation.
+- Use --confirm-remote-mutation only for the specific intended ASC metadata, pricing, privacy, or screenshot mutation.
 - If App Privacy cannot be published through the API, stop at the documented App Store Connect UI handoff and ask the user to confirm when it is published.
 
-Start with:
-\`\`\`bash
-APP_ROOT="${APP_ROOT}"
-RELEASE_ID="${RELEASE_ID}"
-WORKSPACE="${WORKSPACE}"
-ASC_PROFILE="${ASC_PROFILE}"
+Start with these shell commands:
+
+APP_ROOT="__ASCENDKIT_APP_ROOT__"
+RELEASE_ID="__ASCENDKIT_RELEASE_ID__"
+WORKSPACE="__ASCENDKIT_WORKSPACE__"
+ASC_PROFILE="__ASCENDKIT_ASC_PROFILE__"
+
+case "$APP_ROOT $RELEASE_ID $ASC_PROFILE" in
+  *'<<'*'>>'*)
+    echo "Stop: replace AscendKit prompt placeholders before running release commands." >&2
+    exit 64
+    ;;
+esac
 
 ascendkit --version
-ascendkit intake inspect --root "\$APP_ROOT" --release-id "\$RELEASE_ID" --save --json
-ascendkit workspace gitignore --workspace "\$WORKSPACE" --fix --json
-ascendkit workspace next-steps --workspace "\$WORKSPACE" --json
-\`\`\`
+ascendkit intake inspect --root "$APP_ROOT" --release-id "$RELEASE_ID" --save --json
+ascendkit workspace gitignore --workspace "$WORKSPACE" --fix --json
+ascendkit workspace next-steps --workspace "$WORKSPACE" --json
 
-During the work, prefer \`workspace next-steps --json\`, \`workspace summary --json\`, \`workspace validate-handoff --json\`, and \`workspace export-summary --json\` over ad-hoc prose.
+During the work, prefer workspace next-steps --json, workspace summary --json, workspace validate-handoff --json, and workspace export-summary --json over ad-hoc prose.
 
 Finish by reporting:
 - AscendKit version used.
@@ -119,7 +127,12 @@ Finish by reporting:
 - Review handoff status or exact remaining blockers.
 - Validation commands run.
 PROMPT
-)"
+
+PROMPT="${PROMPT//__ASCENDKIT_APP_ROOT__/${APP_ROOT}}"
+PROMPT="${PROMPT//__ASCENDKIT_RELEASE_ID__/${RELEASE_ID}}"
+PROMPT="${PROMPT//__ASCENDKIT_WORKSPACE__/${WORKSPACE}}"
+PROMPT="${PROMPT//__ASCENDKIT_ASC_PROFILE__/${ASC_PROFILE}}"
+PROMPT="${PROMPT//__ASCENDKIT_PLAYBOOK_PATH__/${PLAYBOOK_PATH}}"
 
 if [[ -n "${OUTPUT_PATH}" ]]; then
   mkdir -p "$(dirname "${OUTPUT_PATH}")"

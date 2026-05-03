@@ -47,15 +47,17 @@ Out of scope for the current release:
 
 AscendKit is designed so a developer can hand the release workflow to an AI coding agent without giving the agent raw secrets or uncontrolled App Store Connect authority.
 
-Copy this prompt into your AI Agent and replace the placeholders:
+Before copying the prompt, replace every `<<...>>` placeholder with a real value. If you do not know a value yet, leave it as `<<...>>`; the prompt instructs the agent to stop and ask for that value instead of guessing or using the placeholder literally. The safest path is to use `scripts/create-agent-handoff-prompt.sh` below because it generates a prompt with concrete app-specific values instead of template placeholders.
 
 ```text
 You are helping me prepare an Apple app for App Store submission with AscendKit.
 
 AscendKit repository: https://github.com/rushairer/AscendKit
-App project root: /absolute/path/to/MyApp
-Release id: myapp-1.0-b1
-ASC profile name: production
+App project root: <<ABSOLUTE_APP_PROJECT_ROOT>>
+Release id: <<RELEASE_ID_FOR_THIS_APP_VERSION>>
+ASC profile name: <<ASC_PROFILE_NAME_OR_ASK_ME_TO_CREATE_ONE>>
+
+The values wrapped in <<...>> are placeholders, not real paths or credentials. Before running commands, verify that every placeholder has been replaced with a real value. If any placeholder remains, stop and ask me for the missing value. Do not run commands with placeholder values.
 
 First, learn AscendKit from its README and docs/agent-release-playbook.md.
 Install AscendKit with Homebrew:
@@ -88,10 +90,17 @@ Safety boundaries:
 
 Start with these commands:
 
-APP_ROOT="/absolute/path/to/MyApp"
-RELEASE_ID="myapp-1.0-b1"
+APP_ROOT="<<ABSOLUTE_APP_PROJECT_ROOT>>"
+RELEASE_ID="<<RELEASE_ID_FOR_THIS_APP_VERSION>>"
 WORKSPACE="$APP_ROOT/.ascendkit/releases/$RELEASE_ID"
-ASC_PROFILE="production"
+ASC_PROFILE="<<ASC_PROFILE_NAME_OR_ASK_ME_TO_CREATE_ONE>>"
+
+case "$APP_ROOT $RELEASE_ID $ASC_PROFILE" in
+  *'<<'*'>>'*)
+    echo "Stop: replace AscendKit prompt placeholders before running release commands." >&2
+    exit 64
+    ;;
+esac
 
 ascendkit intake inspect --root "$APP_ROOT" --release-id "$RELEASE_ID" --save --json
 ascendkit workspace gitignore --workspace "$WORKSPACE" --fix --json
@@ -106,9 +115,9 @@ For an existing AscendKit checkout, maintainers can also generate a shorter app-
 
 ```bash
 scripts/create-agent-handoff-prompt.sh \
-  --app-root /path/to/App \
-  --release-id app-1.0-b1 \
-  --asc-profile production \
+  --app-root /real/path/to/App \
+  --release-id real-app-1.0-b1 \
+  --asc-profile real-profile-name \
   --output /tmp/ascendkit-agent-prompt.txt
 ```
 

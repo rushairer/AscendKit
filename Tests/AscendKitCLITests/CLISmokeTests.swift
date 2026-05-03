@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 @testable import AscendKitCore
 
@@ -121,6 +122,11 @@ struct CLISmokeTests {
         #expect(readme.contains("ascendKitVersion"))
         #expect(readme.contains("## AI Agent Quick Start"))
         #expect(readme.contains("AscendKit repository: https://github.com/rushairer/AscendKit"))
+        #expect(readme.contains("<<ABSOLUTE_APP_PROJECT_ROOT>>"))
+        #expect(readme.contains("The values wrapped in <<...>> are placeholders"))
+        #expect(readme.contains("Do not run commands with placeholder values."))
+        #expect(readme.contains("Stop: replace AscendKit prompt placeholders before running release commands."))
+        #expect(!readme.contains("APP_ROOT=\"/absolute/path/to/MyApp\""))
         #expect(readme.contains("First, learn AscendKit from its README and docs/agent-release-playbook.md."))
         #expect(readme.contains("use the installed ascendkit binary, not swift run"))
         #expect(readme.contains("Keep binary upload out of scope. Xcode Cloud handles binary upload."))
@@ -232,6 +238,8 @@ struct CLISmokeTests {
         #expect(homebrewDiagnoseScript.contains("macos-universal"))
         #expect(handoffPromptScript.contains("Use AscendKit to prepare this Apple app"))
         #expect(handoffPromptScript.contains("Do not upload binaries"))
+        #expect(handoffPromptScript.contains("Do not replace them with sample values."))
+        #expect(handoffPromptScript.contains("Stop: replace AscendKit prompt placeholders before running release commands."))
         #expect(handoffPromptScript.contains("workspace next-steps --workspace"))
         #expect(handoffPromptScript.contains("submit handoff"))
         #expect(representativeSmokeScript.contains("ASCENDKIT_BIN"))
@@ -291,5 +299,42 @@ struct CLISmokeTests {
         #expect(releaseWorkflow.contains("scripts/install-ascendkit.sh"))
         #expect(releaseWorkflow.contains("scripts/verify-release-assets.sh"))
         #expect(releaseWorkflow.contains("cd dist && shasum -a 256 -c *.tar.gz.sha256"))
+    }
+
+    @Test("agent handoff prompt script emits concrete guarded prompt")
+    func agentHandoffPromptScriptEmitsConcreteGuardedPrompt() throws {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+        process.arguments = [
+            "bash",
+            "scripts/create-agent-handoff-prompt.sh",
+            "--app-root",
+            "/tmp/AscendKitSmokeApp",
+            "--release-id",
+            "smoke-1.0-b1",
+            "--asc-profile",
+            "smoke-profile"
+        ]
+
+        let stdout = Pipe()
+        let stderr = Pipe()
+        process.standardOutput = stdout
+        process.standardError = stderr
+
+        try process.run()
+        process.waitUntilExit()
+
+        let output = String(data: stdout.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+        let errorOutput = String(data: stderr.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+
+        #expect(process.terminationStatus == 0, "stderr: \(errorOutput)")
+        #expect(output.contains("App project root: /tmp/AscendKitSmokeApp"))
+        #expect(output.contains("Release id: smoke-1.0-b1"))
+        #expect(output.contains("ASC profile: smoke-profile"))
+        #expect(output.contains("These are concrete values supplied by the user or maintainer."))
+        #expect(output.contains("Stop: replace AscendKit prompt placeholders before running release commands."))
+        #expect(output.contains("ascendkit workspace next-steps --workspace \"$WORKSPACE\" --json"))
+        #expect(!output.contains("__ASCENDKIT_"))
+        #expect(!output.contains("<<ABSOLUTE_APP_PROJECT_ROOT>>"))
     }
 }
