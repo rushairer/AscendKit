@@ -7,6 +7,7 @@ AscendKit follows [Semantic Versioning](https://semver.org/). The `1.x` line kee
 ### Added
 
 - Added a read-only agent handoff prompt generator for creating short, safety-bounded AscendKit release prompts.
+- `workspace export-summary` now includes sanitized handoff commands and safety boundaries so another agent can resume from the export without raw workspace files.
 
 ## 1.2.0 - 2026-05-03
 

@@ -292,6 +292,18 @@ public struct SanitizedWorkspaceStep: Codable, Equatable, Identifiable, Sendable
     }
 }
 
+public struct SanitizedHandoffCommand: Codable, Equatable, Identifiable, Sendable {
+    public var id: String
+    public var title: String
+    public var command: String
+
+    public init(id: String, title: String, command: String) {
+        self.id = id
+        self.title = title
+        self.command = command
+    }
+}
+
 public struct SanitizedWorkspaceSummaryExport: Codable, Equatable, Sendable {
     public var generatedAt: Date
     public var ascendKitVersion: String?
@@ -307,6 +319,8 @@ public struct SanitizedWorkspaceSummaryExport: Codable, Equatable, Sendable {
     public var steps: [SanitizedWorkspaceStep]
     public var hygieneSafeForPublicCommit: Bool
     public var hygieneFindings: [WorkspaceHygieneFinding]
+    public var handoffCommands: [SanitizedHandoffCommand]
+    public var safetyBoundaries: [String]
     public var notes: [String]
 
     public init(
@@ -324,6 +338,8 @@ public struct SanitizedWorkspaceSummaryExport: Codable, Equatable, Sendable {
         steps: [SanitizedWorkspaceStep],
         hygieneSafeForPublicCommit: Bool,
         hygieneFindings: [WorkspaceHygieneFinding],
+        handoffCommands: [SanitizedHandoffCommand],
+        safetyBoundaries: [String],
         notes: [String]
     ) {
         self.generatedAt = generatedAt
@@ -340,6 +356,8 @@ public struct SanitizedWorkspaceSummaryExport: Codable, Equatable, Sendable {
         self.steps = steps
         self.hygieneSafeForPublicCommit = hygieneSafeForPublicCommit
         self.hygieneFindings = hygieneFindings
+        self.handoffCommands = handoffCommands
+        self.safetyBoundaries = safetyBoundaries
         self.notes = notes
     }
 }
@@ -377,6 +395,8 @@ public struct SanitizedWorkspaceSummaryExporter {
             },
             hygieneSafeForPublicCommit: hygiene.safeForPublicCommit,
             hygieneFindings: hygiene.findings,
+            handoffCommands: handoffCommands(),
+            safetyBoundaries: safetyBoundaries(),
             notes: [
                 "This export is sanitized for handoff and public issue discussion.",
                 "It does not include screenshots, ASC auth config, raw metadata, review artifacts, audit log contents, or App Store Connect API responses.",
@@ -399,6 +419,46 @@ public struct SanitizedWorkspaceSummaryExporter {
         return remainder.trimmingCharacters(in: CharacterSet(charactersIn: "/")).isEmpty
             ? "."
             : remainder.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+    }
+
+    private func handoffCommands() -> [SanitizedHandoffCommand] {
+        [
+            SanitizedHandoffCommand(
+                id: "version",
+                title: "Verify installed AscendKit",
+                command: "ascendkit --version"
+            ),
+            SanitizedHandoffCommand(
+                id: "summary",
+                title: "Read current release status",
+                command: "ascendkit workspace summary --workspace PATH --json"
+            ),
+            SanitizedHandoffCommand(
+                id: "next-steps",
+                title: "Get priority-sorted recovery commands",
+                command: "ascendkit workspace next-steps --workspace PATH --json"
+            ),
+            SanitizedHandoffCommand(
+                id: "validate-handoff",
+                title: "Validate safe agent handoff",
+                command: "ascendkit workspace validate-handoff --workspace PATH --export FILE --json"
+            ),
+            SanitizedHandoffCommand(
+                id: "hygiene",
+                title: "Check workspace sharing safety",
+                command: "ascendkit workspace hygiene --workspace PATH --json"
+            )
+        ]
+    }
+
+    private func safetyBoundaries() -> [String] {
+        [
+            "Use the installed ascendkit binary from PATH, not swift run, unless contributing to AscendKit itself.",
+            "Do not share or commit raw .ascendkit workspaces, screenshots, reviewer information, ASC credentials, binaries, or generated release artifacts.",
+            "Do not upload binaries. Xcode Cloud remains the binary delivery path.",
+            "Do not execute final remote review submission. AscendKit stops at submit handoff.",
+            "Run dry-run or plan commands before any App Store Connect mutation and use --confirm-remote-mutation only for the intended operation."
+        ]
     }
 }
 

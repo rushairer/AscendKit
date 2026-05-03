@@ -224,6 +224,16 @@ struct WorkspaceTests {
         #expect(decoded.exportPath == "summary.json")
         #expect(decoded.steps.contains { $0.id == "manifest" && $0.relativePath == "manifest.json" })
         #expect(decoded.hygieneFindings.contains { $0.id == "workspace.local-artifacts" })
+        #expect(decoded.handoffCommands.contains {
+            $0.id == "next-steps" &&
+                $0.command == "ascendkit workspace next-steps --workspace PATH --json"
+        })
+        #expect(decoded.handoffCommands.contains {
+            $0.id == "validate-handoff" &&
+                $0.command.contains("--export FILE")
+        })
+        #expect(decoded.safetyBoundaries.contains { $0.contains("Do not upload binaries") })
+        #expect(decoded.safetyBoundaries.contains { $0.contains("submit handoff") })
         #expect(decoded.notes.contains { $0.contains("does not include screenshots") })
         #expect(!exportedText.contains(workspace.paths.root))
         #expect(!exportedText.contains(root.url.standardizedFileURL.path))
