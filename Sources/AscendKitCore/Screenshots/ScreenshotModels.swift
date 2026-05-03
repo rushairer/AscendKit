@@ -1703,9 +1703,44 @@ public struct ScreenshotReadinessEvaluator {
                         nextAction: "Add missing PNG, JPG, JPEG, HEIC, or TIFF screenshot files."
                     ))
                 }
+                findings.append(contentsOf: dimensionFindings(
+                    images: images,
+                    locale: locale,
+                    platform: platform
+                ))
             }
         }
         return findings
+    }
+
+    private func dimensionFindings(
+        images: [URL],
+        locale: String,
+        platform: ApplePlatform
+    ) -> [ScreenshotReadinessFinding] {
+        images.compactMap { imageURL in
+            guard let image = NSImage(contentsOf: imageURL) else {
+                return ScreenshotReadinessFinding(
+                    id: "screenshots.import.\(locale).\(platform.rawValue).\(safeFindingID(imageURL.deletingPathExtension().lastPathComponent)).decode",
+                    severity: .warning,
+                    message: "Screenshot image could not be decoded for \(locale)/\(platform.rawValue): \(imageURL.lastPathComponent).",
+                    nextAction: "Replace the file with a valid PNG, JPG, JPEG, HEIC, or TIFF image before final composition/upload."
+                )
+            }
+
+            let width = Int(image.size.width.rounded())
+            let height = Int(image.size.height.rounded())
+            guard width >= 320 && height >= 320 else {
+                return ScreenshotReadinessFinding(
+                    id: "screenshots.import.\(locale).\(platform.rawValue).\(safeFindingID(imageURL.deletingPathExtension().lastPathComponent)).dimensions",
+                    severity: .warning,
+                    message: "Screenshot image is suspiciously small for \(locale)/\(platform.rawValue): \(imageURL.lastPathComponent) is \(width)x\(height).",
+                    nextAction: "Replace it with a real App Store screenshot captured from a simulator or device."
+                )
+            }
+
+            return nil
+        }
     }
 
     private func directoryExists(_ url: URL) -> Bool {
@@ -1719,6 +1754,16 @@ public struct ScreenshotReadinessEvaluator {
         }
         let supported = Set(["png", "jpg", "jpeg", "heic", "tif", "tiff"])
         return contents.filter { supported.contains($0.pathExtension.lowercased()) }
+    }
+
+    private func safeFindingID(_ value: String) -> String {
+        let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-_"))
+        let sanitized = value.unicodeScalars
+            .map { allowed.contains($0) ? String($0).lowercased() : "-" }
+            .joined()
+            .split(separator: "-")
+            .joined(separator: "-")
+        return sanitized.isEmpty ? "image" : sanitized
     }
 }
 

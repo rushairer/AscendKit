@@ -904,6 +904,33 @@ struct ScreenshotTests {
         #expect(manifest.artifacts.map(\.fileName) == ["01-home.png", "02-settings.jpg"])
     }
 
+    @Test("warns about invalid or suspiciously small screenshot images")
+    func warnsAboutInvalidOrSmallScreenshotImages() throws {
+        let root = try TemporaryDirectory()
+        let platformDirectory = root.url
+            .appendingPathComponent("en-US")
+            .appendingPathComponent("iOS")
+        try FileManager.default.createDirectory(at: platformDirectory, withIntermediateDirectories: true)
+        try Data("not-an-image".utf8).write(to: platformDirectory.appendingPathComponent("01-home.png"))
+        try makePNG(size: NSSize(width: 120, height: 240), url: platformDirectory.appendingPathComponent("02-small.png"))
+
+        let plan = ScreenshotPlan(
+            inputPath: .userProvided,
+            platforms: [.iOS],
+            locales: ["en-US"],
+            items: [
+                ScreenshotPlanItem(id: "home", screenName: "Home", order: 1, purpose: "Show home"),
+                ScreenshotPlanItem(id: "small", screenName: "Small", order: 2, purpose: "Show small")
+            ]
+        )
+
+        let readiness = ScreenshotReadinessEvaluator().evaluate(plan: plan, sourceDirectory: root.url)
+
+        #expect(readiness.ready)
+        #expect(readiness.findings.contains { $0.id == "screenshots.import.en-US.iOS.01-home.decode" && $0.severity == .warning })
+        #expect(readiness.findings.contains { $0.id == "screenshots.import.en-US.iOS.02-small.dimensions" && $0.severity == .warning })
+    }
+
     @Test("creates screenshot import manifest from fastlane flat screenshots")
     func createsFastlaneImportManifest() throws {
         let root = try TemporaryDirectory()
