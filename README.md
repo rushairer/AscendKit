@@ -573,7 +573,7 @@ Checks whether the project is ready for deterministic UI-test-driven screenshots
 ascendkit screenshots scaffold-uitests --workspace "$WORKSPACE" --json
 ```
 
-Writes a reviewable starter UI Test file under `screenshots/scaffold/` plus a JSON manifest. The scaffold uses `--ascendkit-screenshot-mode`, `ASCENDKIT_SCREENSHOT_OUTPUT_DIR`, ordered screenshot names, and `XCTAttachment` fallback capture. It does not edit the Xcode project; users or AI Agents should review the file, add it to the UI test target, and replace placeholder navigation comments with app-specific deterministic steps.
+Writes a reviewable starter UI Test file under `screenshots/scaffold/` plus a JSON manifest. The scaffold uses `--ascendkit-screenshot-mode`, `ASCENDKIT_SCREENSHOT_OUTPUT_DIR`, ordered screenshot names, and `XCTAttachment` fallback capture. The JSON manifest includes `navigationPlaceholders` so AI Agents can see every screen that needs app-specific deterministic navigation without parsing Swift comments. It does not edit the Xcode project; users or AI Agents should review the file, add it to the UI test target, and replace placeholder navigation comments with app-specific deterministic steps.
 
 ```bash
 ascendkit screenshots plan \

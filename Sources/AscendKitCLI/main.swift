@@ -814,6 +814,12 @@ struct CLIRunner {
         ]
         lines.append("Instruction(s):")
         lines.append(contentsOf: result.instructions.map { "- \($0)" })
+        if !result.navigationPlaceholders.isEmpty {
+            lines.append("Navigation placeholder(s):")
+            lines.append(contentsOf: result.navigationPlaceholders.map {
+                "- \($0.order). \($0.screenName) -> \($0.outputFileName): \($0.replacementGuidance)"
+            })
+        }
         return lines.joined(separator: "\n")
     }
 

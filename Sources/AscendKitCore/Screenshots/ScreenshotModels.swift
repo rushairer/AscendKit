@@ -1376,6 +1376,7 @@ public struct ScreenshotUITestScaffoldResult: Codable, Equatable, Sendable {
     public var screenCount: Int
     public var launchArguments: [String]
     public var environmentKeys: [String]
+    public var navigationPlaceholders: [ScreenshotUITestNavigationPlaceholder]
     public var instructions: [String]
     public var agentPrompt: String
     public var swiftSource: String
@@ -1389,6 +1390,7 @@ public struct ScreenshotUITestScaffoldResult: Codable, Equatable, Sendable {
         screenCount: Int,
         launchArguments: [String],
         environmentKeys: [String],
+        navigationPlaceholders: [ScreenshotUITestNavigationPlaceholder],
         instructions: [String],
         agentPrompt: String,
         swiftSource: String,
@@ -1401,10 +1403,36 @@ public struct ScreenshotUITestScaffoldResult: Codable, Equatable, Sendable {
         self.screenCount = screenCount
         self.launchArguments = launchArguments
         self.environmentKeys = environmentKeys
+        self.navigationPlaceholders = navigationPlaceholders
         self.instructions = instructions
         self.agentPrompt = agentPrompt
         self.swiftSource = swiftSource
         self.ascendKitVersion = ascendKitVersion
+    }
+}
+
+public struct ScreenshotUITestNavigationPlaceholder: Codable, Equatable, Sendable {
+    public var screenID: String
+    public var screenName: String
+    public var order: Int
+    public var purpose: String
+    public var outputFileName: String
+    public var replacementGuidance: String
+
+    public init(
+        screenID: String,
+        screenName: String,
+        order: Int,
+        purpose: String,
+        outputFileName: String,
+        replacementGuidance: String
+    ) {
+        self.screenID = screenID
+        self.screenName = screenName
+        self.order = order
+        self.purpose = purpose
+        self.outputFileName = outputFileName
+        self.replacementGuidance = replacementGuidance
     }
 }
 
@@ -1436,6 +1464,7 @@ public struct ScreenshotUITestScaffoldBuilder {
                 "ASCENDKIT_SCREENSHOT_OUTPUT_DIR",
                 "ASCENDKIT_SCREENSHOT_LOCALE"
             ],
+            navigationPlaceholders: navigationPlaceholders(for: items),
             instructions: [
                 "Review the generated Swift file before adding it to the UI test target.",
                 "Replace placeholder navigation comments with real, deterministic app navigation.",
@@ -1446,6 +1475,20 @@ public struct ScreenshotUITestScaffoldBuilder {
             agentPrompt: "Add the generated AscendKit screenshot UI test to the app's UI test target. Replace placeholder navigation with stable app-specific steps, keep launch arguments, use deterministic mock data, avoid real credentials, and preserve ordered screenshot file names.",
             swiftSource: swiftSource
         )
+    }
+
+    private func navigationPlaceholders(for items: [ScreenshotPlanItem]) -> [ScreenshotUITestNavigationPlaceholder] {
+        items.map { item in
+            let fileName = "\(String(format: "%02d", item.order))-\(safeStem(item.id)).png"
+            return ScreenshotUITestNavigationPlaceholder(
+                screenID: item.id,
+                screenName: item.screenName,
+                order: item.order,
+                purpose: item.purpose,
+                outputFileName: fileName,
+                replacementGuidance: "Replace the TODO before \(fileName) with stable UI automation that navigates to \(item.screenName) without real credentials or network-dependent state."
+            )
+        }
     }
 
     private func makeSwiftSource(items: [ScreenshotPlanItem]) -> String {
