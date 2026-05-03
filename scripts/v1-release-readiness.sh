@@ -104,6 +104,7 @@ if [[ "${SKIP_HOMEBREW}" == false ]]; then
   fi
 
   "${ASCENDKIT_BIN}" version --json | grep -F "https://github.com/rushairer/AscendKit/releases/tag/v${VERSION}" >/dev/null
+  scripts/diagnose-homebrew-install.sh --version "${VERSION}"
 else
   echo "==> Skipping Homebrew reinstall"
 fi

@@ -222,6 +222,7 @@ struct CLISmokeTests {
         #expect(v1ReadinessScript.contains("scripts/preflight-public-release.sh"))
         #expect(v1ReadinessScript.contains("scripts/verify-release-assets.sh --version"))
         #expect(v1ReadinessScript.contains("brew reinstall rushairer/ascendkit/ascendkit"))
+        #expect(v1ReadinessScript.contains("scripts/diagnose-homebrew-install.sh --version"))
         #expect(v1ReadinessScript.contains("scripts/v1-representative-app-smoke.sh"))
         #expect(formula.contains("class Ascendkit < Formula"))
         #expect(formula.contains("bin.install \"bin/ascendkit\""))
