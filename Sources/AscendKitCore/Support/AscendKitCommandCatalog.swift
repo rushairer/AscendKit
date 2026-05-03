@@ -17,6 +17,7 @@ public enum AscendKitCommandCatalog {
         "ascendkit metadata status --workspace PATH [--json]",
         "ascendkit metadata lint --workspace PATH [--locale en-US] [--json]",
         "ascendkit metadata diff --workspace PATH [--json]",
+        "ascendkit screenshots doctor --workspace PATH [--json]",
         "ascendkit screenshots destinations --workspace PATH [--json]",
         "ascendkit screenshots plan --workspace PATH [--screens A,B] [--features A,B] [--platforms iOS,macOS] [--locales en-US] [--json]",
         "ascendkit screenshots copy init --workspace PATH [--locale en-US] [--output PATH] [--json]",

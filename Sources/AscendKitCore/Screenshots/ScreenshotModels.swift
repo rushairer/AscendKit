@@ -1068,6 +1068,205 @@ public struct ScreenshotCapturePlanBuilder {
     }
 }
 
+public enum ScreenshotDoctorSeverity: String, Codable, Equatable, Sendable {
+    case blocker
+    case warning
+    case info
+}
+
+public struct ScreenshotDoctorFinding: Codable, Equatable, Identifiable, Sendable {
+    public var id: String
+    public var severity: ScreenshotDoctorSeverity
+    public var title: String
+    public var detail: String
+    public var nextAction: String
+
+    public init(
+        id: String,
+        severity: ScreenshotDoctorSeverity,
+        title: String,
+        detail: String,
+        nextAction: String
+    ) {
+        self.id = id
+        self.severity = severity
+        self.title = title
+        self.detail = detail
+        self.nextAction = nextAction
+    }
+}
+
+public struct ScreenshotDoctorReport: Codable, Equatable, Sendable {
+    public var generatedAt: Date
+    public var readyForDeterministicCapture: Bool
+    public var projectReference: ProjectReference?
+    public var appTargetName: String?
+    public var uiTestTargetNames: [String]
+    public var platforms: [ApplePlatform]
+    public var locales: [String]
+    public var recommendedDestinations: [ScreenshotCaptureDestination]
+    public var screenshotPlanPresent: Bool
+    public var nextCommands: [String]
+    public var findings: [ScreenshotDoctorFinding]
+    public var uiTestGuidance: [String]
+    public var uiTestAgentPrompt: String
+    public var ascendKitVersion: String?
+
+    public init(
+        generatedAt: Date = Date(),
+        projectReference: ProjectReference?,
+        appTargetName: String?,
+        uiTestTargetNames: [String],
+        platforms: [ApplePlatform],
+        locales: [String],
+        recommendedDestinations: [ScreenshotCaptureDestination],
+        screenshotPlanPresent: Bool,
+        nextCommands: [String],
+        findings: [ScreenshotDoctorFinding],
+        ascendKitVersion: String? = AscendKitVersion.current
+    ) {
+        self.generatedAt = generatedAt
+        self.projectReference = projectReference
+        self.appTargetName = appTargetName
+        self.uiTestTargetNames = uiTestTargetNames
+        self.platforms = platforms
+        self.locales = locales
+        self.recommendedDestinations = recommendedDestinations
+        self.screenshotPlanPresent = screenshotPlanPresent
+        self.nextCommands = nextCommands
+        self.findings = findings
+        self.uiTestGuidance = [
+            "Use UI Tests for repeatable screenshots when manual screenshots are missing or stale.",
+            "Launch the app with screenshot-specific arguments such as --ascendkit-screenshot-mode.",
+            "Use deterministic fixtures or mock data; never use real user credentials.",
+            "Write raw screenshots to ASCENDKIT_SCREENSHOT_OUTPUT_DIR when possible, or attach ordered XCTest screenshots for xcresult import.",
+            "Keep manual screenshot import as a fallback when UI Test capture is not practical yet."
+        ]
+        self.uiTestAgentPrompt = "Use AscendKit to create deterministic App Store screenshots. Prefer UI Tests with stable launch arguments, mock data, ordered screenshot names, and no real credentials. If no UI test target exists, scaffold one before running screenshots capture-plan."
+        self.readyForDeterministicCapture = !findings.contains { $0.severity == .blocker }
+        self.ascendKitVersion = ascendKitVersion
+    }
+}
+
+public struct ScreenshotDoctor {
+    public init() {}
+
+    public func diagnose(
+        manifest: ReleaseManifest,
+        screenshotPlan: ScreenshotPlan?,
+        recommendedDestinations: [ScreenshotCaptureDestination] = []
+    ) -> ScreenshotDoctorReport {
+        let projectReference = manifest.projects.first { $0.kind == .xcworkspace } ?? manifest.projects.first
+        let appTarget = manifest.targets.first(where: \.isAppStoreApplication)
+        let uiTestTargets = manifest.targets.filter { target in
+            target.productType?.contains("ui-testing") == true || target.name.localizedCaseInsensitiveContains("UITests")
+        }
+        let platforms = normalizedPlatforms(
+            screenshotPlan?.platforms ?? manifest.targets.map(\.platform).filter { $0 != .unknown }
+        )
+        let locales = screenshotPlan?.locales.isEmpty == false ? screenshotPlan?.locales ?? ["en-US"] : ["en-US"]
+        var findings: [ScreenshotDoctorFinding] = []
+
+        if projectReference == nil {
+            findings.append(.init(
+                id: "screenshots.doctor.project.missing",
+                severity: .blocker,
+                title: "No Xcode project or workspace found",
+                detail: "AscendKit needs an .xcodeproj or .xcworkspace reference before it can plan UI-test-driven screenshot capture.",
+                nextAction: "Run intake inspect --workspace PATH --save from the app project root, then rerun screenshots doctor."
+            ))
+        }
+
+        if appTarget == nil {
+            findings.append(.init(
+                id: "screenshots.doctor.app-target.missing",
+                severity: .blocker,
+                title: "No App Store application target found",
+                detail: "Screenshot capture needs a runnable application scheme.",
+                nextAction: "Confirm the app target is discoverable, then rerun intake inspect --workspace PATH --save."
+            ))
+        }
+
+        if uiTestTargets.isEmpty {
+            findings.append(.init(
+                id: "screenshots.doctor.uitest-target.missing",
+                severity: .blocker,
+                title: "No UI test target detected",
+                detail: "Manual screenshot import can still work, but deterministic screenshot capture requires UI Tests.",
+                nextAction: "Create a UI test target or use the upcoming screenshots scaffold-uitests command, then run screenshots capture-plan."
+            ))
+        }
+
+        if screenshotPlan == nil {
+            findings.append(.init(
+                id: "screenshots.doctor.plan.missing",
+                severity: .blocker,
+                title: "No screenshot plan found",
+                detail: "A screenshot plan defines platforms, locales, ordered screens, and marketing intent before deterministic capture.",
+                nextAction: "Run screenshots plan --workspace PATH --screens Home,Feature,Paywall --features A,B --platforms iOS,iPadOS --locales en-US --json."
+            ))
+        }
+
+        if platforms.isEmpty {
+            findings.append(.init(
+                id: "screenshots.doctor.platforms.missing",
+                severity: .warning,
+                title: "No screenshot platform matrix found",
+                detail: "AscendKit could not infer target platforms from the manifest or screenshot plan.",
+                nextAction: "Run screenshots plan with --platforms iOS,iPadOS or the correct platform list for this app."
+            ))
+        }
+
+        if recommendedDestinations.isEmpty {
+            findings.append(.init(
+                id: "screenshots.doctor.destinations.missing",
+                severity: .warning,
+                title: "No simulator destinations discovered",
+                detail: "Capture can still be planned with explicit --destination values, but automatic recommendations are unavailable.",
+                nextAction: "Run screenshots destinations --workspace PATH --json or pass --destination to screenshots capture-plan."
+            ))
+        }
+
+        if !uiTestTargets.isEmpty {
+            findings.append(.init(
+                id: "screenshots.doctor.uitest-target.present",
+                severity: .info,
+                title: "UI test target detected",
+                detail: "Detected UI test target(s): \(uiTestTargets.map(\.name).joined(separator: ", ")).",
+                nextAction: "Use launch arguments and ASCENDKIT_SCREENSHOT_OUTPUT_DIR in UI Tests, then run screenshots capture-plan."
+            ))
+        }
+
+        let nextCommands = [
+            "screenshots plan --workspace PATH --screens Home,Feature,Paywall --features A,B --platforms iOS,iPadOS --locales en-US --json",
+            "screenshots destinations --workspace PATH --json",
+            "screenshots capture-plan --workspace PATH --json",
+            "screenshots capture --workspace PATH --json",
+            "screenshots compose --workspace PATH --mode framedPoster --json"
+        ]
+
+        return ScreenshotDoctorReport(
+            projectReference: projectReference,
+            appTargetName: appTarget?.name,
+            uiTestTargetNames: uiTestTargets.map(\.name).sorted(),
+            platforms: platforms,
+            locales: locales,
+            recommendedDestinations: recommendedDestinations,
+            screenshotPlanPresent: screenshotPlan != nil,
+            nextCommands: nextCommands,
+            findings: findings
+        )
+    }
+
+    private func normalizedPlatforms(_ platforms: [ApplePlatform]) -> [ApplePlatform] {
+        var result: [ApplePlatform] = []
+        for platform in platforms where platform != .unknown && !result.contains(platform) {
+            result.append(platform)
+        }
+        return result.sorted { $0.rawValue < $1.rawValue }
+    }
+}
+
 public enum ScreenshotReadinessSeverity: String, Codable, Equatable, Sendable {
     case blocker
     case warning

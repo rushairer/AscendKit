@@ -101,6 +101,7 @@ struct CLISmokeTests {
         let automationBoundaries = try String(contentsOfFile: "docs/automation-boundaries.md", encoding: .utf8)
         let architecture = try String(contentsOfFile: "docs/architecture.md", encoding: .utf8)
         let releaseReadiness = try String(contentsOfFile: "docs/v1-release-readiness.md", encoding: .utf8)
+        let growthRoadmap = try String(contentsOfFile: "docs/app-store-growth-copilot-roadmap.md", encoding: .utf8)
         let requiredFragments = [
             "workspace summary",
             "workspace hygiene",
@@ -119,6 +120,17 @@ struct CLISmokeTests {
         #expect(playbook.contains("ascendKitVersion"))
         #expect(readme.contains("ascendKitVersion"))
         #expect(readme.contains("docs/v1-release-readiness.md"))
+        #expect(readme.contains("docs/app-store-growth-copilot-roadmap.md"))
+        #expect(readme.contains("ascendkit screenshots doctor --workspace \"$WORKSPACE\" --json"))
+        #expect(readme.contains("deterministic UI-test-driven screenshots"))
+        #expect(growthRoadmap.contains("Screenshot Studio"))
+        #expect(growthRoadmap.contains("UI Test"))
+        #expect(growthRoadmap.contains("iOS and iPadOS"))
+        #expect(growthRoadmap.contains("macOS and visionOS"))
+        #expect(growthRoadmap.contains("tvOS and watchOS"))
+        #expect(growthRoadmap.contains("Read-Only ASC Analytics Reports"))
+        #expect(growthRoadmap.contains("No automatic price changes"))
+        #expect(growthRoadmap.contains("Do not start ASC analytics implementation until v1.6 and v1.7 screenshot workflows are stable."))
         #expect(readme.contains("v1 command surface is stable for `1.x`"))
         #expect(!readme.contains("release-candidate hardening"))
         #expect(!readme.contains("Until AscendKit has a dedicated tap repository"))
@@ -247,6 +259,7 @@ struct CLISmokeTests {
         #expect(readme.contains("brew tap rushairer/ascendkit"))
         #expect(readme.contains("brew install ascendkit"))
         #expect(readme.contains("ascendkit version --json"))
+        #expect(readme.contains("screenshots doctor"))
         #expect(readme.contains("swift run ascendkit --help"))
         #expect(readme.contains("GitHub release archives"))
         #expect(cli.contains("AscendKit version:"))

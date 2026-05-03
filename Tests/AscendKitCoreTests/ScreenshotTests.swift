@@ -139,6 +139,91 @@ struct ScreenshotTests {
         #expect(capturePlan.commands.first?.command.contains("platform=iOS Simulator,name=iPhone 17") == true)
     }
 
+    @Test("screenshot doctor guides projects without UI test automation")
+    func screenshotDoctorGuidesMissingUITestAutomation() {
+        let manifest = ReleaseManifest(
+            releaseID: "demo-1.0",
+            appSlug: "Demo",
+            projects: [ProjectReference(kind: .xcworkspace, path: "/tmp/Demo/Demo.xcworkspace")],
+            targets: [
+                BundleTarget(
+                    name: "Demo",
+                    platform: .iOS,
+                    productType: "com.apple.product-type.application"
+                )
+            ]
+        )
+
+        let report = ScreenshotDoctor().diagnose(
+            manifest: manifest,
+            screenshotPlan: nil,
+            recommendedDestinations: []
+        )
+
+        #expect(report.readyForDeterministicCapture == false)
+        #expect(report.projectReference?.path == "/tmp/Demo/Demo.xcworkspace")
+        #expect(report.appTargetName == "Demo")
+        #expect(report.uiTestTargetNames.isEmpty)
+        #expect(report.platforms == [.iOS])
+        #expect(report.screenshotPlanPresent == false)
+        #expect(report.findings.contains { $0.id == "screenshots.doctor.uitest-target.missing" && $0.severity == .blocker })
+        #expect(report.findings.contains { $0.id == "screenshots.doctor.plan.missing" && $0.severity == .blocker })
+        #expect(report.findings.contains { $0.id == "screenshots.doctor.destinations.missing" && $0.severity == .warning })
+        #expect(report.uiTestGuidance.contains { $0.contains("UI Tests") })
+        #expect(report.uiTestAgentPrompt.contains("no real credentials"))
+        #expect(report.nextCommands.contains("screenshots capture-plan --workspace PATH --json"))
+    }
+
+    @Test("screenshot doctor reports UI test readiness signals")
+    func screenshotDoctorReportsUITestReadinessSignals() {
+        let manifest = ReleaseManifest(
+            releaseID: "demo-1.0",
+            appSlug: "Demo",
+            projects: [ProjectReference(kind: .xcodeproj, path: "/tmp/Demo/Demo.xcodeproj")],
+            targets: [
+                BundleTarget(
+                    name: "Demo",
+                    platform: .iOS,
+                    productType: "com.apple.product-type.application"
+                ),
+                BundleTarget(
+                    name: "DemoUITests",
+                    platform: .iOS,
+                    productType: "com.apple.product-type.bundle.ui-testing"
+                )
+            ]
+        )
+        let plan = ScreenshotPlan(
+            inputPath: .uiTestCapture,
+            platforms: [.iOS, .iPadOS],
+            locales: ["en-US"],
+            items: [
+                ScreenshotPlanItem(id: "home", screenName: "Home", order: 1, purpose: "Show home")
+            ]
+        )
+
+        let report = ScreenshotDoctor().diagnose(
+            manifest: manifest,
+            screenshotPlan: plan,
+            recommendedDestinations: [
+                ScreenshotCaptureDestination(
+                    platform: .iOS,
+                    name: "iPhone 17 Pro Max",
+                    xcodebuildDestination: "platform=iOS Simulator,name=iPhone 17 Pro Max"
+                )
+            ]
+        )
+
+        #expect(report.readyForDeterministicCapture == true)
+        #expect(report.uiTestTargetNames == ["DemoUITests"])
+        #expect(report.platforms == [.iOS, .iPadOS])
+        #expect(report.locales == ["en-US"])
+        #expect(report.recommendedDestinations.count == 1)
+        #expect(report.screenshotPlanPresent == true)
+        #expect(report.findings.contains { $0.id == "screenshots.doctor.uitest-target.present" && $0.severity == .info })
+        #expect(!report.findings.contains { $0.severity == .blocker })
+    }
+
     @Test("executes screenshot capture command and records output files")
     func executesScreenshotCaptureCommand() throws {
         let root = try TemporaryDirectory()

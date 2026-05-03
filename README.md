@@ -33,7 +33,7 @@ Out of scope for the current release:
 - Fully managed App Store Connect pricing/App Privacy abstractions for every Apple API edge case.
 - Broad remote screenshot lifecycle management beyond guarded replace-existing deletion.
 
-`v1.0.0` release readiness is tracked in `docs/v1-release-readiness.md`. Post-v1 work is tracked in `docs/post-v1-roadmap.md`.
+`v1.0.0` release readiness is tracked in `docs/v1-release-readiness.md`. Post-v1 work is tracked in `docs/post-v1-roadmap.md`, and the longer product direction is tracked in `docs/app-store-growth-copilot-roadmap.md`.
 
 ## Requirements
 
@@ -446,6 +446,12 @@ Compares local metadata with observed ASC metadata saved in the workspace.
 ### `screenshots`
 
 Plan, import, validate, and compose local screenshot artifacts.
+
+```bash
+ascendkit screenshots doctor --workspace "$WORKSPACE" --json
+```
+
+Checks whether the project is ready for deterministic UI-test-driven screenshots. It reports the discovered Xcode project/workspace, app target, UI test target(s), screenshot plan state, simulator destination hints, and concrete next commands. If no UI test target exists, AscendKit keeps manual screenshot import available but tells users and AI Agents to scaffold UI Tests for repeatable screenshots.
 
 ```bash
 ascendkit screenshots plan \

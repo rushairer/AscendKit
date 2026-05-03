@@ -397,13 +397,26 @@ struct CLIRunner {
 
     private func screenshots(_ args: [String], json: Bool) async throws -> String {
         guard let subcommand = args.first else {
-            throw AscendKitError.invalidArguments("Usage: ascendkit screenshots destinations|plan|copy|capture-plan|capture|workflow|readiness|compose|coverage|upload-plan|upload|upload-status --workspace PATH")
+            throw AscendKitError.invalidArguments("Usage: ascendkit screenshots doctor|destinations|plan|copy|capture-plan|capture|workflow|readiness|compose|coverage|upload-plan|upload|upload-status --workspace PATH")
         }
         let workspace = try loadWorkspace(from: args)
         let store = ReleaseWorkspaceStore(fileManager: fileManager)
         let planURL = URL(fileURLWithPath: workspace.paths.screenshotPlan)
 
         switch subcommand {
+        case "doctor":
+            let manifest = try store.loadManifest(from: workspace)
+            let screenshotPlan = try loadIfExists(ScreenshotPlan.self, path: workspace.paths.screenshotPlan)
+            let platforms = screenshotPlan?.platforms ?? Array(Set(manifest.targets.map(\.platform).filter { $0 != .unknown }))
+            let destinations = try discoverScreenshotDestinations(platforms: platforms).recommendedDestinations
+            let report = ScreenshotDoctor().diagnose(
+                manifest: manifest,
+                screenshotPlan: screenshotPlan,
+                recommendedDestinations: destinations
+            )
+            return try render(report, json: json) {
+                renderScreenshotDoctorText(report)
+            }
         case "destinations":
             let manifest = try store.loadManifest(from: workspace)
             let screenshotPlan = try loadIfExists(ScreenshotPlan.self, path: workspace.paths.screenshotPlan)
@@ -682,6 +695,31 @@ struct CLIRunner {
         default:
             throw AscendKitError.invalidArguments("Unknown screenshots command: \(subcommand)")
         }
+    }
+
+    private func renderScreenshotDoctorText(_ report: ScreenshotDoctorReport) -> String {
+        var lines = [
+            "Screenshot doctor: \(report.readyForDeterministicCapture ? "ready" : "needs attention") for deterministic capture",
+            "AscendKit version: \(report.ascendKitVersion ?? "unknown")",
+            "Project: \(report.projectReference?.path ?? "unknown")",
+            "App target: \(report.appTargetName ?? "unknown")",
+            "UI test target(s): \(report.uiTestTargetNames.isEmpty ? "none" : report.uiTestTargetNames.joined(separator: ", "))",
+            "Platform(s): \(report.platforms.map(\.rawValue).joined(separator: ", "))",
+            "Locale(s): \(report.locales.joined(separator: ", "))",
+            "Recommended destination(s): \(report.recommendedDestinations.count)",
+            "Screenshot plan: \(report.screenshotPlanPresent ? "present" : "missing")"
+        ]
+        if !report.findings.isEmpty {
+            lines.append("Finding(s):")
+            lines.append(contentsOf: report.findings.map {
+                "- [\($0.severity.rawValue)] \($0.title): \($0.detail) Next: \($0.nextAction)"
+            })
+        }
+        lines.append("UI Test guidance:")
+        lines.append(contentsOf: report.uiTestGuidance.map { "- \($0)" })
+        lines.append("Next command(s):")
+        lines.append(contentsOf: report.nextCommands.map { "- \($0)" })
+        return lines.joined(separator: "\n")
     }
 
     private func screenshotWorkflowStatus(workspace: ReleaseWorkspace) throws -> ScreenshotWorkflowStatusReport {

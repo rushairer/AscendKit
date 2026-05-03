@@ -7,6 +7,8 @@ AscendKit follows [Semantic Versioning](https://semver.org/). The `1.x` line kee
 ### Added
 
 - Added a Homebrew release finalizer script that refreshes Formula checksum state from the completed GitHub Release workflow, syncs the tap, and optionally verifies reinstall diagnostics.
+- Added a post-v1 App Store Growth Copilot roadmap covering Screenshot Studio, platform support tiers, UI Test scaffolding, and read-only ASC analytics reporting.
+- Added an initial read-only `screenshots doctor` command for UI-test-driven screenshot readiness, agent guidance, and deterministic capture next steps.
 
 ## 1.4.0 - 2026-05-03
 

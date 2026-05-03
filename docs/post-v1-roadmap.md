@@ -1,6 +1,6 @@
 # AscendKit Post-v1 Roadmap
 
-This roadmap keeps the v1 command surface stable while improving distribution, reliability, and agent handoff quality.
+This roadmap keeps the v1 command surface stable while improving distribution, screenshot quality, release reliability, and agent handoff quality. The deeper product direction is tracked in `docs/app-store-growth-copilot-roadmap.md`.
 
 ## v1.0.x Stability Line
 
@@ -44,6 +44,40 @@ This roadmap keeps the v1 command surface stable while improving distribution, r
 - Finalize Homebrew only after the release workflow has completed so the formula uses the final published asset digest.
 - Provide one maintainer command that refreshes the formula, verifies the published digest, syncs the tap, and optionally reinstalls and diagnoses Homebrew.
 - Keep the finalizer local and explicit; it must not upload binaries, submit App Store reviews, or mutate App Store Connect.
+
+## v1.6 Screenshot Doctor and UI Test Scaffold
+
+- Detect whether a project has a repeatable screenshot automation path.
+- Guide users and AI Agents toward UI-test-driven screenshots when deterministic capture is missing.
+- Scaffold starter UI Test code and launch-argument guidance without hardcoding app-specific data.
+- Keep manual screenshot import as a supported fallback.
+
+## v1.7 iOS/iPadOS Screenshot Studio
+
+- Make iOS and iPadOS the first polished screenshot platform tier.
+- Add an explicit device-frame registry and screenshot requirement matrix.
+- Improve framed and poster-style composition presets.
+- Lint locale, display-size, screenshot copy, and first-impression coverage.
+
+## v1.8 Cross-Platform Screenshot Expansion
+
+- Publish an honest platform support matrix for iOS, iPadOS, macOS, visionOS, tvOS, and watchOS.
+- Add macOS and visionOS screenshot lint/composition baselines.
+- Add tvOS and watchOS import/lint baselines before claiming full capture support.
+- Emit actionable unsupported-feature diagnostics instead of silent gaps.
+
+## v1.9 Read-Only ASC Analytics Reports
+
+- Fetch and normalize App Store Connect analytics and sales reports into local snapshots.
+- Generate Markdown/JSON reports for post-launch trends, caveats, and anomalies.
+- Connect report findings to screenshot, metadata, pricing, and release-note experiment recommendations.
+- Keep analytics read-only; no automatic pricing, campaign, metadata, or review-submission mutations.
+
+## v2.0 App Store Growth Copilot
+
+- Close the loop from release preparation to post-launch insight and next-release recommendations.
+- Combine release workspace history, screenshots, metadata, and analytics into a safe local growth workflow.
+- Generate agent handoff plans for the next App Store iteration.
 
 ## Long-term Boundaries
 
