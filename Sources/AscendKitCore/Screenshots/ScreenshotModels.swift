@@ -1096,6 +1096,31 @@ public struct ScreenshotDoctorFinding: Codable, Equatable, Identifiable, Sendabl
     }
 }
 
+public struct ScreenshotPlatformSupport: Codable, Equatable, Sendable {
+    public var platform: ApplePlatform
+    public var deterministicCapture: String
+    public var defaultDestination: String?
+    public var appStoreDisplayType: String
+    public var compositionSupport: String
+    public var notes: [String]
+
+    public init(
+        platform: ApplePlatform,
+        deterministicCapture: String,
+        defaultDestination: String?,
+        appStoreDisplayType: String,
+        compositionSupport: String,
+        notes: [String]
+    ) {
+        self.platform = platform
+        self.deterministicCapture = deterministicCapture
+        self.defaultDestination = defaultDestination
+        self.appStoreDisplayType = appStoreDisplayType
+        self.compositionSupport = compositionSupport
+        self.notes = notes
+    }
+}
+
 public struct ScreenshotDoctorReport: Codable, Equatable, Sendable {
     public var generatedAt: Date
     public var readyForDeterministicCapture: Bool
@@ -1105,6 +1130,7 @@ public struct ScreenshotDoctorReport: Codable, Equatable, Sendable {
     public var platforms: [ApplePlatform]
     public var locales: [String]
     public var recommendedDestinations: [ScreenshotCaptureDestination]
+    public var platformSupport: [ScreenshotPlatformSupport]
     public var screenshotPlanPresent: Bool
     public var nextCommands: [String]
     public var findings: [ScreenshotDoctorFinding]
@@ -1132,6 +1158,7 @@ public struct ScreenshotDoctorReport: Codable, Equatable, Sendable {
         self.platforms = platforms
         self.locales = locales
         self.recommendedDestinations = recommendedDestinations
+        self.platformSupport = Self.buildPlatformSupport(for: platforms)
         self.screenshotPlanPresent = screenshotPlanPresent
         self.nextCommands = nextCommands
         self.findings = findings
@@ -1145,6 +1172,80 @@ public struct ScreenshotDoctorReport: Codable, Equatable, Sendable {
         self.uiTestAgentPrompt = "Use AscendKit to create deterministic App Store screenshots. Prefer UI Tests with stable launch arguments, mock data, ordered screenshot names, and no real credentials. If no UI test target exists, scaffold one before running screenshots capture-plan."
         self.readyForDeterministicCapture = !findings.contains { $0.severity == .blocker }
         self.ascendKitVersion = ascendKitVersion
+    }
+
+    private static func buildPlatformSupport(for platforms: [ApplePlatform]) -> [ScreenshotPlatformSupport] {
+        let requestedPlatforms = platforms.filter { $0 != .unknown }
+        let matrixPlatforms = requestedPlatforms.isEmpty
+            ? ApplePlatform.allCases.filter { $0 != .unknown }
+            : requestedPlatforms
+        return matrixPlatforms.map { platform in
+            switch platform {
+            case .iOS:
+                return ScreenshotPlatformSupport(
+                    platform: .iOS,
+                    deterministicCapture: "default-supported",
+                    defaultDestination: "platform=iOS Simulator,name=iPhone 17 Pro Max",
+                    appStoreDisplayType: "APP_IPHONE_67",
+                    compositionSupport: "storeReadyCopy, poster, generic deviceFrame, framedPoster",
+                    notes: ["Best-supported path for UI-test screenshot capture and framed marketing screenshots."]
+                )
+            case .iPadOS:
+                return ScreenshotPlatformSupport(
+                    platform: .iPadOS,
+                    deterministicCapture: "default-supported",
+                    defaultDestination: "platform=iOS Simulator,name=iPad Pro 13-inch (M5)",
+                    appStoreDisplayType: "APP_IPAD_PRO_3GEN_129",
+                    compositionSupport: "storeReadyCopy, poster, generic deviceFrame, framedPoster",
+                    notes: ["Uses iOS Simulator destinations with iPad device names."]
+                )
+            case .macOS:
+                return ScreenshotPlatformSupport(
+                    platform: .macOS,
+                    deterministicCapture: "default-supported",
+                    defaultDestination: "platform=macOS",
+                    appStoreDisplayType: "APP_DESKTOP",
+                    compositionSupport: "storeReadyCopy, poster, generic deviceFrame, framedPoster",
+                    notes: ["Capture can run against the macOS destination when the scheme supports UI testing."]
+                )
+            case .tvOS:
+                return ScreenshotPlatformSupport(
+                    platform: .tvOS,
+                    deterministicCapture: "explicit-destination-required",
+                    defaultDestination: nil,
+                    appStoreDisplayType: "APP_APPLE_TV",
+                    compositionSupport: "storeReadyCopy, poster, generic deviceFrame, framedPoster",
+                    notes: ["Run screenshots destinations and pass a tvOS Simulator destination, or import manually until the project has deterministic UI Tests."]
+                )
+            case .watchOS:
+                return ScreenshotPlatformSupport(
+                    platform: .watchOS,
+                    deterministicCapture: "explicit-destination-required",
+                    defaultDestination: nil,
+                    appStoreDisplayType: "APP_WATCH_ULTRA",
+                    compositionSupport: "storeReadyCopy, poster, generic deviceFrame, framedPoster",
+                    notes: ["Watch screenshots often need app-specific host app and simulator setup; use explicit destinations or manual import."]
+                )
+            case .visionOS:
+                return ScreenshotPlatformSupport(
+                    platform: .visionOS,
+                    deterministicCapture: "explicit-destination-required",
+                    defaultDestination: nil,
+                    appStoreDisplayType: "APP_VISION_PRO",
+                    compositionSupport: "storeReadyCopy, poster, generic deviceFrame, framedPoster",
+                    notes: ["Use a discovered visionOS Simulator destination before capture-plan; manual import remains supported."]
+                )
+            case .unknown:
+                return ScreenshotPlatformSupport(
+                    platform: .unknown,
+                    deterministicCapture: "unsupported-until-platform-is-known",
+                    defaultDestination: nil,
+                    appStoreDisplayType: "APP_IPHONE_67",
+                    compositionSupport: "manual import only",
+                    notes: ["Rerun intake or screenshot planning with a concrete Apple platform."]
+                )
+            }
+        }
     }
 }
 

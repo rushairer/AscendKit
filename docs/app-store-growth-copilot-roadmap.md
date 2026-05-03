@@ -152,7 +152,7 @@ AscendKit must not assume users already know UI Tests. It should teach and scaff
 
 Required capabilities:
 
-- `screenshots doctor`: detect UI test target, testable scheme, simulator destinations, launch argument support, and screenshot output paths.
+- `screenshots doctor`: detect UI test target, testable scheme, simulator destinations, launch argument support, screenshot output paths, and a platform matrix for iOS, iPadOS, macOS, tvOS, watchOS, and visionOS.
 - `screenshots scaffold-uitests`: generate starter UI Test code and a screenshot plan without changing product behavior.
 - `screenshots plan`: propose screenshot-worthy flows from structured product inputs.
 - `screenshots capture`: run xcodebuild test and import raw screenshots or xcresult attachments.

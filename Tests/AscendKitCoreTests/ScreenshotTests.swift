@@ -172,6 +172,11 @@ struct ScreenshotTests {
         #expect(report.uiTestGuidance.contains { $0.contains("UI Tests") })
         #expect(report.uiTestAgentPrompt.contains("no real credentials"))
         #expect(report.nextCommands.contains("screenshots capture-plan --workspace PATH --json"))
+        #expect(report.platformSupport.contains {
+            $0.platform == .iOS &&
+                $0.deterministicCapture == "default-supported" &&
+                $0.appStoreDisplayType == "APP_IPHONE_67"
+        })
     }
 
     @Test("screenshot doctor reports UI test readiness signals")
@@ -222,6 +227,48 @@ struct ScreenshotTests {
         #expect(report.screenshotPlanPresent == true)
         #expect(report.findings.contains { $0.id == "screenshots.doctor.uitest-target.present" && $0.severity == .info })
         #expect(!report.findings.contains { $0.severity == .blocker })
+    }
+
+    @Test("screenshot doctor explains non-default platform capture support")
+    func screenshotDoctorExplainsNonDefaultPlatformCaptureSupport() {
+        let manifest = ReleaseManifest(
+            releaseID: "demo-1.0",
+            appSlug: "Demo",
+            projects: [ProjectReference(kind: .xcodeproj, path: "/tmp/Demo/Demo.xcodeproj")],
+            targets: [
+                BundleTarget(
+                    name: "Demo",
+                    platform: .visionOS,
+                    productType: "com.apple.product-type.application"
+                ),
+                BundleTarget(
+                    name: "DemoUITests",
+                    platform: .visionOS,
+                    productType: "com.apple.product-type.bundle.ui-testing"
+                )
+            ]
+        )
+        let plan = ScreenshotPlan(
+            inputPath: .uiTestCapture,
+            platforms: [.tvOS, .watchOS, .visionOS],
+            locales: ["en-US"],
+            items: [
+                ScreenshotPlanItem(id: "home", screenName: "Home", order: 1, purpose: "Show home")
+            ]
+        )
+
+        let report = ScreenshotDoctor().diagnose(
+            manifest: manifest,
+            screenshotPlan: plan,
+            recommendedDestinations: []
+        )
+
+        #expect(report.platformSupport.map(\.platform) == [.tvOS, .visionOS, .watchOS])
+        #expect(report.platformSupport.allSatisfy { $0.deterministicCapture == "explicit-destination-required" })
+        #expect(report.platformSupport.contains { $0.platform == .tvOS && $0.appStoreDisplayType == "APP_APPLE_TV" })
+        #expect(report.platformSupport.contains { $0.platform == .watchOS && $0.appStoreDisplayType == "APP_WATCH_ULTRA" })
+        #expect(report.platformSupport.contains { $0.platform == .visionOS && $0.appStoreDisplayType == "APP_VISION_PRO" })
+        #expect(report.platformSupport.allSatisfy { $0.compositionSupport.contains("framedPoster") })
     }
 
     @Test("builds safe UI test scaffold from screenshot plan")

@@ -789,6 +789,13 @@ struct CLIRunner {
                 "- [\($0.severity.rawValue)] \($0.title): \($0.detail) Next: \($0.nextAction)"
             })
         }
+        if !report.platformSupport.isEmpty {
+            lines.append("Platform support:")
+            lines.append(contentsOf: report.platformSupport.map { support in
+                let destination = support.defaultDestination ?? "explicit destination required"
+                return "- \(support.platform.rawValue): capture=\(support.deterministicCapture), destination=\(destination), uploadDisplayType=\(support.appStoreDisplayType), composition=\(support.compositionSupport)"
+            })
+        }
         lines.append("UI Test guidance:")
         lines.append(contentsOf: report.uiTestGuidance.map { "- \($0)" })
         lines.append("Next command(s):")

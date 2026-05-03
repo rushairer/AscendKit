@@ -567,7 +567,7 @@ Plan, import, validate, and compose local screenshot artifacts.
 ascendkit screenshots doctor --workspace "$WORKSPACE" --json
 ```
 
-Checks whether the project is ready for deterministic UI-test-driven screenshots. It reports the discovered Xcode project/workspace, app target, UI test target(s), screenshot plan state, simulator destination hints, and concrete next commands. If no UI test target exists, AscendKit keeps manual screenshot import available but tells users and AI Agents to scaffold UI Tests for repeatable screenshots.
+Checks whether the project is ready for deterministic UI-test-driven screenshots. It reports the discovered Xcode project/workspace, app target, UI test target(s), screenshot plan state, simulator destination hints, platform support, and concrete next commands. The platform matrix marks iOS, iPadOS, and macOS as default capture paths, while tvOS, watchOS, and visionOS require discovered or explicit destinations before deterministic capture. If no UI test target exists, AscendKit keeps manual screenshot import available but tells users and AI Agents to scaffold UI Tests for repeatable screenshots.
 
 ```bash
 ascendkit screenshots scaffold-uitests --workspace "$WORKSPACE" --json
