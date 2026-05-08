@@ -3157,7 +3157,9 @@ public struct ScreenshotUploadPlanBuilder {
         compositionManifest: ScreenshotCompositionManifest?,
         observedState: MetadataObservedState?,
         displayTypeOverride: String? = nil,
-        replaceExistingRemoteScreenshots: Bool = false
+        replaceExistingRemoteScreenshots: Bool = false,
+        onlyPlanItemIDs: Set<String> = [],
+        deleteOnlyMatchingRemoteFiles: Bool = false
     ) -> ScreenshotUploadPlan {
         let composedArtifacts = compositionManifest?.artifacts ?? []
         let sourceKind: ScreenshotUploadSourceKind = composedArtifacts.isEmpty ? .imported : .composed
@@ -3194,7 +3196,7 @@ public struct ScreenshotUploadPlanBuilder {
         }
 
         let grouped = Dictionary(grouping: uploadSourceArtifacts) { "\($0.locale)|\($0.platform.rawValue)" }
-        let items = grouped
+        var items = grouped
             .flatMap { _, artifacts in
                 artifacts.sorted { $0.fileName < $1.fileName }.enumerated().compactMap { offset, artifact -> ScreenshotUploadPlanItem? in
                     guard let localizationID = observedState?.resourceIDsByLocale?[artifact.locale]?.appStoreVersionLocalizationID else {
@@ -3218,8 +3220,19 @@ public struct ScreenshotUploadPlanBuilder {
                 if $0.displayType != $1.displayType { return $0.displayType < $1.displayType }
                 return $0.order < $1.order
             }
+        if !onlyPlanItemIDs.isEmpty {
+            items = items.filter { onlyPlanItemIDs.contains($0.id) }
+            let missingIDs = onlyPlanItemIDs.subtracting(items.map(\.id)).sorted()
+            if !missingIDs.isEmpty {
+                findings.append("Requested screenshot upload item(s) were not found: \(missingIDs.joined(separator: ", ")).")
+            }
+        }
 
-        let remoteScreenshotsToDelete = existingRemoteScreenshots(items: items, observedState: observedState)
+        let remoteScreenshotsToDelete = existingRemoteScreenshots(
+            items: items,
+            observedState: observedState,
+            matchingFilesOnly: deleteOnlyMatchingRemoteFiles
+        )
         findings.append(contentsOf: localizationMismatchFindings(items: items, observedState: observedState))
         findings.append(contentsOf: displayTypeMismatchFindings(items: items))
         if !replaceExistingRemoteScreenshots {
@@ -3265,7 +3278,8 @@ public struct ScreenshotUploadPlanBuilder {
 
     private func existingRemoteScreenshots(
         items: [ScreenshotUploadPlanItem],
-        observedState: MetadataObservedState?
+        observedState: MetadataObservedState?,
+        matchingFilesOnly: Bool = false
     ) -> [ScreenshotRemoteDeletion] {
         guard let observedState else {
             return []
@@ -3273,12 +3287,21 @@ public struct ScreenshotUploadPlanBuilder {
 
         var deletions: [ScreenshotRemoteDeletion] = []
         let targets = Set(items.map { "\($0.locale)|\($0.displayType)" })
+        let targetFileNamesBySet = Dictionary(grouping: items) { "\($0.locale)|\($0.displayType)" }
+            .mapValues { Set($0.map(\.fileName)) }
         for (locale, sets) in observedState.screenshotSetsByLocale ?? [:] {
             for set in sets where !set.screenshots.isEmpty {
-                guard targets.contains("\(locale)|\(set.displayType)") else {
+                let key = "\(locale)|\(set.displayType)"
+                guard targets.contains(key) else {
                     continue
                 }
-                deletions.append(contentsOf: set.screenshots.map {
+                let screenshots = matchingFilesOnly
+                    ? set.screenshots.filter {
+                        guard let fileName = $0.fileName else { return false }
+                        return targetFileNamesBySet[key]?.contains(fileName) == true
+                    }
+                    : set.screenshots
+                deletions.append(contentsOf: screenshots.map {
                     ScreenshotRemoteDeletion(
                         locale: locale,
                         displayType: set.displayType,
@@ -3610,7 +3633,7 @@ public struct ScreenshotComposer {
                 width: canvasSize.width - sideInset * 2,
                 height: topBandHeight * 0.34
             )
-            drawCenteredTextFitting(
+            drawCenteredSingleLineTextFitting(
                 title,
                 in: titleRect,
                 maxFontSize: titleFontSize,
@@ -3743,6 +3766,89 @@ public struct ScreenshotComposer {
             .paragraphStyle: paragraph
         ]
         NSString(string: trimmed).draw(in: rect, withAttributes: attributes)
+    }
+
+    private func drawCenteredSingleLineTextFitting(
+        _ text: String,
+        in rect: NSRect,
+        maxFontSize: CGFloat,
+        minFontSize: CGFloat,
+        weight: NSFont.Weight,
+        color: NSColor,
+        lineSpacing: CGFloat
+    ) {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        if fitsSingleLine(trimmed, in: rect, fontSize: maxFontSize, weight: weight) {
+            drawCenteredTextFitting(
+                trimmed,
+                in: rect,
+                maxFontSize: maxFontSize,
+                minFontSize: minFontSize,
+                weight: weight,
+                color: color,
+                lineSpacing: lineSpacing
+            )
+            return
+        }
+
+        let resolvedFontSize = fittedSingleLineFontSize(
+            for: trimmed,
+            in: rect,
+            maxFontSize: maxFontSize,
+            minFontSize: minFontSize,
+            weight: weight
+        )
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.alignment = .center
+        paragraph.lineBreakMode = .byTruncatingTail
+        let font = NSFont.systemFont(ofSize: resolvedFontSize, weight: weight)
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: font,
+            .foregroundColor: color,
+            .paragraphStyle: paragraph
+        ]
+        let lineHeight = ceil(font.ascender - font.descender + font.leading)
+        let drawRect = NSRect(
+            x: rect.minX,
+            y: rect.midY - lineHeight / 2,
+            width: rect.width,
+            height: lineHeight
+        )
+        NSString(string: trimmed).draw(in: drawRect, withAttributes: attributes)
+    }
+
+    private func fitsSingleLine(
+        _ text: String,
+        in rect: NSRect,
+        fontSize: CGFloat,
+        weight: NSFont.Weight
+    ) -> Bool {
+        let font = NSFont.systemFont(ofSize: fontSize, weight: weight)
+        let size = NSString(string: text).size(withAttributes: [.font: font])
+        let lineHeight = ceil(font.ascender - font.descender + font.leading)
+        return size.width <= rect.width && lineHeight <= rect.height
+    }
+
+    private func fittedSingleLineFontSize(
+        for text: String,
+        in rect: NSRect,
+        maxFontSize: CGFloat,
+        minFontSize: CGFloat,
+        weight: NSFont.Weight
+    ) -> CGFloat {
+        var fontSize = maxFontSize
+        while fontSize > minFontSize {
+            let font = NSFont.systemFont(ofSize: fontSize, weight: weight)
+            let attributes: [NSAttributedString.Key: Any] = [.font: font]
+            let size = NSString(string: text).size(withAttributes: attributes)
+            let lineHeight = ceil(font.ascender - font.descender + font.leading)
+            if size.width <= rect.width && lineHeight <= rect.height {
+                return fontSize
+            }
+            fontSize -= max(2, maxFontSize * 0.04)
+        }
+        return minFontSize
     }
 
     private func fittedFontSize(

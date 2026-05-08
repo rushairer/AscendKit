@@ -4,6 +4,11 @@ AscendKit follows [Semantic Versioning](https://semver.org/). The `1.x` line kee
 
 ## Unreleased
 
+### Fixed
+
+- Framed-poster titles now stay on one line, shrinking long localized titles instead of wrapping into clipped text.
+- Added targeted screenshot upload planning with `--only-item` and `--delete-matching-files-only` for replacing only changed App Store screenshots.
+
 ## 1.4.5 - 2026-05-08
 
 ### Added

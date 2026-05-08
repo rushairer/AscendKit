@@ -379,6 +379,23 @@ ascendkit screenshots upload \
 ascendkit screenshots upload-status --workspace "$WORKSPACE" --json
 ```
 
+For targeted screenshot corrections, generate a plan with one or more `--only-item PLAN_ITEM_ID` values and `--delete-matching-files-only`. This keeps the upload plan limited to the selected local screenshots and deletes only the remote screenshots with matching file names:
+
+```bash
+ascendkit screenshots upload-plan \
+  --workspace "$WORKSPACE" \
+  --display-type APP_IPAD_PRO_3GEN_129 \
+  --replace-existing \
+  --delete-matching-files-only \
+  --only-item "en-US:iPadOS:APP_IPAD_PRO_3GEN_129:3:iPad Pro 13-inch (M5)-03_soundfont-framed-poster.png" \
+  --json
+
+ascendkit screenshots upload \
+  --workspace "$WORKSPACE" \
+  --confirm-remote-mutation \
+  --json
+```
+
 Plan and apply metadata changes:
 
 ```bash

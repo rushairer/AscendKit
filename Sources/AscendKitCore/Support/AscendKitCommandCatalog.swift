@@ -34,7 +34,7 @@ public enum AscendKitCommandCatalog {
         "ascendkit screenshots import-fastlane --workspace PATH --source PATH [--locales en-US,zh-Hans] [--json]",
         "ascendkit screenshots compose --workspace PATH [--mode storeReadyCopy|poster|deviceFrame|framedPoster] [--copy PATH] [--json]",
         "ascendkit screenshots coverage --workspace PATH [--json]",
-        "ascendkit screenshots upload-plan --workspace PATH [--display-type APP_IPHONE_67] [--replace-existing] [--json]",
+        "ascendkit screenshots upload-plan --workspace PATH [--display-type APP_IPHONE_67] [--replace-existing] [--only-item PLAN_ITEM_ID] [--delete-matching-files-only] [--json]",
         "ascendkit screenshots upload --workspace PATH [--replace-existing] --confirm-remote-mutation [--json]",
         "ascendkit screenshots upload-status --workspace PATH [--json]",
         "ascendkit asc auth save-profile --name NAME --issuer-id ID --key-id ID --private-key-provider env|file --private-key-ref REF [--json]",

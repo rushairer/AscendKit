@@ -697,7 +697,9 @@ struct CLIRunner {
                 compositionManifest: compositionManifest,
                 observedState: observedState,
                 displayTypeOverride: value(after: "--display-type", in: args),
-                replaceExistingRemoteScreenshots: args.contains("--replace-existing")
+                replaceExistingRemoteScreenshots: args.contains("--replace-existing"),
+                onlyPlanItemIDs: Set(repeatedValues(after: "--only-item", in: args)),
+                deleteOnlyMatchingRemoteFiles: args.contains("--delete-matching-files-only")
             )
             try store.save(plan, to: URL(fileURLWithPath: workspace.paths.screenshotUploadPlan))
             try store.appendAudit(
@@ -1247,7 +1249,9 @@ struct CLIRunner {
                 compositionManifest: try loadIfExists(ScreenshotCompositionManifest.self, path: workspace.paths.screenshotCompositionManifest),
                 observedState: try loadIfExists(MetadataObservedState.self, path: workspace.paths.ascObservedState),
                 displayTypeOverride: displayTypeOverrideForReplacement(existingPlan),
-                replaceExistingRemoteScreenshots: true
+                replaceExistingRemoteScreenshots: true,
+                onlyPlanItemIDs: Set(existingPlan?.items.map(\.id) ?? []),
+                deleteOnlyMatchingRemoteFiles: existingPlan?.items.isEmpty == false
             )
         } else {
             plan = try loadIfExists(ScreenshotUploadPlan.self, path: workspace.paths.screenshotUploadPlan)

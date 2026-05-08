@@ -1550,6 +1550,62 @@ struct ScreenshotTests {
         #expect(plan.remoteScreenshotsToDelete?.first?.fileName == "old-home.png")
     }
 
+    @Test("plans targeted screenshot replacement by item and matching remote file")
+    func plansTargetedScreenshotReplacementByItemAndMatchingRemoteFile() throws {
+        let importManifest = ScreenshotImportManifest(
+            sourceDirectory: "/tmp/screenshots",
+            artifacts: [
+                ScreenshotArtifact(
+                    locale: "en-US",
+                    platform: .iPadOS,
+                    path: "/tmp/screenshots/en-US/iPadOS/01-home.png",
+                    fileName: "01-home.png"
+                ),
+                ScreenshotArtifact(
+                    locale: "en-US",
+                    platform: .iPadOS,
+                    path: "/tmp/screenshots/en-US/iPadOS/02-beats.png",
+                    fileName: "02-beats.png"
+                )
+            ]
+        )
+        let observed = MetadataObservedState(
+            metadataByLocale: [
+                "en-US": AppMetadata(locale: "en-US", name: "Demo", description: "Demo description")
+            ],
+            resourceIDsByLocale: [
+                "en-US": MetadataLocalizationResourceIDs(appStoreVersionLocalizationID: "version-loc-1")
+            ],
+            screenshotSetsByLocale: [
+                "en-US": [
+                    ObservedScreenshotSet(
+                        id: "set-1",
+                        displayType: "APP_IPAD_PRO_3GEN_129",
+                        screenshots: [
+                            ObservedScreenshot(id: "screenshot-1", fileName: "01-home.png", assetDeliveryState: "COMPLETE"),
+                            ObservedScreenshot(id: "screenshot-2", fileName: "02-beats.png", assetDeliveryState: "COMPLETE")
+                        ]
+                    )
+                ]
+            ]
+        )
+
+        let plan = ScreenshotUploadPlanBuilder().build(
+            importManifest: importManifest,
+            compositionManifest: nil,
+            observedState: observed,
+            displayTypeOverride: "APP_IPAD_PRO_3GEN_129",
+            replaceExistingRemoteScreenshots: true,
+            onlyPlanItemIDs: ["en-US:iPadOS:APP_IPAD_PRO_3GEN_129:2:02-beats.png"],
+            deleteOnlyMatchingRemoteFiles: true
+        )
+
+        #expect(plan.findings.isEmpty)
+        #expect(plan.items.map(\.fileName) == ["02-beats.png"])
+        #expect(plan.remoteScreenshotsToDelete?.map(\.fileName) == ["02-beats.png"])
+        #expect(plan.remoteScreenshotsToDelete?.map(\.appScreenshotID) == ["screenshot-2"])
+    }
+
     @Test("renders poster composition as a PNG artifact")
     func rendersPosterComposition() throws {
         let root = try TemporaryDirectory()
@@ -1638,6 +1694,40 @@ struct ScreenshotTests {
         #expect(manifest.artifacts[0].mode == .framedPoster)
         #expect(rep.pixelsWide == 1_320)
         #expect(rep.pixelsHigh == 2_868)
+        try expectPNGHasNoAlpha(at: URL(fileURLWithPath: manifest.artifacts[0].outputPath))
+    }
+
+    @Test("renders long framed poster title on one line")
+    func rendersLongFramedPosterTitleOnOneLine() throws {
+        let root = try TemporaryDirectory()
+        let input = root.url.appendingPathComponent("source/th/iPadOS/01-home.png")
+        try FileManager.default.createDirectory(at: input.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try makeScaledPNG(pixelSize: NSSize(width: 2_064, height: 2_752), pointSize: NSSize(width: 2_064, height: 2_752), url: input)
+        let importManifest = ScreenshotImportManifest(
+            sourceDirectory: root.url.appendingPathComponent("source").path,
+            artifacts: [
+                ScreenshotArtifact(locale: "th", platform: .iPadOS, path: input.path, fileName: "01-home.png")
+            ]
+        )
+        let copyManifest = ScreenshotCompositionCopyManifest(items: [
+            ScreenshotCompositionCopy(
+                locale: "th",
+                platform: .iPadOS,
+                fileName: "01-home.png",
+                title: "เสียงเครื่องดนตรีสมจริงมากสำหรับการฝึกซ้อม",
+                subtitle: "Keep the subtitle below"
+            )
+        ])
+
+        let manifest = try ScreenshotComposer().compose(
+            importManifest: importManifest,
+            outputRoot: root.url.appendingPathComponent("composed"),
+            mode: .framedPoster,
+            copyManifest: copyManifest
+        )
+
+        #expect(manifest.artifacts.count == 1)
+        #expect(NSImage(contentsOfFile: manifest.artifacts[0].outputPath)?.isValid == true)
         try expectPNGHasNoAlpha(at: URL(fileURLWithPath: manifest.artifacts[0].outputPath))
     }
 
