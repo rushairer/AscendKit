@@ -1,5 +1,112 @@
 import AppKit
 import Foundation
+import ImageIO
+import UniformTypeIdentifiers
+
+public enum ScreenshotImageSanitizer {
+    private static let renderLock = NSLock()
+
+    public static func opaquePNGData(from imageURL: URL, backgroundColor: NSColor = .white) throws -> Data {
+        guard let image = NSImage(contentsOf: imageURL), image.isValid else {
+            throw AscendKitError.invalidState("Cannot decode screenshot image: \(imageURL.path)")
+        }
+        return try opaquePNGData(from: image, backgroundColor: backgroundColor)
+    }
+
+    public static func opaquePNGData(from image: NSImage, backgroundColor: NSColor = .white) throws -> Data {
+        let canvasSize = bitmapPixelSize(for: image)
+        guard canvasSize.width > 0, canvasSize.height > 0 else {
+            throw AscendKitError.invalidState("Screenshot has invalid dimensions.")
+        }
+
+        var proposedRect = NSRect(origin: .zero, size: canvasSize)
+        guard let cgImage = image.cgImage(forProposedRect: &proposedRect, context: nil, hints: [.interpolation: NSImageInterpolation.high]) else {
+            throw AscendKitError.invalidState("Cannot create screenshot bitmap.")
+        }
+        return try opaquePNGData(from: cgImage, size: canvasSize, backgroundColor: backgroundColor)
+    }
+
+    public static func renderOpaquePNG(
+        size: NSSize,
+        backgroundColor: NSColor = .white,
+        draw: () throws -> Void
+    ) throws -> Data {
+        renderLock.lock()
+        defer { renderLock.unlock() }
+
+        guard size.width > 0, size.height > 0,
+              let bitmap = NSBitmapImageRep(
+                  bitmapDataPlanes: nil,
+                  pixelsWide: Int(size.width.rounded(.up)),
+                  pixelsHigh: Int(size.height.rounded(.up)),
+                  bitsPerSample: 8,
+                  samplesPerPixel: 4,
+                  hasAlpha: true,
+                  isPlanar: false,
+                  colorSpaceName: .deviceRGB,
+                  bytesPerRow: 0,
+                  bitsPerPixel: 0
+              ) else {
+            throw AscendKitError.invalidState("Cannot allocate screenshot bitmap.")
+        }
+
+        let previousContext = NSGraphicsContext.current
+        NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: bitmap)
+        defer { NSGraphicsContext.current = previousContext }
+
+        backgroundColor.setFill()
+        NSRect(origin: .zero, size: size).fill()
+        try draw()
+
+        guard let renderedImage = bitmap.cgImage else {
+            throw AscendKitError.invalidState("Cannot create rendered screenshot image.")
+        }
+        return try opaquePNGData(from: renderedImage, size: size, backgroundColor: backgroundColor)
+    }
+
+    private static func bitmapPixelSize(for image: NSImage) -> NSSize {
+        if let representation = image.representations.first {
+            return NSSize(width: representation.pixelsWide, height: representation.pixelsHigh)
+        }
+        return image.size
+    }
+
+    private static func opaquePNGData(from image: CGImage, size: NSSize, backgroundColor: NSColor) throws -> Data {
+        let width = Int(size.width.rounded(.up))
+        let height = Int(size.height.rounded(.up))
+        guard width > 0, height > 0,
+              let colorSpace = CGColorSpace(name: CGColorSpace.sRGB),
+              let context = CGContext(
+                  data: nil,
+                  width: width,
+                  height: height,
+                  bitsPerComponent: 8,
+                  bytesPerRow: width * 4,
+                  space: colorSpace,
+                  bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue
+              ) else {
+            throw AscendKitError.invalidState("Cannot allocate opaque screenshot context.")
+        }
+
+        context.setFillColor(backgroundColor.usingColorSpace(.sRGB)?.cgColor ?? NSColor.white.cgColor)
+        context.fill(CGRect(x: 0, y: 0, width: width, height: height))
+        context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+
+        guard let flattenedImage = context.makeImage() else {
+            throw AscendKitError.invalidState("Cannot flatten screenshot image.")
+        }
+
+        let data = NSMutableData()
+        guard let destination = CGImageDestinationCreateWithData(data, UTType.png.identifier as CFString, 1, nil) else {
+            throw AscendKitError.invalidState("Cannot create opaque screenshot PNG destination.")
+        }
+        CGImageDestinationAddImage(destination, flattenedImage, nil)
+        guard CGImageDestinationFinalize(destination) else {
+            throw AscendKitError.invalidState("Cannot encode opaque screenshot PNG.")
+        }
+        return data as Data
+    }
+}
 
 public enum ScreenshotInputPath: String, Codable, Equatable, Sendable {
     case uiTestCapture
@@ -2826,9 +2933,11 @@ public struct ScreenshotComposer {
             let outputURL: URL
             switch mode {
             case .storeReadyCopy:
-                outputURL = outputDirectory.appendingPathComponent(artifact.fileName)
+                let baseName = inputURL.deletingPathExtension().lastPathComponent
+                outputURL = outputDirectory.appendingPathComponent("\(baseName).png")
                 try replaceExistingFile(at: outputURL) {
-                    try fileManager.copyItem(at: inputURL, to: outputURL)
+                    let png = try ScreenshotImageSanitizer.opaquePNGData(from: inputURL)
+                    try png.write(to: outputURL, options: [.atomic])
                 }
             case .poster:
                 let baseName = inputURL.deletingPathExtension().lastPathComponent
@@ -2893,68 +3002,47 @@ public struct ScreenshotComposer {
             height: imageSize.height
         )
 
-        guard let bitmap = NSBitmapImageRep(
-            bitmapDataPlanes: nil,
-            pixelsWide: Int(canvasSize.width),
-            pixelsHigh: Int(canvasSize.height),
-            bitsPerSample: 8,
-            samplesPerPixel: 4,
-            hasAlpha: true,
-            isPlanar: false,
-            colorSpaceName: .deviceRGB,
-            bytesPerRow: 0,
-            bitsPerPixel: 0
-        ) else {
-            throw AscendKitError.invalidState("Cannot allocate poster bitmap: \(outputURL.path)")
-        }
+        let png = try ScreenshotImageSanitizer.renderOpaquePNG(
+            size: canvasSize,
+            backgroundColor: NSColor(calibratedRed: 0.95, green: 0.91, blue: 0.84, alpha: 1)
+        ) {
+            let accentRect = NSRect(x: 0, y: canvasSize.height - 760, width: canvasSize.width, height: 760)
+            NSColor(calibratedRed: 0.13, green: 0.24, blue: 0.23, alpha: 1).setFill()
+            accentRect.fill()
 
-        let previousContext = NSGraphicsContext.current
-        NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: bitmap)
-        defer { NSGraphicsContext.current = previousContext }
+            let title = inputURL.deletingPathExtension().lastPathComponent
+                .replacingOccurrences(of: "-", with: " ")
+                .replacingOccurrences(of: "_", with: " ")
+            let titleAttributes: [NSAttributedString.Key: Any] = [
+                .font: NSFont.systemFont(ofSize: 76, weight: .semibold),
+                .foregroundColor: NSColor.white
+            ]
+            NSString(string: title.capitalized).draw(
+                in: NSRect(x: 112, y: canvasSize.height - 300, width: canvasSize.width - 224, height: 110),
+                withAttributes: titleAttributes
+            )
 
-        NSColor(calibratedRed: 0.95, green: 0.91, blue: 0.84, alpha: 1).setFill()
-        NSRect(origin: .zero, size: canvasSize).fill()
+            let shadow = NSShadow()
+            shadow.shadowColor = NSColor.black.withAlphaComponent(0.22)
+            shadow.shadowOffset = NSSize(width: 0, height: -18)
+            shadow.shadowBlurRadius = 42
+            shadow.set()
 
-        let accentRect = NSRect(x: 0, y: canvasSize.height - 760, width: canvasSize.width, height: 760)
-        NSColor(calibratedRed: 0.13, green: 0.24, blue: 0.23, alpha: 1).setFill()
-        accentRect.fill()
+            let roundedRect = NSBezierPath(roundedRect: imageRect, xRadius: 58, yRadius: 58)
+            NSColor.white.setFill()
+            roundedRect.fill()
 
-        let title = inputURL.deletingPathExtension().lastPathComponent
-            .replacingOccurrences(of: "-", with: " ")
-            .replacingOccurrences(of: "_", with: " ")
-        let titleAttributes: [NSAttributedString.Key: Any] = [
-            .font: NSFont.systemFont(ofSize: 76, weight: .semibold),
-            .foregroundColor: NSColor.white
-        ]
-        NSString(string: title.capitalized).draw(
-            in: NSRect(x: 112, y: canvasSize.height - 300, width: canvasSize.width - 224, height: 110),
-            withAttributes: titleAttributes
-        )
-
-        let shadow = NSShadow()
-        shadow.shadowColor = NSColor.black.withAlphaComponent(0.22)
-        shadow.shadowOffset = NSSize(width: 0, height: -18)
-        shadow.shadowBlurRadius = 42
-        shadow.set()
-
-        let roundedRect = NSBezierPath(roundedRect: imageRect, xRadius: 58, yRadius: 58)
-        NSColor.white.setFill()
-        roundedRect.fill()
-
-        NSGraphicsContext.saveGraphicsState()
-        roundedRect.addClip()
-        screenshot.draw(
-            in: imageRect,
-            from: NSRect(origin: .zero, size: screenshot.size),
-            operation: .sourceOver,
-            fraction: 1,
-            respectFlipped: false,
-            hints: [.interpolation: NSImageInterpolation.high]
-        )
-        NSGraphicsContext.restoreGraphicsState()
-
-        guard let png = bitmap.representation(using: .png, properties: [:]) else {
-            throw AscendKitError.invalidState("Cannot encode poster PNG: \(outputURL.path)")
+            NSGraphicsContext.saveGraphicsState()
+            roundedRect.addClip()
+            screenshot.draw(
+                in: imageRect,
+                from: NSRect(origin: .zero, size: screenshot.size),
+                operation: .sourceOver,
+                fraction: 1,
+                respectFlipped: false,
+                hints: [.interpolation: NSImageInterpolation.high]
+            )
+            NSGraphicsContext.restoreGraphicsState()
         }
         try png.write(to: outputURL, options: [.atomic])
     }
@@ -2983,55 +3071,31 @@ public struct ScreenshotComposer {
             height: screenshotSize.height
         )
 
-        guard let bitmap = NSBitmapImageRep(
-            bitmapDataPlanes: nil,
-            pixelsWide: Int(canvasSize.width.rounded(.up)),
-            pixelsHigh: Int(canvasSize.height.rounded(.up)),
-            bitsPerSample: 8,
-            samplesPerPixel: 4,
-            hasAlpha: true,
-            isPlanar: false,
-            colorSpaceName: .deviceRGB,
-            bytesPerRow: 0,
-            bitsPerPixel: 0
-        ) else {
-            throw AscendKitError.invalidState("Cannot allocate device-frame bitmap: \(outputURL.path)")
-        }
+        let png = try ScreenshotImageSanitizer.renderOpaquePNG(size: canvasSize) {
+            let outerPath = NSBezierPath(
+                roundedRect: NSRect(origin: .zero, size: canvasSize),
+                xRadius: outerRadius,
+                yRadius: outerRadius
+            )
+            NSColor(calibratedRed: 0.08, green: 0.09, blue: 0.10, alpha: 1).setFill()
+            outerPath.fill()
 
-        let previousContext = NSGraphicsContext.current
-        NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: bitmap)
-        defer { NSGraphicsContext.current = previousContext }
+            let innerPath = NSBezierPath(roundedRect: screenRect, xRadius: innerRadius, yRadius: innerRadius)
+            NSGraphicsContext.saveGraphicsState()
+            innerPath.addClip()
+            screenshot.draw(
+                in: screenRect,
+                from: NSRect(origin: .zero, size: screenshotSize),
+                operation: .sourceOver,
+                fraction: 1,
+                respectFlipped: false,
+                hints: [.interpolation: NSImageInterpolation.high]
+            )
+            NSGraphicsContext.restoreGraphicsState()
 
-        NSColor.clear.setFill()
-        NSRect(origin: .zero, size: canvasSize).fill()
-
-        let outerPath = NSBezierPath(
-            roundedRect: NSRect(origin: .zero, size: canvasSize),
-            xRadius: outerRadius,
-            yRadius: outerRadius
-        )
-        NSColor(calibratedRed: 0.08, green: 0.09, blue: 0.10, alpha: 1).setFill()
-        outerPath.fill()
-
-        let innerPath = NSBezierPath(roundedRect: screenRect, xRadius: innerRadius, yRadius: innerRadius)
-        NSGraphicsContext.saveGraphicsState()
-        innerPath.addClip()
-        screenshot.draw(
-            in: screenRect,
-            from: NSRect(origin: .zero, size: screenshotSize),
-            operation: .sourceOver,
-            fraction: 1,
-            respectFlipped: false,
-            hints: [.interpolation: NSImageInterpolation.high]
-        )
-        NSGraphicsContext.restoreGraphicsState()
-
-        NSColor.white.withAlphaComponent(0.18).setStroke()
-        outerPath.lineWidth = max(2, border * 0.06)
-        outerPath.stroke()
-
-        guard let png = bitmap.representation(using: .png, properties: [:]) else {
-            throw AscendKitError.invalidState("Cannot encode device-frame PNG: \(outputURL.path)")
+            NSColor.white.withAlphaComponent(0.18).setStroke()
+            outerPath.lineWidth = max(2, border * 0.06)
+            outerPath.stroke()
         }
         try png.write(to: outputURL, options: [.atomic])
     }
@@ -3065,87 +3129,69 @@ public struct ScreenshotComposer {
         let framePadding = max(14, min(screenSize.width, screenSize.height) * 0.045)
         let frameRect = screenRect.insetBy(dx: -framePadding, dy: -framePadding)
 
-        guard let bitmap = NSBitmapImageRep(
-            bitmapDataPlanes: nil,
-            pixelsWide: Int(canvasSize.width.rounded(.up)),
-            pixelsHigh: Int(canvasSize.height.rounded(.up)),
-            bitsPerSample: 8,
-            samplesPerPixel: 4,
-            hasAlpha: true,
-            isPlanar: false,
-            colorSpaceName: .deviceRGB,
-            bytesPerRow: 0,
-            bitsPerPixel: 0
-        ) else {
-            throw AscendKitError.invalidState("Cannot allocate framed poster bitmap: \(outputURL.path)")
-        }
+        let png = try ScreenshotImageSanitizer.renderOpaquePNG(
+            size: canvasSize,
+            backgroundColor: NSColor(calibratedRed: 0.08, green: 0.12, blue: 0.10, alpha: 1)
+        ) {
+            drawFramedPosterBackground(canvasSize: canvasSize)
 
-        let previousContext = NSGraphicsContext.current
-        NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: bitmap)
-        defer { NSGraphicsContext.current = previousContext }
-
-        drawFramedPosterBackground(canvasSize: canvasSize)
-
-        let titleFontSize = min(canvasSize.width * 0.085, topBandHeight * 0.32)
-        let subtitleFontSize = titleFontSize * 0.34
-        let titleRect = NSRect(
-            x: sideInset,
-            y: canvasSize.height - topBandHeight + topBandHeight * 0.42,
-            width: canvasSize.width - sideInset * 2,
-            height: topBandHeight * 0.34
-        )
-        drawCenteredText(
-            title,
-            in: titleRect,
-            font: NSFont.systemFont(ofSize: titleFontSize, weight: .bold),
-            color: NSColor(calibratedRed: 0.98, green: 0.96, blue: 0.90, alpha: 1)
-        )
-
-        if let subtitle, !subtitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            drawCenteredText(
-                subtitle,
-                in: NSRect(
-                    x: sideInset,
-                    y: canvasSize.height - topBandHeight + topBandHeight * 0.22,
-                    width: canvasSize.width - sideInset * 2,
-                    height: topBandHeight * 0.18
-                ),
-                font: NSFont.systemFont(ofSize: subtitleFontSize, weight: .medium),
-                color: NSColor(calibratedRed: 0.83, green: 0.88, blue: 0.78, alpha: 1)
+            let titleFontSize = min(canvasSize.width * 0.085, topBandHeight * 0.32)
+            let subtitleFontSize = titleFontSize * 0.34
+            let titleRect = NSRect(
+                x: sideInset,
+                y: canvasSize.height - topBandHeight + topBandHeight * 0.42,
+                width: canvasSize.width - sideInset * 2,
+                height: topBandHeight * 0.34
             )
-        }
+            drawCenteredText(
+                title,
+                in: titleRect,
+                font: NSFont.systemFont(ofSize: titleFontSize, weight: .bold),
+                color: NSColor(calibratedRed: 0.98, green: 0.96, blue: 0.90, alpha: 1)
+            )
 
-        let shadow = NSShadow()
-        shadow.shadowColor = NSColor.black.withAlphaComponent(0.35)
-        shadow.shadowOffset = NSSize(width: 0, height: -22)
-        shadow.shadowBlurRadius = 56
-        shadow.set()
+            if let subtitle, !subtitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                drawCenteredText(
+                    subtitle,
+                    in: NSRect(
+                        x: sideInset,
+                        y: canvasSize.height - topBandHeight + topBandHeight * 0.22,
+                        width: canvasSize.width - sideInset * 2,
+                        height: topBandHeight * 0.18
+                    ),
+                    font: NSFont.systemFont(ofSize: subtitleFontSize, weight: .medium),
+                    color: NSColor(calibratedRed: 0.83, green: 0.88, blue: 0.78, alpha: 1)
+                )
+            }
 
-        let frameRadius = framePadding * 1.55
-        let framePath = NSBezierPath(roundedRect: frameRect, xRadius: frameRadius, yRadius: frameRadius)
-        NSColor(calibratedRed: 0.05, green: 0.06, blue: 0.06, alpha: 1).setFill()
-        framePath.fill()
+            let shadow = NSShadow()
+            shadow.shadowColor = NSColor.black.withAlphaComponent(0.35)
+            shadow.shadowOffset = NSSize(width: 0, height: -22)
+            shadow.shadowBlurRadius = 56
+            shadow.set()
 
-        NSGraphicsContext.saveGraphicsState()
-        NSShadow().set()
-        let screenPath = NSBezierPath(roundedRect: screenRect, xRadius: framePadding * 0.95, yRadius: framePadding * 0.95)
-        screenPath.addClip()
-        screenshot.draw(
-            in: screenRect,
-            from: NSRect(origin: .zero, size: screenshot.size),
-            operation: .sourceOver,
-            fraction: 1,
-            respectFlipped: false,
-            hints: [.interpolation: NSImageInterpolation.high]
-        )
-        NSGraphicsContext.restoreGraphicsState()
+            let frameRadius = framePadding * 1.55
+            let framePath = NSBezierPath(roundedRect: frameRect, xRadius: frameRadius, yRadius: frameRadius)
+            NSColor(calibratedRed: 0.05, green: 0.06, blue: 0.06, alpha: 1).setFill()
+            framePath.fill()
 
-        NSColor.white.withAlphaComponent(0.16).setStroke()
-        framePath.lineWidth = max(2, framePadding * 0.08)
-        framePath.stroke()
+            NSGraphicsContext.saveGraphicsState()
+            NSShadow().set()
+            let screenPath = NSBezierPath(roundedRect: screenRect, xRadius: framePadding * 0.95, yRadius: framePadding * 0.95)
+            screenPath.addClip()
+            screenshot.draw(
+                in: screenRect,
+                from: NSRect(origin: .zero, size: screenshot.size),
+                operation: .sourceOver,
+                fraction: 1,
+                respectFlipped: false,
+                hints: [.interpolation: NSImageInterpolation.high]
+            )
+            NSGraphicsContext.restoreGraphicsState()
 
-        guard let png = bitmap.representation(using: .png, properties: [:]) else {
-            throw AscendKitError.invalidState("Cannot encode framed poster PNG: \(outputURL.path)")
+            NSColor.white.withAlphaComponent(0.16).setStroke()
+            framePath.lineWidth = max(2, framePadding * 0.08)
+            framePath.stroke()
         }
         try png.write(to: outputURL, options: [.atomic])
     }

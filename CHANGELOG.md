@@ -4,6 +4,12 @@ AscendKit follows [Semantic Versioning](https://semver.org/). The `1.x` line kee
 
 ## Unreleased
 
+## 1.4.1 - 2026-05-08
+
+### Fixed
+
+- Flattened imported and composed screenshot PNGs before upload so App Store Connect does not reject rounded or transparent screenshots for containing alpha channels or transparency.
+
 ### Added
 
 - Added a Homebrew release finalizer script that refreshes Formula checksum state from the completed GitHub Release workflow, syncs the tap, and optionally verifies reinstall diagnostics.

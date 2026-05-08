@@ -956,7 +956,7 @@ struct ScreenshotTests {
         let root = try TemporaryDirectory()
         let input = root.url.appendingPathComponent("source/en-US/iOS/01-home.png")
         try FileManager.default.createDirectory(at: input.deletingLastPathComponent(), withIntermediateDirectories: true)
-        try Data("fake-image".utf8).write(to: input)
+        try makePNG(size: NSSize(width: 390, height: 844), url: input)
         let importManifest = ScreenshotImportManifest(
             sourceDirectory: root.url.appendingPathComponent("source").path,
             artifacts: [
@@ -974,6 +974,29 @@ struct ScreenshotTests {
         #expect(manifest.artifacts.count == 1)
         #expect(FileManager.default.fileExists(atPath: manifest.artifacts[0].outputPath))
         #expect(manifest.artifacts[0].mode == .storeReadyCopy)
+    }
+
+    @Test("store-ready copy flattens transparent screenshots")
+    func storeReadyCopyFlattensTransparentScreenshots() throws {
+        let root = try TemporaryDirectory()
+        let input = root.url.appendingPathComponent("source/en-US/iOS/01-home.png")
+        try FileManager.default.createDirectory(at: input.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try makeTransparentRoundedPNG(size: NSSize(width: 390, height: 844), url: input)
+        let importManifest = ScreenshotImportManifest(
+            sourceDirectory: root.url.appendingPathComponent("source").path,
+            artifacts: [
+                ScreenshotArtifact(locale: "en-US", platform: .iOS, path: input.path, fileName: "01-home.png")
+            ]
+        )
+
+        let manifest = try ScreenshotComposer().compose(
+            importManifest: importManifest,
+            outputRoot: root.url.appendingPathComponent("composed"),
+            mode: .storeReadyCopy
+        )
+
+        #expect(manifest.artifacts[0].outputPath.hasSuffix("01-home.png"))
+        try expectPNGHasNoAlpha(at: URL(fileURLWithPath: manifest.artifacts[0].outputPath))
     }
 
     @Test("builds ASC screenshot upload plan from imported artifacts")
@@ -1133,6 +1156,7 @@ struct ScreenshotTests {
         #expect(manifest.artifacts.count == 1)
         #expect(manifest.artifacts[0].outputPath.hasSuffix("01-home-poster.png"))
         #expect(NSImage(contentsOfFile: manifest.artifacts[0].outputPath)?.isValid == true)
+        try expectPNGHasNoAlpha(at: URL(fileURLWithPath: manifest.artifacts[0].outputPath))
     }
 
     @Test("renders device frame composition as a PNG artifact")
@@ -1157,6 +1181,7 @@ struct ScreenshotTests {
         #expect(manifest.artifacts.count == 1)
         #expect(manifest.artifacts[0].outputPath.hasSuffix("01-home-device-frame.png"))
         #expect(NSImage(contentsOfFile: manifest.artifacts[0].outputPath)?.isValid == true)
+        try expectPNGHasNoAlpha(at: URL(fileURLWithPath: manifest.artifacts[0].outputPath))
     }
 
     @Test("renders framed poster composition at original screenshot size")
@@ -1195,6 +1220,7 @@ struct ScreenshotTests {
         #expect(manifest.artifacts[0].mode == .framedPoster)
         #expect(rep.pixelsWide == 1_320)
         #expect(rep.pixelsHigh == 2_868)
+        try expectPNGHasNoAlpha(at: URL(fileURLWithPath: manifest.artifacts[0].outputPath))
     }
 
     private func makePNG(size: NSSize, url: URL) throws {
@@ -1210,5 +1236,29 @@ struct ScreenshotTests {
             throw AscendKitError.invalidState("Failed to create test PNG")
         }
         try png.write(to: url)
+    }
+
+    private func makeTransparentRoundedPNG(size: NSSize, url: URL) throws {
+        let image = NSImage(size: size)
+        image.lockFocus()
+        NSColor.clear.setFill()
+        NSRect(origin: .zero, size: size).fill()
+        NSColor(calibratedRed: 0.20, green: 0.34, blue: 0.52, alpha: 1).setFill()
+        NSBezierPath(roundedRect: NSRect(origin: .zero, size: size), xRadius: 64, yRadius: 64).fill()
+        image.unlockFocus()
+
+        guard let tiff = image.tiffRepresentation,
+              let bitmap = NSBitmapImageRep(data: tiff),
+              let png = bitmap.representation(using: .png, properties: [:]) else {
+            throw AscendKitError.invalidState("Failed to create transparent test PNG")
+        }
+        try png.write(to: url)
+    }
+
+    private func expectPNGHasNoAlpha(at url: URL) throws {
+        let data = try Data(contentsOf: url)
+        let bitmap = try #require(NSBitmapImageRep(data: data))
+        #expect(bitmap.hasAlpha == false)
+        #expect(bitmap.samplesPerPixel == 3)
     }
 }

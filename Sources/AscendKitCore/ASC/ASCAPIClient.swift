@@ -1,3 +1,4 @@
+import AppKit
 import CryptoKit
 import Foundation
 
@@ -441,8 +442,9 @@ public struct ASCAPIClient {
         for item in plan.items {
             do {
                 let fileURL = URL(fileURLWithPath: item.sourcePath)
-                let data = try Data(contentsOf: fileURL)
+                let data = try ScreenshotImageSanitizer.opaquePNGData(from: fileURL)
                 let checksum = Insecure.MD5.hash(data: data).map { String(format: "%02hhx", $0) }.joined()
+                let uploadFileName = fileURL.deletingPathExtension().lastPathComponent + ".png"
                 let setKey = "\(item.appStoreVersionLocalizationID)|\(item.displayType)"
                 let setID: String
                 if let cached = setIDs[setKey] {
@@ -458,7 +460,7 @@ public struct ASCAPIClient {
 
                 let reservation = try await createAppScreenshotReservation(
                     appScreenshotSetID: setID,
-                    fileName: item.fileName,
+                    fileName: uploadFileName,
                     fileSize: data.count,
                     token: token
                 )
@@ -479,7 +481,7 @@ public struct ASCAPIClient {
                     planItemID: item.id,
                     appScreenshotSetID: setID,
                     appScreenshotID: reservation.id,
-                    fileName: item.fileName,
+                    fileName: uploadFileName,
                     checksum: checksum,
                     assetDeliveryState: deliveryState.state,
                     assetDeliveryPollAttempts: deliveryState.attempts,
