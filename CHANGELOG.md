@@ -4,6 +4,13 @@ AscendKit follows [Semantic Versioning](https://semver.org/). The `1.x` line kee
 
 ## Unreleased
 
+## 1.4.3 - 2026-05-08
+
+### Fixed
+
+- Treat `deviceFrame` screenshot composition requests as full App Store framed-poster marketing screenshots with an opaque background, title/subtitle copy, and an inset device frame instead of producing border-only artifacts.
+- Automatically resolve framed-poster screenshot copy from locale copy assets first, then fall back to the screenshot plan so generated marketing screenshots have localized title/subtitle candidates even when `--copy` is omitted.
+
 ## 1.4.2 - 2026-05-08
 
 ### Fixed

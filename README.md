@@ -6,7 +6,7 @@ The project is designed for AI-assisted release work without handing raw secrets
 
 ## Current Status
 
-Current documented release: `v1.4.2`.
+Current documented release: `v1.4.3`.
 
 AscendKit follows [Semantic Versioning](https://semver.org/). The v1 command surface is stable for `1.x`: breaking workflow changes require a new major version, while compatible commands, flags, diagnostics, and documentation can continue to evolve through minor releases.
 
@@ -151,7 +151,7 @@ After installation, run `ascendkit` from any app project directory. User-facing 
 Alternative direct installer from a source checkout or release asset:
 
 ```bash
-scripts/install-ascendkit.sh --version 1.4.2
+scripts/install-ascendkit.sh --version 1.4.3
 ASCENDKIT_INSTALL_DIR=/usr/local/bin scripts/install-ascendkit.sh
 ```
 
@@ -160,7 +160,7 @@ The installer downloads the macOS universal release archive from GitHub Releases
 Verify a published release before announcing it:
 
 ```bash
-scripts/verify-release-assets.sh --version 1.4.2
+scripts/verify-release-assets.sh --version 1.4.3
 ```
 
 The verifier checks for the expected GitHub Release assets and performs a temporary installer smoke test.
@@ -186,11 +186,11 @@ Homebrew formula maintenance:
 
 ```bash
 scripts/update-homebrew-formula.sh
-scripts/verify-homebrew-formula.sh --version 1.4.2
-scripts/diagnose-homebrew-install.sh --version 1.4.2
+scripts/verify-homebrew-formula.sh --version 1.4.3
+scripts/diagnose-homebrew-install.sh --version 1.4.3
 scripts/sync-homebrew-tap.sh --commit --push
-scripts/finalize-homebrew-release.sh --version 1.4.2 --commit --push --reinstall
-scripts/v1-release-readiness.sh --version 1.4.2 --app-root /path/to/RepresentativeApp
+scripts/finalize-homebrew-release.sh --version 1.4.3 --commit --push --reinstall
+scripts/v1-release-readiness.sh --version 1.4.3 --app-root /path/to/RepresentativeApp
 ruby -c Formula/ascendkit.rb
 ```
 
@@ -199,7 +199,7 @@ The generated formula points at the GitHub Release archive for the current `asce
 For normal post-tag release finalization, prefer the single finalizer:
 
 ```bash
-scripts/finalize-homebrew-release.sh --version 1.4.2 --commit --push --reinstall
+scripts/finalize-homebrew-release.sh --version 1.4.3 --commit --push --reinstall
 ```
 
 Run it only after `.github/workflows/release.yml` has completed for the tag. It refreshes the formula from the final GitHub Release asset digest, verifies the formula, syncs the Homebrew tap, and optionally reinstalls and diagnoses the installed Homebrew binary.
@@ -207,7 +207,7 @@ Run it only after `.github/workflows/release.yml` has completed for the tag. It 
 If Homebrew reports a checksum mismatch, stale formula, wrong tap, or unexpected installed version, run:
 
 ```bash
-scripts/diagnose-homebrew-install.sh --version 1.4.2
+scripts/diagnose-homebrew-install.sh --version 1.4.3
 ```
 
 The diagnostic is read-only. It checks the installed `ascendkit` binary, universal architectures, tap remote, formula URL, formula SHA-256, and GitHub Release asset digest, then prints repair commands such as re-tapping and reinstalling from `rushairer/ascendkit`.
@@ -310,6 +310,8 @@ ascendkit screenshots compose --workspace "$WORKSPACE" --mode storeReadyCopy
 ascendkit screenshots compose --workspace "$WORKSPACE" --mode deviceFrame
 ascendkit screenshots compose --workspace "$WORKSPACE" --mode poster
 ```
+
+`deviceFrame` is a compatibility alias for the full App Store framed-poster renderer: it produces opaque marketing screenshots with a background, localized title/subtitle copy, and an inset device frame. It does not produce border-only transparent screenshots.
 
 Run the local Xcode UI-test screenshot workflow without fastlane:
 
@@ -651,7 +653,7 @@ ascendkit screenshots copy refresh --workspace "$WORKSPACE" --locale en-US --jso
 ascendkit screenshots copy lint --workspace "$WORKSPACE" --locale en-US --json
 ```
 
-Generates, refreshes, and validates an editable framed-poster copy template at `screenshots/copy/en-US.json` from `screenshot-plan.json`. Use `copy refresh` after the screenshot plan changes; it preserves edited titles/subtitles for matching files and removes stale entries. Lint results are persisted to `screenshots/manifests/copy-lint.json` and included in workflow status. Edit titles and subtitles there before running `screenshots compose --mode framedPoster` or `screenshots workflow run --mode framedPoster`.
+Generates, refreshes, and validates an editable framed-poster copy template at `screenshots/copy/en-US.json` from `screenshot-plan.json`. Use `copy refresh` after the screenshot plan changes; it preserves edited titles/subtitles for matching files and removes stale entries. Lint results are persisted to `screenshots/manifests/copy-lint.json` and included in workflow status. Edit titles and subtitles there before running `screenshots compose --mode framedPoster`, `screenshots compose --mode deviceFrame`, or `screenshots workflow run --mode framedPoster`.
 
 ```bash
 ascendkit screenshots readiness \
@@ -688,10 +690,10 @@ Composition modes:
 
 - `storeReadyCopy`: organize imported images for upload.
 - `poster`: render local poster-style PNG artifacts.
-- `deviceFrame`: render generic local framed PNG artifacts.
-- `framedPoster`: render App Store-sized PNG artifacts with a background, title/subtitle copy, and an inset device frame while preserving the source screenshot dimensions.
+- `deviceFrame`: compatibility alias for `framedPoster`; renders a complete App Store marketing screenshot, not a border-only frame.
+- `framedPoster`: render App Store-sized PNG artifacts with an opaque background, title/subtitle copy, and an inset device frame while preserving the source screenshot dimensions.
 
-Optional framed poster copy file:
+Optional framed poster copy file. If `--copy` is omitted, AscendKit first reads default locale copy assets from `screenshots/copy/<locale>.json`, then falls back to `screenshot-plan.json` screen names and purposes as inferred title/subtitle copy:
 
 ```json
 {
@@ -942,7 +944,7 @@ Writes reviewer contact, notes, and login requirement. If login is required, pas
 ascendkit submit readiness --workspace "$WORKSPACE" --json
 ```
 
-Builds a checklist of release prerequisites. For `framedPoster` screenshot composition, readiness also requires a clean `screenshots/manifests/copy-lint.json` report.
+Builds a checklist of release prerequisites. For `framedPoster` screenshot composition, including the `deviceFrame` alias, readiness also requires a clean `screenshots/manifests/copy-lint.json` report.
 
 ```bash
 ascendkit submit prepare --workspace "$WORKSPACE" --json

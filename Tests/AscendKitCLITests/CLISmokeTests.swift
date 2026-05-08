@@ -6,7 +6,7 @@ import Testing
 struct CLISmokeTests {
     @Test("reports current semantic version")
     func reportsCurrentSemanticVersion() {
-        #expect(AscendKitVersion.current == "1.4.2")
+        #expect(AscendKitVersion.current == "1.4.3")
     }
 
     @Test("core JSON encoder produces sorted manifest output")

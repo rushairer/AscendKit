@@ -813,6 +813,41 @@ struct ScreenshotTests {
         #expect(refreshed.items.contains { $0.fileName == "03-stale.png" } == false)
     }
 
+    @Test("merges user screenshot copy over inferred plan copy")
+    func mergesUserScreenshotCopyOverInferredPlanCopy() {
+        let inferred = ScreenshotCompositionCopyManifest(items: [
+            ScreenshotCompositionCopy(
+                locale: "en-US",
+                platform: .iOS,
+                fileName: "01-today.png",
+                title: "Today",
+                subtitle: "Show today focus"
+            ),
+            ScreenshotCompositionCopy(
+                locale: "zh-Hans",
+                platform: .iOS,
+                fileName: "01-today.png",
+                title: "Today",
+                subtitle: "Show today focus"
+            )
+        ])
+        let userCopy = ScreenshotCompositionCopyManifest(items: [
+            ScreenshotCompositionCopy(
+                locale: "zh-Hans",
+                platform: .iOS,
+                fileName: "01-today.png",
+                title: "专注今日",
+                subtitle: "保持简单"
+            )
+        ])
+
+        let merged = userCopy.merged(with: inferred)
+
+        #expect(merged.copy(locale: "en-US", platform: .iOS, fileName: "01-today.png")?.title == "Today")
+        #expect(merged.copy(locale: "zh-Hans", platform: .iOS, fileName: "01-today.png")?.title == "专注今日")
+        #expect(merged.copy(locale: "zh-Hans", platform: .iOS, fileName: "01-today.png")?.subtitle == "保持简单")
+    }
+
     @Test("lints screenshot copy coverage against imported artifacts")
     func lintsScreenshotCopyCoverage() {
         let importManifest = ScreenshotImportManifest(
@@ -1232,12 +1267,12 @@ struct ScreenshotTests {
         try expectPNGHasNoAlpha(at: URL(fileURLWithPath: manifest.artifacts[0].outputPath))
     }
 
-    @Test("renders device frame composition as a PNG artifact")
-    func rendersDeviceFrameComposition() throws {
+    @Test("device frame request renders framed App Store marketing poster")
+    func deviceFrameRequestRendersFramedMarketingPoster() throws {
         let root = try TemporaryDirectory()
         let input = root.url.appendingPathComponent("source/en-US/iOS/01-home.png")
         try FileManager.default.createDirectory(at: input.deletingLastPathComponent(), withIntermediateDirectories: true)
-        try makePNG(size: NSSize(width: 390, height: 844), url: input)
+        try makePNG(size: NSSize(width: 1_320, height: 2_868), url: input)
         let importManifest = ScreenshotImportManifest(
             sourceDirectory: root.url.appendingPathComponent("source").path,
             artifacts: [
@@ -1252,7 +1287,9 @@ struct ScreenshotTests {
         )
 
         #expect(manifest.artifacts.count == 1)
-        #expect(manifest.artifacts[0].outputPath.hasSuffix("01-home-device-frame.png"))
+        #expect(manifest.mode == .framedPoster)
+        #expect(manifest.artifacts[0].mode == .framedPoster)
+        #expect(manifest.artifacts[0].outputPath.hasSuffix("01-home-framed-poster.png"))
         #expect(NSImage(contentsOfFile: manifest.artifacts[0].outputPath)?.isValid == true)
         try expectPNGHasNoAlpha(at: URL(fileURLWithPath: manifest.artifacts[0].outputPath))
     }

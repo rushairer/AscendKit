@@ -1018,7 +1018,7 @@ struct CLIRunner {
             captureResultPath: workspace.paths.screenshotCaptureResult,
             importManifestPath: workspace.paths.screenshotImportManifest,
             compositionManifestPath: workspace.paths.screenshotCompositionManifest,
-            compositionMode: mode,
+            compositionMode: composition.mode,
             capturedFileCount: capturedFileCount,
             composedArtifactCount: composition.artifacts.count
         )
@@ -1027,7 +1027,7 @@ struct CLIRunner {
             .init(
                 action: .screenshotWorkflowRan,
                 summary: "Completed local screenshot workflow",
-                details: ["captured": "\(capturedFileCount)", "composed": "\(composition.artifacts.count)", "mode": mode.rawValue]
+                details: ["captured": "\(capturedFileCount)", "composed": "\(composition.artifacts.count)", "mode": composition.mode.rawValue]
             ),
             to: workspace
         )
@@ -1085,7 +1085,12 @@ struct CLIRunner {
         guard let importManifest = try loadIfExists(ScreenshotImportManifest.self, path: workspace.paths.screenshotImportManifest) else {
             throw AscendKitError.fileNotFound(workspace.paths.screenshotImportManifest)
         }
-        let copyManifest = try loadScreenshotCompositionCopy(from: copyPath)
+        let copyManifest = try resolveScreenshotCompositionCopy(
+            workspace: workspace,
+            importManifest: importManifest,
+            mode: mode,
+            copyPath: copyPath
+        )
         let outputRoot = URL(fileURLWithPath: workspace.paths.root).appendingPathComponent("screenshots/composed")
         let manifest = try ScreenshotComposer(fileManager: fileManager).compose(
             importManifest: importManifest,
@@ -1096,6 +1101,47 @@ struct CLIRunner {
         try store.save(manifest, to: URL(fileURLWithPath: workspace.paths.screenshotCompositionManifest))
         try store.appendAudit(.init(action: .screenshotCompositionManifestSaved, summary: "Saved screenshot composition manifest"), to: workspace)
         return manifest
+    }
+
+    private func resolveScreenshotCompositionCopy(
+        workspace: ReleaseWorkspace,
+        importManifest: ScreenshotImportManifest,
+        mode: ScreenshotCompositionMode,
+        copyPath: String?
+    ) throws -> ScreenshotCompositionCopyManifest? {
+        if let copyPath {
+            return try loadScreenshotCompositionCopy(from: copyPath)
+        }
+        guard mode.requiresMarketingCopy else {
+            return nil
+        }
+
+        let locales = Set(importManifest.artifacts.map(\.locale))
+        let defaultCopy = try loadDefaultScreenshotCopy(workspace: workspace, locales: locales)
+        guard let plan = try loadIfExists(ScreenshotPlan.self, path: workspace.paths.screenshotPlan) else {
+            return defaultCopy
+        }
+
+        let inferredCopy = ScreenshotCompositionCopyTemplateBuilder().build(plan: plan)
+        return defaultCopy?.merged(with: inferredCopy) ?? inferredCopy
+    }
+
+    private func loadDefaultScreenshotCopy(
+        workspace: ReleaseWorkspace,
+        locales: Set<String>
+    ) throws -> ScreenshotCompositionCopyManifest? {
+        var items: [ScreenshotCompositionCopy] = []
+        for locale in locales.sorted() {
+            let path = defaultScreenshotCopyPath(workspace: workspace, locale: locale)
+            guard let copy = try loadIfExists(ScreenshotCompositionCopyManifest.self, path: path) else {
+                continue
+            }
+            items.append(contentsOf: copy.items)
+        }
+        guard !items.isEmpty else {
+            return nil
+        }
+        return ScreenshotCompositionCopyManifest(items: items)
     }
 
     private func discoverScreenshotDestinations(platforms: [ApplePlatform]) throws -> ScreenshotDestinationDiscoveryReport {

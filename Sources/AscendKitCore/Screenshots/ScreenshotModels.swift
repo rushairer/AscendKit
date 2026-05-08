@@ -2009,6 +2009,19 @@ public enum ScreenshotCompositionMode: String, Codable, Equatable, Sendable {
     case poster
     case deviceFrame
     case framedPoster
+
+    public var effectiveRenderMode: ScreenshotCompositionMode {
+        switch self {
+        case .deviceFrame:
+            return .framedPoster
+        case .storeReadyCopy, .poster, .framedPoster:
+            return self
+        }
+    }
+
+    public var requiresMarketingCopy: Bool {
+        effectiveRenderMode == .framedPoster
+    }
 }
 
 public struct ScreenshotCompositionCopyManifest: Codable, Equatable, Sendable {
@@ -2024,6 +2037,29 @@ public struct ScreenshotCompositionCopyManifest: Codable, Equatable, Sendable {
                 $0.platform == platform &&
                 $0.fileName == fileName
         } ?? items.first { $0.fileName == fileName }
+    }
+
+    public func merged(with fallback: ScreenshotCompositionCopyManifest?) -> ScreenshotCompositionCopyManifest {
+        guard let fallback else {
+            return self
+        }
+        var merged = fallback.items
+        for item in items {
+            if let index = merged.firstIndex(where: {
+                $0.locale == item.locale &&
+                    $0.platform == item.platform &&
+                    $0.fileName == item.fileName
+            }) {
+                merged[index] = item
+            } else {
+                merged.append(item)
+            }
+        }
+        return ScreenshotCompositionCopyManifest(items: merged.sorted {
+            if $0.locale != $1.locale { return $0.locale < $1.locale }
+            if $0.platform.rawValue != $1.platform.rawValue { return $0.platform.rawValue < $1.platform.rawValue }
+            return $0.fileName < $1.fileName
+        })
     }
 }
 
@@ -2960,17 +2996,18 @@ public struct ScreenshotComposer {
         mode: ScreenshotCompositionMode,
         copyManifest: ScreenshotCompositionCopyManifest? = nil
     ) throws -> ScreenshotCompositionManifest {
+        let renderMode = mode.effectiveRenderMode
         var artifacts: [ScreenshotCompositionArtifact] = []
         for artifact in importManifest.artifacts {
             let inputURL = URL(fileURLWithPath: artifact.path)
             let outputDirectory = outputRoot
-                .appendingPathComponent(mode.rawValue)
+                .appendingPathComponent(renderMode.rawValue)
                 .appendingPathComponent(artifact.locale)
                 .appendingPathComponent(artifact.platform.rawValue)
             try fileManager.createDirectory(at: outputDirectory, withIntermediateDirectories: true)
 
             let outputURL: URL
-            switch mode {
+            switch renderMode {
             case .storeReadyCopy:
                 let baseName = inputURL.deletingPathExtension().lastPathComponent
                 outputURL = outputDirectory.appendingPathComponent("\(baseName).png")
@@ -2985,11 +3022,7 @@ public struct ScreenshotComposer {
                     try renderPoster(inputURL: inputURL, outputURL: outputURL)
                 }
             case .deviceFrame:
-                let baseName = inputURL.deletingPathExtension().lastPathComponent
-                outputURL = outputDirectory.appendingPathComponent("\(baseName)-device-frame.png")
-                try replaceExistingFile(at: outputURL) {
-                    try renderDeviceFrame(inputURL: inputURL, outputURL: outputURL)
-                }
+                fatalError("deviceFrame is normalized to framedPoster before rendering.")
             case .framedPoster:
                 let baseName = inputURL.deletingPathExtension().lastPathComponent
                 outputURL = outputDirectory.appendingPathComponent("\(baseName)-framed-poster.png")
@@ -3013,10 +3046,10 @@ public struct ScreenshotComposer {
                 platform: artifact.platform,
                 inputPath: inputURL.standardizedFileURL.path,
                 outputPath: outputURL.standardizedFileURL.path,
-                mode: mode
+                mode: renderMode
             ))
         }
-        return ScreenshotCompositionManifest(mode: mode, artifacts: artifacts)
+        return ScreenshotCompositionManifest(mode: renderMode, artifacts: artifacts)
     }
 
     private func replaceExistingFile(at url: URL, write: () throws -> Void) throws {
