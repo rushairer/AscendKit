@@ -1071,34 +1071,83 @@ public struct ASCAPIClient {
         checksum: String,
         token: String
     ) async throws -> ReviewSubmissionExecutionResponse {
-        try await sendJSONAPIRequest(
-            id: "app-screenshot.commit",
-            method: "PATCH",
-            path: "/v1/appScreenshots/\(screenshotID)",
-            payload: [
-                "data": [
-                    "type": "appScreenshots",
-                    "id": screenshotID,
-                    "attributes": [
-                        "uploaded": true,
-                        "sourceFileChecksum": checksum
+        let path = "/v1/appScreenshots/\(screenshotID)"
+        do {
+            return try await sendJSONAPIRequest(
+                id: "app-screenshot.commit",
+                method: "PATCH",
+                path: path,
+                payload: [
+                    "data": [
+                        "type": "appScreenshots",
+                        "id": screenshotID,
+                        "attributes": [
+                            "uploaded": true,
+                            "sourceFileChecksum": checksum
+                        ]
                     ]
-                ]
-            ],
-            token: token
-        )
+                ],
+                token: token
+            )
+        } catch {
+            if Self.isAlreadyCommittedAppScreenshot(error) {
+                return ReviewSubmissionExecutionResponse(
+                    id: "app-screenshot.commit",
+                    method: "PATCH",
+                    path: path,
+                    statusCode: 409,
+                    resourceID: screenshotID
+                )
+            }
+            throw error
+        }
+    }
+
+    static func isAlreadyCommittedAppScreenshot(_ error: Error) -> Bool {
+        let description = String(describing: error)
+        guard description.contains("app-screenshot.commit"),
+              description.contains("HTTP 409"),
+              description.contains("STATE_ERROR") else {
+            return false
+        }
+        return description.contains("can't be re-committed")
+            || description.contains("can't commit Asset")
+            || description.contains("already Approved")
+            || description.contains("Asset in Completed")
     }
 
     private func deleteAppScreenshot(
         screenshotID: String,
         token: String
     ) async throws -> ReviewSubmissionExecutionResponse {
-        try await sendEmptyRequest(
-            id: "app-screenshot.delete",
-            method: "DELETE",
-            path: "/v1/appScreenshots/\(screenshotID)",
-            token: token
-        )
+        let path = "/v1/appScreenshots/\(screenshotID)"
+        do {
+            return try await sendEmptyRequest(
+                id: "app-screenshot.delete",
+                method: "DELETE",
+                path: path,
+                token: token
+            )
+        } catch {
+            if Self.isMissingAppScreenshotDeletion(error) {
+                return ReviewSubmissionExecutionResponse(
+                    id: "app-screenshot.delete",
+                    method: "DELETE",
+                    path: path,
+                    statusCode: 404,
+                    resourceID: screenshotID
+                )
+            }
+            throw error
+        }
+    }
+
+    static func isMissingAppScreenshotDeletion(_ error: Error) -> Bool {
+        let description = String(describing: error)
+        guard description.contains("app-screenshot.delete") else {
+            return false
+        }
+        return description.contains("HTTP 404") || description.contains("NOT_FOUND")
     }
 
     private func pollAppScreenshotDeliveryState(

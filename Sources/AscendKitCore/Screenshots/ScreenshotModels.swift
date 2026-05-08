@@ -775,12 +775,18 @@ public struct ScreenshotWorkflowStatusBuilder {
 
 public struct ScreenshotCaptureExecutor {
     public let fileManager: FileManager
+    private let simulatorBusyRetryLimit = 2
+    private let simulatorBusyRetryDelaySeconds: TimeInterval = 5
 
     public init(fileManager: FileManager = .default) {
         self.fileManager = fileManager
     }
 
-    public func execute(plan: ScreenshotCapturePlan, logsDirectory: URL) throws -> ScreenshotCaptureExecutionResult {
+    public func execute(
+        plan: ScreenshotCapturePlan,
+        logsDirectory: URL,
+        cleanOutputDirectories: Bool = true
+    ) throws -> ScreenshotCaptureExecutionResult {
         guard plan.findings.isEmpty else {
             return ScreenshotCaptureExecutionResult(
                 executed: false,
@@ -797,7 +803,11 @@ public struct ScreenshotCaptureExecutor {
         try fileManager.createDirectory(at: logsDirectory, withIntermediateDirectories: true)
         var items: [ScreenshotCaptureExecutionItem] = []
         for command in plan.commands {
-            items.append(try execute(command: command, logsDirectory: logsDirectory))
+            items.append(try execute(
+                command: command,
+                logsDirectory: logsDirectory,
+                cleanOutputDirectory: cleanOutputDirectories
+            ))
         }
 
         let failed = items.filter { !$0.succeeded }
@@ -810,8 +820,20 @@ public struct ScreenshotCaptureExecutor {
         return ScreenshotCaptureExecutionResult(executed: true, items: items, findings: findings)
     }
 
-    private func execute(command: ScreenshotCaptureCommand, logsDirectory: URL) throws -> ScreenshotCaptureExecutionItem {
-        try fileManager.createDirectory(at: URL(fileURLWithPath: command.rawOutputDirectory), withIntermediateDirectories: true)
+    private func execute(
+        command: ScreenshotCaptureCommand,
+        logsDirectory: URL,
+        cleanOutputDirectory: Bool
+    ) throws -> ScreenshotCaptureExecutionItem {
+        let rawOutputURL = URL(fileURLWithPath: command.rawOutputDirectory)
+        if cleanOutputDirectory && fileManager.fileExists(atPath: rawOutputURL.path) {
+            try fileManager.removeItem(at: rawOutputURL)
+        }
+        try fileManager.createDirectory(at: rawOutputURL, withIntermediateDirectories: true)
+        try writeFastlaneSnapshotConfigurationIfNeeded(
+            locale: command.locale,
+            commandEnvironment: command.environment
+        )
         let resultBundleURL = URL(fileURLWithPath: command.resultBundlePath)
         if fileManager.fileExists(atPath: resultBundleURL.path) {
             try fileManager.removeItem(at: resultBundleURL)
@@ -830,17 +852,32 @@ public struct ScreenshotCaptureExecutor {
             try Data("Capture command is empty.\n".utf8).write(to: stderrURL, options: [.atomic])
             exitCode = 127
         } else {
-            exitCode = try runProcess(command: command.command, environment: command.environment, stdoutURL: stdoutURL, stderrURL: stderrURL)
+            exitCode = try runCaptureProcessWithRetries(
+                command: command,
+                resultBundleURL: resultBundleURL,
+                rawOutputURL: rawOutputURL,
+                stdoutURL: stdoutURL,
+                stderrURL: stderrURL,
+                cleanOutputDirectory: cleanOutputDirectory
+            )
         }
 
-        let rawOutputURL = URL(fileURLWithPath: command.rawOutputDirectory)
-        var outputFiles = imageFiles(in: rawOutputURL, modifiedSince: start).map(\.path)
+        var outputFiles = cleanOutputDirectory
+            ? imageFiles(in: rawOutputURL, modifiedSince: start).map(\.path)
+            : imageFiles(in: rawOutputURL).map(\.path)
         if exitCode == 0 && outputFiles.isEmpty {
             outputFiles = try importOrderedAttachmentsIfPresent(
                 resultBundleURL: resultBundleURL,
                 rawOutputDirectory: rawOutputURL,
                 logsDirectory: logsDirectory,
                 commandID: command.id,
+                modifiedSince: start
+            )
+        }
+        if exitCode == 0 && outputFiles.isEmpty {
+            outputFiles = try importFastlaneScreenshotsIfPresent(
+                rawOutputDirectory: rawOutputURL,
+                commandEnvironment: command.environment,
                 modifiedSince: start
             )
         }
@@ -858,6 +895,88 @@ public struct ScreenshotCaptureExecutor {
             outputFiles: outputFiles,
             durationSeconds: Date().timeIntervalSince(start)
         )
+    }
+
+    private func runCaptureProcessWithRetries(
+        command: ScreenshotCaptureCommand,
+        resultBundleURL: URL,
+        rawOutputURL: URL,
+        stdoutURL: URL,
+        stderrURL: URL,
+        cleanOutputDirectory: Bool
+    ) throws -> Int32 {
+        var attempt = 0
+        while true {
+            let exitCode = try runProcess(
+                command: command.command,
+                environment: command.environment,
+                stdoutURL: stdoutURL,
+                stderrURL: stderrURL
+            )
+            guard shouldRetryForSimulatorBusy(
+                exitCode: exitCode,
+                stderrURL: stderrURL,
+                attempt: attempt
+            ) else {
+                return exitCode
+            }
+
+            attempt += 1
+            try appendRetryNote(
+                "AscendKit retrying capture command \(command.id) after transient simulator busy failure (attempt \(attempt + 1) of \(simulatorBusyRetryLimit + 1)).\n",
+                to: stderrURL
+            )
+            Thread.sleep(forTimeInterval: simulatorBusyRetryDelaySeconds)
+            try prepareRetryDirectories(
+                resultBundleURL: resultBundleURL,
+                rawOutputURL: rawOutputURL,
+                cleanOutputDirectory: cleanOutputDirectory
+            )
+        }
+    }
+
+    private func shouldRetryForSimulatorBusy(
+        exitCode: Int32,
+        stderrURL: URL,
+        attempt: Int
+    ) -> Bool {
+        guard exitCode == 65, attempt < simulatorBusyRetryLimit else {
+            return false
+        }
+        guard let stderr = try? String(contentsOf: stderrURL, encoding: .utf8) else {
+            return false
+        }
+        let normalized = stderr.lowercased()
+        return normalized.contains("application failed preflight checks") ||
+            normalized.contains("bserrorcodedescription = busy") ||
+            normalized.contains("reason: busy")
+    }
+
+    private func prepareRetryDirectories(
+        resultBundleURL: URL,
+        rawOutputURL: URL,
+        cleanOutputDirectory: Bool
+    ) throws {
+        if fileManager.fileExists(atPath: resultBundleURL.path) {
+            try fileManager.removeItem(at: resultBundleURL)
+        }
+        try fileManager.createDirectory(
+            at: resultBundleURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        if cleanOutputDirectory {
+            if fileManager.fileExists(atPath: rawOutputURL.path) {
+                try fileManager.removeItem(at: rawOutputURL)
+            }
+            try fileManager.createDirectory(at: rawOutputURL, withIntermediateDirectories: true)
+        }
+    }
+
+    private func appendRetryNote(_ note: String, to url: URL) throws {
+        let existing = (try? Data(contentsOf: url)) ?? Data()
+        var updated = existing
+        updated.append(Data(note.utf8))
+        try updated.write(to: url, options: [.atomic])
     }
 
     private func importOrderedAttachmentsIfPresent(
@@ -904,6 +1023,74 @@ public struct ScreenshotCaptureExecutor {
             return []
         }
         return imageFiles(in: rawOutputDirectory, modifiedSince: start).map(\.path)
+    }
+
+    private func importFastlaneScreenshotsIfPresent(
+        rawOutputDirectory: URL,
+        commandEnvironment: [String: String],
+        modifiedSince start: Date
+    ) throws -> [String] {
+        guard let sourceDirectory = fastlaneScreenshotsDirectory(commandEnvironment: commandEnvironment),
+              fileManager.fileExists(atPath: sourceDirectory.path) else {
+            return []
+        }
+
+        let sourceFiles = imageFiles(in: sourceDirectory, modifiedSince: start)
+        guard !sourceFiles.isEmpty else {
+            return []
+        }
+
+        try fileManager.createDirectory(at: rawOutputDirectory, withIntermediateDirectories: true)
+        var importedFiles: [String] = []
+        for sourceURL in sourceFiles {
+            let destinationURL = rawOutputDirectory.appendingPathComponent(sourceURL.lastPathComponent)
+            if fileManager.fileExists(atPath: destinationURL.path) {
+                try fileManager.removeItem(at: destinationURL)
+            }
+            try fileManager.copyItem(at: sourceURL, to: destinationURL)
+            importedFiles.append(destinationURL.path)
+        }
+        return importedFiles.sorted()
+    }
+
+    private func fastlaneScreenshotsDirectory(commandEnvironment: [String: String]) -> URL? {
+        if let override = commandEnvironment["ASCENDKIT_FASTLANE_SCREENSHOTS_DIR"], !override.isEmpty {
+            return URL(fileURLWithPath: override, isDirectory: true)
+        }
+        if let home = ProcessInfo.processInfo.environment["HOME"], !home.isEmpty {
+            return URL(fileURLWithPath: home, isDirectory: true)
+                .appendingPathComponent("Library/Caches/tools.fastlane/screenshots", isDirectory: true)
+        }
+        return nil
+    }
+
+    private func writeFastlaneSnapshotConfigurationIfNeeded(
+        locale: String,
+        commandEnvironment: [String: String]
+    ) throws {
+        guard let cacheDirectory = fastlaneCacheDirectory(commandEnvironment: commandEnvironment) else {
+            return
+        }
+        try fileManager.createDirectory(at: cacheDirectory, withIntermediateDirectories: true)
+        try Data(locale.utf8).write(
+            to: cacheDirectory.appendingPathComponent("language.txt"),
+            options: [.atomic]
+        )
+        try Data(locale.utf8).write(
+            to: cacheDirectory.appendingPathComponent("locale.txt"),
+            options: [.atomic]
+        )
+    }
+
+    private func fastlaneCacheDirectory(commandEnvironment: [String: String]) -> URL? {
+        if let override = commandEnvironment["ASCENDKIT_FASTLANE_CACHE_DIR"], !override.isEmpty {
+            return URL(fileURLWithPath: override, isDirectory: true)
+        }
+        if let home = ProcessInfo.processInfo.environment["HOME"], !home.isEmpty {
+            return URL(fileURLWithPath: home, isDirectory: true)
+                .appendingPathComponent("Library/Caches/tools.fastlane", isDirectory: true)
+        }
+        return nil
     }
 
     private func runProcess(command: [String], environment: [String: String], stdoutURL: URL, stderrURL: URL) throws -> Int32 {
@@ -955,6 +1142,16 @@ public struct ScreenshotCaptureExecutor {
             .sorted { $0.lastPathComponent < $1.lastPathComponent }
     }
 
+    private func imageFiles(in directory: URL) -> [URL] {
+        guard let contents = try? fileManager.contentsOfDirectory(at: directory, includingPropertiesForKeys: [.isRegularFileKey]) else {
+            return []
+        }
+        let supported = Set(["png", "jpg", "jpeg", "heic", "tif", "tiff"])
+        return contents
+            .filter { supported.contains($0.pathExtension.lowercased()) }
+            .sorted { $0.lastPathComponent < $1.lastPathComponent }
+    }
+
     private func safeFileName(_ value: String) -> String {
         let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "-_."))
         return value.unicodeScalars
@@ -975,6 +1172,7 @@ public struct ScreenshotCapturePlanBuilder {
         scheme: String? = nil,
         configuration: String = "Debug",
         destinationOverrides: [String] = [],
+        onlyTesting: [String] = [],
         discoveredDestinations: [ScreenshotCaptureDestination] = []
     ) -> ScreenshotCapturePlan {
         var findings: [String] = []
@@ -1028,6 +1226,7 @@ public struct ScreenshotCapturePlanBuilder {
                         configuration: configuration,
                         locale: locale,
                         destination: destination,
+                        onlyTesting: onlyTesting,
                         resultBundlePath: resultBundlePath
                     )
                 )
@@ -1129,6 +1328,7 @@ public struct ScreenshotCapturePlanBuilder {
         configuration: String,
         locale: String,
         destination: ScreenshotCaptureDestination,
+        onlyTesting: [String],
         resultBundlePath: URL
     ) -> [String] {
         var command = ["xcodebuild"]
@@ -1152,18 +1352,36 @@ public struct ScreenshotCapturePlanBuilder {
         if let region = localeRegion(locale) {
             command.append(contentsOf: ["-testRegion", region])
         }
+        for testIdentifier in onlyTesting where !testIdentifier.isEmpty {
+            command.append(contentsOf: ["-only-testing:\(testIdentifier)"])
+        }
         command.append("test")
         return command
     }
 
     private func localeLanguage(_ locale: String) -> String? {
-        locale.split(separator: "-").first.map(String.init)
+        let parts = locale.split(separator: "-").map(String.init)
+        guard let language = parts.first else { return nil }
+        guard let script = parts.dropFirst().first, isScriptSubtag(script) else {
+            return language
+        }
+        return "\(language)-\(script)"
     }
 
     private func localeRegion(_ locale: String) -> String? {
-        let parts = locale.split(separator: "-")
-        guard parts.count > 1 else { return nil }
-        return String(parts[1])
+        locale.split(separator: "-")
+            .dropFirst()
+            .map(String.init)
+            .first(where: isRegionSubtag)
+    }
+
+    private func isScriptSubtag(_ value: String) -> Bool {
+        value.count == 4 && value.allSatisfy(\.isLetter)
+    }
+
+    private func isRegionSubtag(_ value: String) -> Bool {
+        (value.count == 2 && value.allSatisfy(\.isLetter)) ||
+            (value.count == 3 && value.allSatisfy(\.isNumber))
     }
 
     private func safeFileName(_ value: String) -> String {
@@ -1880,12 +2098,26 @@ public struct ScreenshotArtifact: Codable, Equatable, Identifiable, Sendable {
     public var platform: ApplePlatform
     public var path: String
     public var fileName: String
+    public var planItemID: String?
+    public var screenName: String?
+    public var purpose: String?
 
-    public init(locale: String, platform: ApplePlatform, path: String, fileName: String) {
+    public init(
+        locale: String,
+        platform: ApplePlatform,
+        path: String,
+        fileName: String,
+        planItemID: String? = nil,
+        screenName: String? = nil,
+        purpose: String? = nil
+    ) {
         self.locale = locale
         self.platform = platform
         self.path = path
         self.fileName = fileName
+        self.planItemID = planItemID
+        self.screenName = screenName
+        self.purpose = purpose
     }
 }
 
@@ -1916,11 +2148,18 @@ public struct ScreenshotImporter {
                     .appendingPathComponent(locale)
                     .appendingPathComponent(platform.rawValue)
                 artifacts.append(contentsOf: imageFiles(in: directory).map { url in
-                    ScreenshotArtifact(
+                    let matchedItem = ScreenshotSemanticMatcher.matchingPlanItem(
+                        forFileName: url.lastPathComponent,
+                        items: plan.items
+                    )
+                    return ScreenshotArtifact(
                         locale: locale,
                         platform: platform,
                         path: url.standardizedFileURL.path,
-                        fileName: url.lastPathComponent
+                        fileName: url.lastPathComponent,
+                        planItemID: matchedItem?.id,
+                        screenName: matchedItem?.screenName,
+                        purpose: matchedItem?.purpose
                     )
                 })
             }
@@ -2032,11 +2271,30 @@ public struct ScreenshotCompositionCopyManifest: Codable, Equatable, Sendable {
     }
 
     public func copy(locale: String, platform: ApplePlatform, fileName: String) -> ScreenshotCompositionCopy? {
-        items.first {
+        if let exact = items.first(where: {
             $0.locale == locale &&
                 $0.platform == platform &&
                 $0.fileName == fileName
-        } ?? items.first { $0.fileName == fileName }
+        }) {
+            return exact
+        }
+
+        let canonicalFileName = canonicalScreenshotCopyFileName(fileName)
+        if let canonicalMatch = items.first(where: {
+            $0.locale == locale &&
+                $0.platform == platform &&
+                canonicalScreenshotCopyFileName($0.fileName) == canonicalFileName
+        }) {
+            return canonicalMatch
+        }
+
+        if let exactFallback = items.first(where: { $0.fileName == fileName }) {
+            return exactFallback
+        }
+
+        return items.first {
+            canonicalScreenshotCopyFileName($0.fileName) == canonicalFileName
+        }
     }
 
     public func merged(with fallback: ScreenshotCompositionCopyManifest?) -> ScreenshotCompositionCopyManifest {
@@ -2060,6 +2318,25 @@ public struct ScreenshotCompositionCopyManifest: Codable, Equatable, Sendable {
             if $0.platform.rawValue != $1.platform.rawValue { return $0.platform.rawValue < $1.platform.rawValue }
             return $0.fileName < $1.fileName
         })
+    }
+
+    private func canonicalScreenshotCopyFileName(_ fileName: String) -> String {
+        normalizeScreenshotCopyStem(
+            ScreenshotComposer.canonicalScreenshotCopyStem(
+                fromFileName: fileName,
+                modeSuffixes: ["-framed-poster", "-device-frame", "-poster", "_framed"]
+            )
+        )
+    }
+
+    private func normalizeScreenshotCopyStem(_ stem: String) -> String {
+        stem
+            .replacingOccurrences(of: "_", with: "-")
+            .replacingOccurrences(of: " ", with: "-")
+            .replacingOccurrences(of: #"[^A-Za-z0-9-]+"#, with: "-", options: .regularExpression)
+            .replacingOccurrences(of: #"-+"#, with: "-", options: .regularExpression)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "-"))
+            .lowercased()
     }
 }
 
@@ -2106,6 +2383,51 @@ public struct ScreenshotCompositionCopyTemplateBuilder {
     }
 }
 
+enum ScreenshotSemanticMatcher {
+    static func matchingPlanItem(
+        forFileName fileName: String,
+        items: [ScreenshotPlanItem]
+    ) -> ScreenshotPlanItem? {
+        let candidateStem = normalizedStem(fromFileName: fileName)
+        if let exact = items.first(where: { normalizedStem(forPlanItem: $0) == candidateStem }) {
+            return exact
+        }
+
+        let unprefixedStem = candidateStem.replacingOccurrences(
+            of: #"^\d+[-\s]*"#,
+            with: "",
+            options: .regularExpression
+        )
+        return items.first {
+            normalizedStem(forPlanItem: $0)
+                .replacingOccurrences(of: #"^\d+[-\s]*"#, with: "", options: .regularExpression) == unprefixedStem
+        }
+    }
+
+    static func normalizedStem(forPlanItem item: ScreenshotPlanItem) -> String {
+        "\(String(format: "%02d", item.order))-\(item.id)"
+            .replacingOccurrences(of: "_", with: "-")
+            .replacingOccurrences(of: " ", with: "-")
+            .replacingOccurrences(of: #"[^A-Za-z0-9-]+"#, with: "-", options: .regularExpression)
+            .replacingOccurrences(of: #"-+"#, with: "-", options: .regularExpression)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "-"))
+            .lowercased()
+    }
+
+    static func normalizedStem(fromFileName fileName: String) -> String {
+        ScreenshotComposer.canonicalScreenshotCopyStem(
+            fromFileName: fileName,
+            modeSuffixes: ["-framed-poster", "-device-frame", "-poster", "_framed"]
+        )
+            .replacingOccurrences(of: "_", with: "-")
+            .replacingOccurrences(of: " ", with: "-")
+            .replacingOccurrences(of: #"[^A-Za-z0-9-]+"#, with: "-", options: .regularExpression)
+            .replacingOccurrences(of: #"-+"#, with: "-", options: .regularExpression)
+            .trimmingCharacters(in: CharacterSet(charactersIn: "-"))
+            .lowercased()
+    }
+}
+
 public struct ScreenshotCompositionCopyLintReport: Codable, Equatable, Sendable {
     public var valid: Bool
     public var checkedArtifactCount: Int
@@ -2132,9 +2454,9 @@ public struct ScreenshotCompositionCopyLinter {
         }
 
         for item in copyManifest.items {
+            let itemManifest = ScreenshotCompositionCopyManifest(items: [item])
             let hasArtifact = importManifest.artifacts.contains {
-                ($0.locale == item.locale && $0.platform == item.platform && $0.fileName == item.fileName) ||
-                    $0.fileName == item.fileName
+                itemManifest.copy(locale: $0.locale, platform: $0.platform, fileName: $0.fileName) != nil
             }
             if !hasArtifact {
                 findings.append("Stale copy item for \(item.locale)/\(item.platform.rawValue)/\(item.fileName).")
@@ -2178,13 +2500,34 @@ public struct ScreenshotCompositionArtifact: Codable, Equatable, Identifiable, S
     public var inputPath: String
     public var outputPath: String
     public var mode: ScreenshotCompositionMode
+    public var planItemID: String?
+    public var screenName: String?
+    public var purpose: String?
+    public var title: String?
+    public var subtitle: String?
 
-    public init(locale: String, platform: ApplePlatform, inputPath: String, outputPath: String, mode: ScreenshotCompositionMode) {
+    public init(
+        locale: String,
+        platform: ApplePlatform,
+        inputPath: String,
+        outputPath: String,
+        mode: ScreenshotCompositionMode,
+        planItemID: String? = nil,
+        screenName: String? = nil,
+        purpose: String? = nil,
+        title: String? = nil,
+        subtitle: String? = nil
+    ) {
         self.locale = locale
         self.platform = platform
         self.inputPath = inputPath
         self.outputPath = outputPath
         self.mode = mode
+        self.planItemID = planItemID
+        self.screenName = screenName
+        self.purpose = purpose
+        self.title = title
+        self.subtitle = subtitle
     }
 }
 
@@ -2450,17 +2793,26 @@ public struct ScreenshotUploadStatusBuilder {
         }
 
         let failedItems = result.failedItems ?? []
-        let retryPlanItemIDs = failedItems.compactMap(\.planItemID).sorted()
+        let idempotentCommittedFailures = failedItems.filter(Self.isAlreadyCommittedScreenshotUploadFailure)
+        let actionableFailedItems = failedItems.filter { !Self.isAlreadyCommittedScreenshotUploadFailure($0) }
+        let retryPlanItemIDs = actionableFailedItems.compactMap(\.planItemID).sorted()
         let deliverySummary = deliveryStateSummary(items: result.items)
-        let deletionFailed = failedItems.contains(where: { $0.phase == "delete" })
+        let effectiveUploadedCount = result.uploadedCount + idempotentCommittedFailures.count
+        let effectiveDeliveryCompleteCount = deliverySummary.completeCount + idempotentCommittedFailures.count
+        let deletionFailed = actionableFailedItems.contains(where: { $0.phase == "delete" })
         let requiresRemoteRecovery = deletionFailed || !deliverySummary.failedItemIDs.isEmpty
         let readyForReview = result.executed
-            && failedItems.isEmpty
+            && actionableFailedItems.isEmpty
             && deliverySummary.failedItemIDs.isEmpty
             && deliverySummary.pendingItemIDs.isEmpty
             && deliverySummary.unknownCount == 0
-            && result.uploadedCount == (plan?.items.count ?? result.items.count)
-        var findings = result.findings
+            && effectiveUploadedCount == (plan?.items.count ?? result.items.count + idempotentCommittedFailures.count)
+        var findings = result.findings.filter { finding in
+            !actionableFailedItems.isEmpty || !finding.contains("Screenshot upload completed with")
+        }
+        if !idempotentCommittedFailures.isEmpty {
+            findings.append("ASC reported \(idempotentCommittedFailures.count) screenshot commit(s) already complete; treated as uploaded.")
+        }
         if !deliverySummary.failedItemIDs.isEmpty {
             findings.append("Screenshot asset delivery failed for \(deliverySummary.failedItemIDs.count) uploaded item(s).")
         }
@@ -2471,7 +2823,7 @@ public struct ScreenshotUploadStatusBuilder {
             findings.append("Screenshot asset delivery state is unknown for \(deliverySummary.unknownCount) uploaded item(s).")
         }
         var nextActions: [String] = []
-        if !failedItems.isEmpty {
+        if !actionableFailedItems.isEmpty {
             nextActions.append("Inspect failedItems in screenshots/manifests/upload-result.json.")
             if !retryPlanItemIDs.isEmpty {
                 nextActions.append("Fix the failed local assets or transient ASC issue, then rerun screenshots upload with the same workspace.")
@@ -2505,10 +2857,10 @@ public struct ScreenshotUploadStatusBuilder {
         return ScreenshotUploadStatusReport(
             plannedCount: plan?.items.count,
             executed: result.executed,
-            uploadedCount: result.uploadedCount,
-            failedCount: failedItems.count,
+            uploadedCount: effectiveUploadedCount,
+            failedCount: actionableFailedItems.count,
             deletedCount: result.deletedScreenshots?.count ?? 0,
-            deliveryCompleteCount: deliverySummary.completeCount,
+            deliveryCompleteCount: effectiveDeliveryCompleteCount,
             deliveryFailedCount: deliverySummary.failedItemIDs.count,
             deliveryPendingCount: deliverySummary.pendingItemIDs.count,
             deliveryUnknownCount: deliverySummary.unknownCount,
@@ -2522,6 +2874,19 @@ public struct ScreenshotUploadStatusBuilder {
             nextActions: nextActions,
             recoveryCommands: recoveryCommands
         )
+    }
+
+    private static func isAlreadyCommittedScreenshotUploadFailure(_ failure: ScreenshotUploadFailure) -> Bool {
+        guard failure.phase == "upload",
+              failure.message.contains("app-screenshot.commit"),
+              failure.message.contains("HTTP 409"),
+              failure.message.contains("STATE_ERROR") else {
+            return false
+        }
+        return failure.message.contains("can't be re-committed")
+            || failure.message.contains("can't commit Asset")
+            || failure.message.contains("already Approved")
+            || failure.message.contains("Asset in Completed")
     }
 
     private func deliveryStateSummary(items: [ScreenshotUploadExecutionItem]) -> (
@@ -2815,7 +3180,20 @@ public struct ScreenshotUploadPlanBuilder {
             findings.append("ASC observed metadata state is missing. Run asc metadata observe before planning screenshot upload.")
         }
 
-        let grouped = Dictionary(grouping: sourceArtifacts) { "\($0.locale)|\($0.platform.rawValue)" }
+        let uploadSourceArtifacts: [UploadSourceArtifact]
+        if let displayTypeOverride {
+            uploadSourceArtifacts = sourceArtifacts.filter {
+                ScreenshotDisplayTypeValidator.finding(
+                    platform: $0.platform,
+                    displayType: displayTypeOverride,
+                    fileName: $0.fileName
+                ) == nil
+            }
+        } else {
+            uploadSourceArtifacts = sourceArtifacts
+        }
+
+        let grouped = Dictionary(grouping: uploadSourceArtifacts) { "\($0.locale)|\($0.platform.rawValue)" }
         let items = grouped
             .flatMap { _, artifacts in
                 artifacts.sorted { $0.fileName < $1.fileName }.enumerated().compactMap { offset, artifact -> ScreenshotUploadPlanItem? in
@@ -3031,12 +3409,16 @@ public struct ScreenshotComposer {
                     platform: artifact.platform,
                     fileName: artifact.fileName
                 )
+                let effectiveTitle = copy?.title
+                    ?? artifact.screenName
+                    ?? Self.inferredTitle(fromFileName: inputURL.lastPathComponent)
+                let effectiveSubtitle = copy?.subtitle ?? artifact.purpose
                 try replaceExistingFile(at: outputURL) {
                     try renderFramedPoster(
                         inputURL: inputURL,
                         outputURL: outputURL,
-                        title: copy?.title ?? inferredTitle(from: inputURL),
-                        subtitle: copy?.subtitle
+                        title: effectiveTitle,
+                        subtitle: effectiveSubtitle
                     )
                 }
             }
@@ -3046,7 +3428,20 @@ public struct ScreenshotComposer {
                 platform: artifact.platform,
                 inputPath: inputURL.standardizedFileURL.path,
                 outputPath: outputURL.standardizedFileURL.path,
-                mode: renderMode
+                mode: renderMode,
+                planItemID: artifact.planItemID,
+                screenName: artifact.screenName,
+                purpose: artifact.purpose,
+                title: renderMode == .framedPoster ? (copyManifest?.copy(
+                    locale: artifact.locale,
+                    platform: artifact.platform,
+                    fileName: artifact.fileName
+                )?.title ?? artifact.screenName ?? Self.inferredTitle(fromFileName: inputURL.lastPathComponent)) : nil,
+                subtitle: renderMode == .framedPoster ? (copyManifest?.copy(
+                    locale: artifact.locale,
+                    platform: artifact.platform,
+                    fileName: artifact.fileName
+                )?.subtitle ?? artifact.purpose) : nil
             ))
         }
         return ScreenshotCompositionManifest(mode: renderMode, artifacts: artifacts)
@@ -3215,15 +3610,18 @@ public struct ScreenshotComposer {
                 width: canvasSize.width - sideInset * 2,
                 height: topBandHeight * 0.34
             )
-            drawCenteredText(
+            drawCenteredTextFitting(
                 title,
                 in: titleRect,
-                font: NSFont.systemFont(ofSize: titleFontSize, weight: .bold),
-                color: NSColor(calibratedRed: 0.98, green: 0.96, blue: 0.90, alpha: 1)
+                maxFontSize: titleFontSize,
+                minFontSize: max(28, titleFontSize * 0.48),
+                weight: .bold,
+                color: NSColor(calibratedRed: 0.98, green: 0.96, blue: 0.90, alpha: 1),
+                lineSpacing: titleFontSize * 0.06
             )
 
             if let subtitle, !subtitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                drawCenteredText(
+                drawCenteredTextFitting(
                     subtitle,
                     in: NSRect(
                         x: sideInset,
@@ -3231,8 +3629,11 @@ public struct ScreenshotComposer {
                         width: canvasSize.width - sideInset * 2,
                         height: topBandHeight * 0.18
                     ),
-                    font: NSFont.systemFont(ofSize: subtitleFontSize, weight: .medium),
-                    color: NSColor(calibratedRed: 0.83, green: 0.88, blue: 0.78, alpha: 1)
+                    maxFontSize: subtitleFontSize,
+                    minFontSize: max(18, subtitleFontSize * 0.72),
+                    weight: .medium,
+                    color: NSColor(calibratedRed: 0.83, green: 0.88, blue: 0.78, alpha: 1),
+                    lineSpacing: subtitleFontSize * 0.05
                 )
             }
 
@@ -3269,6 +3670,11 @@ public struct ScreenshotComposer {
     }
 
     private func bitmapPixelSize(for image: NSImage) -> NSSize {
+        if let bitmap = image.representations
+            .compactMap({ $0 as? NSBitmapImageRep })
+            .max(by: { lhs, rhs in lhs.pixelsWide * lhs.pixelsHigh < rhs.pixelsWide * rhs.pixelsHigh }) {
+            return NSSize(width: bitmap.pixelsWide, height: bitmap.pixelsHigh)
+        }
         return image.size
     }
 
@@ -3307,12 +3713,121 @@ public struct ScreenshotComposer {
         NSString(string: text).draw(in: rect, withAttributes: attributes)
     }
 
-    private func inferredTitle(from inputURL: URL) -> String {
-        inputURL.deletingPathExtension().lastPathComponent
+    private func drawCenteredTextFitting(
+        _ text: String,
+        in rect: NSRect,
+        maxFontSize: CGFloat,
+        minFontSize: CGFloat,
+        weight: NSFont.Weight,
+        color: NSColor,
+        lineSpacing: CGFloat
+    ) {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+
+        let resolvedFontSize = fittedFontSize(
+            for: trimmed,
+            in: rect,
+            maxFontSize: maxFontSize,
+            minFontSize: minFontSize,
+            weight: weight,
+            lineSpacing: lineSpacing
+        )
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.alignment = .center
+        paragraph.lineBreakMode = .byWordWrapping
+        paragraph.lineSpacing = lineSpacing
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: NSFont.systemFont(ofSize: resolvedFontSize, weight: weight),
+            .foregroundColor: color,
+            .paragraphStyle: paragraph
+        ]
+        NSString(string: trimmed).draw(in: rect, withAttributes: attributes)
+    }
+
+    private func fittedFontSize(
+        for text: String,
+        in rect: NSRect,
+        maxFontSize: CGFloat,
+        minFontSize: CGFloat,
+        weight: NSFont.Weight,
+        lineSpacing: CGFloat
+    ) -> CGFloat {
+        var fontSize = maxFontSize
+        while fontSize > minFontSize {
+            let paragraph = NSMutableParagraphStyle()
+            paragraph.alignment = .center
+            paragraph.lineBreakMode = .byWordWrapping
+            paragraph.lineSpacing = lineSpacing
+            let attributes: [NSAttributedString.Key: Any] = [
+                .font: NSFont.systemFont(ofSize: fontSize, weight: weight),
+                .paragraphStyle: paragraph
+            ]
+            let bounds = NSString(string: text).boundingRect(
+                with: rect.size,
+                options: [.usesLineFragmentOrigin, .usesFontLeading],
+                attributes: attributes
+            )
+            if bounds.height <= rect.height && bounds.width <= rect.width {
+                return fontSize
+            }
+            fontSize -= max(2, maxFontSize * 0.06)
+        }
+        return minFontSize
+    }
+
+    static func inferredTitle(fromFileName fileName: String) -> String {
+        prettifiedScreenshotTitle(
+            from: canonicalScreenshotCopyStem(
+                fromFileName: fileName,
+                modeSuffixes: ["-framed-poster", "-device-frame", "-poster"]
+            )
+        )
+    }
+
+    private static func prettifiedScreenshotTitle(from stem: String) -> String {
+        stem
             .replacingOccurrences(of: #"^\d+[-_\s]*"#, with: "", options: .regularExpression)
+            .replacingOccurrences(of: "-framed-poster", with: "")
+            .replacingOccurrences(of: "-device-frame", with: "")
+            .replacingOccurrences(of: "-poster", with: "")
             .replacingOccurrences(of: "-", with: " ")
             .replacingOccurrences(of: "_", with: " ")
-            .capitalized
+            .split(separator: " ")
+            .map { token in
+                switch token.lowercased() {
+                case "bpm":
+                    return "BPM"
+                case "ios":
+                    return "iOS"
+                case "ipad":
+                    return "iPad"
+                default:
+                    return token.prefix(1).uppercased() + token.dropFirst().lowercased()
+                }
+            }
+            .joined(separator: " ")
+    }
+
+    static func canonicalScreenshotCopyStem(
+        fromFileName fileName: String,
+        modeSuffixes: [String]
+    ) -> String {
+        let stem = URL(fileURLWithPath: fileName).deletingPathExtension().lastPathComponent
+        let normalizedStem = modeSuffixes.reduce(stem) { partial, suffix in
+            partial.replacingOccurrences(of: suffix, with: "")
+        }
+        let pattern = #"(\d{2}[-_][A-Za-z0-9][A-Za-z0-9_-]*)$"#
+        if let regex = try? NSRegularExpression(pattern: pattern),
+           let match = regex.firstMatch(
+            in: normalizedStem,
+            range: NSRange(location: 0, length: normalizedStem.utf16.count)
+           ),
+           match.numberOfRanges > 1,
+           let range = Range(match.range(at: 1), in: normalizedStem) {
+            return String(normalizedStem[range])
+        }
+        return normalizedStem
     }
 
     private func aspectFitSize(source: NSSize, maximum: NSSize) -> NSSize {

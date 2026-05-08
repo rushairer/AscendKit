@@ -410,6 +410,43 @@ struct ASCTests {
         #expect(result.findings.contains { $0.contains("platform/displayType mismatches") })
     }
 
+    @Test("identifies missing remote screenshot deletion as idempotent")
+    func identifiesMissingRemoteScreenshotDeletionAsIdempotent() {
+        let missingDelete = AscendKitError.invalidState("""
+        ASC app-screenshot.delete failed with HTTP 404: {
+          "errors" : [ {
+            "status" : "404",
+            "code" : "NOT_FOUND"
+          } ]
+        }
+        """)
+        let unrelated = AscendKitError.invalidState("ASC app-screenshot.create failed with HTTP 404")
+
+        #expect(ASCAPIClient.isMissingAppScreenshotDeletion(missingDelete))
+        #expect(!ASCAPIClient.isMissingAppScreenshotDeletion(unrelated))
+    }
+
+    @Test("identifies already committed screenshot asset as idempotent")
+    func identifiesAlreadyCommittedScreenshotAssetAsIdempotent() {
+        let alreadyCommitted = AscendKitError.invalidState("""
+        ASC app-screenshot.commit failed with HTTP 409: {
+          "errors" : [ {
+            "status" : "409",
+            "code" : "STATE_ERROR",
+            "detail" : "Asset in Completed! can't be re-committed!"
+          }, {
+            "status" : "409",
+            "code" : "STATE_ERROR",
+            "detail" : "Asset is already Approved! can't commit Asset!"
+          } ]
+        }
+        """)
+        let unrelated = AscendKitError.invalidState("ASC app-screenshot.commit failed with HTTP 409: quota exceeded")
+
+        #expect(ASCAPIClient.isAlreadyCommittedAppScreenshot(alreadyCommitted))
+        #expect(!ASCAPIClient.isAlreadyCommittedAppScreenshot(unrelated))
+    }
+
     @Test("serializes review submission execution result")
     func serializesReviewSubmissionExecutionResult() throws {
         let result = ReviewSubmissionExecutionResult(

@@ -4,6 +4,14 @@ AscendKit follows [Semantic Versioning](https://semver.org/). The `1.x` line kee
 
 ## Unreleased
 
+## 1.4.5 - 2026-05-08
+
+### Added
+
+- Added explicit screenshot capture controls: `--clean-capture` removes prior raw screenshots before capture, while the default preserves existing raw screenshots.
+- Added `screenshots workflow run --reuse-captured` so framed-poster title, background, and device-frame changes can reuse already imported screenshots without rerunning UI tests.
+- Treat App Store Connect screenshot delete 404/NOT_FOUND responses as idempotent success during replace-existing uploads.
+
 ## 1.4.3 - 2026-05-08
 
 ### Fixed

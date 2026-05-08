@@ -614,6 +614,7 @@ struct CLIRunner {
             let manifest = try store.loadManifest(from: workspace)
             let plan = try AscendKitJSON.decoder.decode(ScreenshotPlan.self, from: Data(contentsOf: planURL))
             let destinationOverrides = repeatedValues(after: "--destination", in: args)
+            let onlyTesting = repeatedValues(after: "--only-testing", in: args)
             let capturePlan = ScreenshotCapturePlanBuilder().build(
                 manifest: manifest,
                 screenshotPlan: plan,
@@ -621,6 +622,7 @@ struct CLIRunner {
                 scheme: value(after: "--scheme", in: args),
                 configuration: value(after: "--configuration", in: args) ?? "Debug",
                 destinationOverrides: destinationOverrides,
+                onlyTesting: onlyTesting,
                 discoveredDestinations: destinationOverrides.isEmpty
                     ? try discoverScreenshotDestinations(platforms: plan.platforms).recommendedDestinations
                     : []
@@ -741,7 +743,11 @@ struct CLIRunner {
                 renderScreenshotUploadStatusText(status)
             }
         case "capture":
-            let result = try executeScreenshotCapture(workspace: workspace, store: store)
+            let result = try executeScreenshotCapture(
+                workspace: workspace,
+                store: store,
+                cleanOutputDirectories: args.contains("--clean-capture")
+            )
             return try render(result, json: json) {
                 let version = "AscendKit version: \(result.ascendKitVersion ?? "unknown")"
                 return result.succeeded
@@ -764,7 +770,7 @@ struct CLIRunner {
                     renderScreenshotWorkflowStatusText(status)
                 }
             default:
-                throw AscendKitError.invalidArguments("Usage: ascendkit screenshots workflow run|status --workspace PATH [--scheme SCHEME] [--configuration Debug] [--destination DESTINATION] [--mode storeReadyCopy|poster|deviceFrame|framedPoster] [--copy PATH] [--json]")
+                throw AscendKitError.invalidArguments("Usage: ascendkit screenshots workflow run|status --workspace PATH [--scheme SCHEME] [--configuration Debug] [--destination DESTINATION] [--only-testing TEST_ID] [--clean-capture] [--reuse-captured] [--mode storeReadyCopy|poster|deviceFrame|framedPoster] [--copy PATH] [--json]")
             }
         default:
             throw AscendKitError.invalidArguments("Unknown screenshots command: \(subcommand)")
@@ -953,6 +959,7 @@ struct CLIRunner {
             scheme: value(after: "--scheme", in: args),
             configuration: value(after: "--configuration", in: args) ?? "Debug",
             destinationOverrides: repeatedValues(after: "--destination", in: args),
+            onlyTesting: repeatedValues(after: "--only-testing", in: args),
             discoveredDestinations: repeatedValues(after: "--destination", in: args).isEmpty
                 ? try discoverScreenshotDestinations(platforms: screenshotPlan.platforms).recommendedDestinations
                 : []
@@ -967,19 +974,33 @@ struct CLIRunner {
             to: workspace
         )
 
-        let captureResult = try executeScreenshotCapture(workspace: workspace, store: store)
-        let capturedFileCount = captureResult.items.flatMap(\.outputFiles).count
-        guard captureResult.succeeded else {
-            let result = ScreenshotLocalWorkflowResult(
-                succeeded: false,
-                capturePlanPath: workspace.paths.screenshotCapturePlan,
-                captureResultPath: workspace.paths.screenshotCaptureResult,
-                capturedFileCount: capturedFileCount,
-                findings: captureResult.findings
+        let reuseCaptured = args.contains("--reuse-captured")
+        let capturedFileCount: Int
+        if reuseCaptured {
+            guard let importManifest = try loadIfExists(ScreenshotImportManifest.self, path: workspace.paths.screenshotImportManifest),
+                  !importManifest.artifacts.isEmpty else {
+                throw AscendKitError.invalidState("No imported screenshots are available to reuse. Run screenshots capture or screenshots import first.")
+            }
+            capturedFileCount = importManifest.artifacts.count
+        } else {
+            let captureResult = try executeScreenshotCapture(
+                workspace: workspace,
+                store: store,
+                cleanOutputDirectories: args.contains("--clean-capture")
             )
-            try store.save(result, to: URL(fileURLWithPath: workspace.paths.screenshotWorkflowResult))
-            try store.appendAudit(.init(action: .screenshotWorkflowRan, summary: "Screenshot workflow failed during capture"), to: workspace)
-            return result
+            capturedFileCount = captureResult.items.flatMap(\.outputFiles).count
+            guard captureResult.succeeded else {
+                let result = ScreenshotLocalWorkflowResult(
+                    succeeded: false,
+                    capturePlanPath: workspace.paths.screenshotCapturePlan,
+                    captureResultPath: workspace.paths.screenshotCaptureResult,
+                    capturedFileCount: capturedFileCount,
+                    findings: captureResult.findings
+                )
+                try store.save(result, to: URL(fileURLWithPath: workspace.paths.screenshotWorkflowResult))
+                try store.appendAudit(.init(action: .screenshotWorkflowRan, summary: "Screenshot workflow failed during capture"), to: workspace)
+                return result
+            }
         }
 
         let mode = ScreenshotCompositionMode(rawValue: value(after: "--mode", in: args) ?? "framedPoster") ?? .framedPoster
@@ -1164,12 +1185,21 @@ struct CLIRunner {
     }
 
     private func executeScreenshotCapture(workspace: ReleaseWorkspace, store: ReleaseWorkspaceStore) throws -> ScreenshotCaptureExecutionResult {
+        try executeScreenshotCapture(workspace: workspace, store: store, cleanOutputDirectories: true)
+    }
+
+    private func executeScreenshotCapture(
+        workspace: ReleaseWorkspace,
+        store: ReleaseWorkspaceStore,
+        cleanOutputDirectories: Bool
+    ) throws -> ScreenshotCaptureExecutionResult {
         guard let plan = try loadIfExists(ScreenshotCapturePlan.self, path: workspace.paths.screenshotCapturePlan) else {
             throw AscendKitError.fileNotFound(workspace.paths.screenshotCapturePlan)
         }
         let result = try ScreenshotCaptureExecutor(fileManager: fileManager).execute(
             plan: plan,
-            logsDirectory: URL(fileURLWithPath: workspace.paths.root).appendingPathComponent("screenshots/capture/logs")
+            logsDirectory: URL(fileURLWithPath: workspace.paths.root).appendingPathComponent("screenshots/capture/logs"),
+            cleanOutputDirectories: cleanOutputDirectories
         )
         try store.save(result, to: URL(fileURLWithPath: workspace.paths.screenshotCaptureResult))
         if result.succeeded,

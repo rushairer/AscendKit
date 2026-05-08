@@ -68,7 +68,8 @@ struct ScreenshotTests {
         let capturePlan = ScreenshotCapturePlanBuilder().build(
             manifest: manifest,
             screenshotPlan: screenshotPlan,
-            workspaceRoot: URL(fileURLWithPath: "/tmp/Demo/.ascendkit/releases/demo-1.0")
+            workspaceRoot: URL(fileURLWithPath: "/tmp/Demo/.ascendkit/releases/demo-1.0"),
+            onlyTesting: ["DemoUITests/DemoUITests/testSnapshots"]
         )
 
         #expect(capturePlan.scheme == "Demo")
@@ -77,7 +78,11 @@ struct ScreenshotTests {
         #expect(capturePlan.destinations.first?.name == "iPhone 17 Pro Max")
         #expect(capturePlan.commands[0].command.contains("-workspace"))
         #expect(capturePlan.commands[0].command.contains("-testLanguage"))
+        #expect(capturePlan.commands[0].command.contains("-only-testing:DemoUITests/DemoUITests/testSnapshots"))
         #expect(capturePlan.commands[0].environment["ASCENDKIT_SCREENSHOT_OUTPUT_DIR"]?.hasSuffix("screenshots/raw/en-US/iOS") == true)
+        let zhCommand = capturePlan.commands[1].command
+        #expect(argumentValue(after: "-testLanguage", in: zhCommand) == "zh-Hans")
+        #expect(argumentValue(after: "-testRegion", in: zhCommand) == nil)
         #expect(capturePlan.findings.isEmpty)
     }
 
@@ -368,6 +373,251 @@ struct ScreenshotTests {
         #expect(FileManager.default.fileExists(atPath: result.items[0].stderrLogPath ?? ""))
     }
 
+    @Test("retries transient simulator busy capture failures")
+    func retriesTransientSimulatorBusyCaptureFailures() throws {
+        let root = try TemporaryDirectory()
+        let rawDirectory = root.url.appendingPathComponent("screenshots/raw/en-US/iOS")
+        let stateFile = root.url.appendingPathComponent("retry-state.txt")
+        let plan = ScreenshotCapturePlan(
+            scheme: "Demo",
+            projectPath: "/tmp/Demo.xcodeproj",
+            destinations: [
+                ScreenshotCaptureDestination(
+                    platform: .iOS,
+                    name: "Test Device",
+                    xcodebuildDestination: "platform=iOS Simulator,name=Test Device"
+                )
+            ],
+            locales: ["en-US"],
+            commands: [
+                ScreenshotCaptureCommand(
+                    locale: "en-US",
+                    platform: .iOS,
+                    destinationName: "Test Device",
+                    resultBundlePath: root.url.appendingPathComponent("capture/result.xcresult").path,
+                    rawOutputDirectory: rawDirectory.path,
+                    environment: [
+                        "ASCENDKIT_SCREENSHOT_OUTPUT_DIR": rawDirectory.path,
+                        "STATE_FILE": stateFile.path
+                    ],
+                    command: [
+                        "/bin/sh",
+                        "-c",
+                        """
+                        if [ ! -f "$STATE_FILE" ]; then
+                          echo first > "$STATE_FILE"
+                          echo 'BSErrorCodeDescription = Busy;' >&2
+                          echo 'Application failed preflight checks' >&2
+                          exit 65
+                        fi
+                        mkdir -p "$ASCENDKIT_SCREENSHOT_OUTPUT_DIR"
+                        printf retry > "$ASCENDKIT_SCREENSHOT_OUTPUT_DIR/01-home.png"
+                        """
+                    ]
+                )
+            ]
+        )
+
+        let result = try ScreenshotCaptureExecutor().execute(
+            plan: plan,
+            logsDirectory: root.url.appendingPathComponent("logs")
+        )
+
+        #expect(result.executed)
+        #expect(result.succeeded)
+        #expect(result.succeededCount == 1)
+        #expect(result.items.first?.outputFiles.map { URL(fileURLWithPath: $0).lastPathComponent } == ["01-home.png"])
+        #expect(FileManager.default.fileExists(atPath: stateFile.path))
+    }
+
+    @Test("imports fresh fastlane screenshots when raw output is empty")
+    func importsFreshFastlaneScreenshotsWhenRawOutputIsEmpty() throws {
+        let root = try TemporaryDirectory()
+        let rawDirectory = root.url.appendingPathComponent("screenshots/raw/en-US/iOS")
+        let fastlaneDirectory = root.url.appendingPathComponent("fastlane/screenshots")
+        let fastlaneCacheDirectory = root.url.appendingPathComponent("fastlane/cache")
+        let plan = ScreenshotCapturePlan(
+            scheme: "Demo",
+            projectPath: "/tmp/Demo.xcodeproj",
+            destinations: [
+                ScreenshotCaptureDestination(
+                    platform: .iOS,
+                    name: "Test Device",
+                    xcodebuildDestination: "platform=iOS Simulator,name=Test Device"
+                )
+            ],
+            locales: ["en-US"],
+            commands: [
+                ScreenshotCaptureCommand(
+                    locale: "en-US",
+                    platform: .iOS,
+                    destinationName: "Test Device",
+                    resultBundlePath: root.url.appendingPathComponent("capture/result.xcresult").path,
+                    rawOutputDirectory: rawDirectory.path,
+                    environment: [
+                        "ASCENDKIT_FASTLANE_CACHE_DIR": fastlaneCacheDirectory.path,
+                        "ASCENDKIT_FASTLANE_SCREENSHOTS_DIR": fastlaneDirectory.path
+                    ],
+                    command: [
+                        "/bin/sh",
+                        "-c",
+                        "mkdir -p \"$ASCENDKIT_FASTLANE_SCREENSHOTS_DIR\" && printf fake > \"$ASCENDKIT_FASTLANE_SCREENSHOTS_DIR/iPhone 17 Pro Max-01_home.png\""
+                    ]
+                )
+            ]
+        )
+
+        let result = try ScreenshotCaptureExecutor().execute(
+            plan: plan,
+            logsDirectory: root.url.appendingPathComponent("logs")
+        )
+
+        #expect(result.executed)
+        #expect(result.succeeded)
+        #expect(result.items.first?.outputFiles.map { URL(fileURLWithPath: $0).lastPathComponent } == ["iPhone 17 Pro Max-01_home.png"])
+        #expect(FileManager.default.fileExists(atPath: rawDirectory.appendingPathComponent("iPhone 17 Pro Max-01_home.png").path))
+        #expect(try String(contentsOf: fastlaneCacheDirectory.appendingPathComponent("language.txt")) == "en-US")
+        #expect(try String(contentsOf: fastlaneCacheDirectory.appendingPathComponent("locale.txt")) == "en-US")
+    }
+
+    @Test("preserves existing raw screenshots when clean capture is disabled")
+    func preservesExistingRawScreenshotsWhenCleanCaptureIsDisabled() throws {
+        let root = try TemporaryDirectory()
+        let rawDirectory = root.url.appendingPathComponent("screenshots/raw/en-US/iOS")
+        try FileManager.default.createDirectory(at: rawDirectory, withIntermediateDirectories: true)
+        try Data("old".utf8).write(to: rawDirectory.appendingPathComponent("01-old.png"))
+        let plan = ScreenshotCapturePlan(
+            scheme: "Demo",
+            projectPath: "/tmp/Demo.xcodeproj",
+            destinations: [
+                ScreenshotCaptureDestination(
+                    platform: .iOS,
+                    name: "Test Device",
+                    xcodebuildDestination: "platform=iOS Simulator,name=Test Device"
+                )
+            ],
+            locales: ["en-US"],
+            commands: [
+                ScreenshotCaptureCommand(
+                    locale: "en-US",
+                    platform: .iOS,
+                    destinationName: "Test Device",
+                    resultBundlePath: root.url.appendingPathComponent("capture/result.xcresult").path,
+                    rawOutputDirectory: rawDirectory.path,
+                    environment: ["ASCENDKIT_SCREENSHOT_OUTPUT_DIR": rawDirectory.path],
+                    command: [
+                        "/bin/sh",
+                        "-c",
+                        "printf new > \"$ASCENDKIT_SCREENSHOT_OUTPUT_DIR/02-new.png\""
+                    ]
+                )
+            ]
+        )
+
+        let result = try ScreenshotCaptureExecutor().execute(
+            plan: plan,
+            logsDirectory: root.url.appendingPathComponent("logs"),
+            cleanOutputDirectories: false
+        )
+
+        #expect(result.succeeded)
+        let outputNames = result.items.first?.outputFiles.map { URL(fileURLWithPath: $0).lastPathComponent }.sorted()
+        #expect(outputNames == ["01-old.png", "02-new.png"])
+    }
+
+    @Test("cleans existing raw screenshots when clean capture is enabled")
+    func cleansExistingRawScreenshotsWhenCleanCaptureIsEnabled() throws {
+        let root = try TemporaryDirectory()
+        let rawDirectory = root.url.appendingPathComponent("screenshots/raw/en-US/iOS")
+        try FileManager.default.createDirectory(at: rawDirectory, withIntermediateDirectories: true)
+        try Data("old".utf8).write(to: rawDirectory.appendingPathComponent("01-old.png"))
+        let plan = ScreenshotCapturePlan(
+            scheme: "Demo",
+            projectPath: "/tmp/Demo.xcodeproj",
+            destinations: [
+                ScreenshotCaptureDestination(
+                    platform: .iOS,
+                    name: "Test Device",
+                    xcodebuildDestination: "platform=iOS Simulator,name=Test Device"
+                )
+            ],
+            locales: ["en-US"],
+            commands: [
+                ScreenshotCaptureCommand(
+                    locale: "en-US",
+                    platform: .iOS,
+                    destinationName: "Test Device",
+                    resultBundlePath: root.url.appendingPathComponent("capture/result.xcresult").path,
+                    rawOutputDirectory: rawDirectory.path,
+                    environment: ["ASCENDKIT_SCREENSHOT_OUTPUT_DIR": rawDirectory.path],
+                    command: [
+                        "/bin/sh",
+                        "-c",
+                        "printf new > \"$ASCENDKIT_SCREENSHOT_OUTPUT_DIR/02-new.png\""
+                    ]
+                )
+            ]
+        )
+
+        let result = try ScreenshotCaptureExecutor().execute(
+            plan: plan,
+            logsDirectory: root.url.appendingPathComponent("logs"),
+            cleanOutputDirectories: true
+        )
+
+        #expect(result.succeeded)
+        let outputNames = result.items.first?.outputFiles.map { URL(fileURLWithPath: $0).lastPathComponent }
+        #expect(outputNames == ["02-new.png"])
+        #expect(!FileManager.default.fileExists(atPath: rawDirectory.appendingPathComponent("01-old.png").path))
+    }
+
+    @Test("writes full locale into fastlane cache for script locales")
+    func writesFullLocaleIntoFastlaneCacheForScriptLocales() throws {
+        let root = try TemporaryDirectory()
+        let rawDirectory = root.url.appendingPathComponent("screenshots/raw/zh-Hans/iOS")
+        let fastlaneDirectory = root.url.appendingPathComponent("fastlane/screenshots")
+        let fastlaneCacheDirectory = root.url.appendingPathComponent("fastlane/cache")
+        let plan = ScreenshotCapturePlan(
+            scheme: "Demo",
+            projectPath: "/tmp/Demo.xcodeproj",
+            destinations: [
+                ScreenshotCaptureDestination(
+                    platform: .iOS,
+                    name: "Test Device",
+                    xcodebuildDestination: "platform=iOS Simulator,name=Test Device"
+                )
+            ],
+            locales: ["zh-Hans"],
+            commands: [
+                ScreenshotCaptureCommand(
+                    locale: "zh-Hans",
+                    platform: .iOS,
+                    destinationName: "Test Device",
+                    resultBundlePath: root.url.appendingPathComponent("capture/result.xcresult").path,
+                    rawOutputDirectory: rawDirectory.path,
+                    environment: [
+                        "ASCENDKIT_FASTLANE_CACHE_DIR": fastlaneCacheDirectory.path,
+                        "ASCENDKIT_FASTLANE_SCREENSHOTS_DIR": fastlaneDirectory.path
+                    ],
+                    command: [
+                        "/bin/sh",
+                        "-c",
+                        "mkdir -p \"$ASCENDKIT_FASTLANE_SCREENSHOTS_DIR\" && printf fake > \"$ASCENDKIT_FASTLANE_SCREENSHOTS_DIR/iPhone 17 Pro Max-01_home.png\""
+                    ]
+                )
+            ]
+        )
+
+        let result = try ScreenshotCaptureExecutor().execute(
+            plan: plan,
+            logsDirectory: root.url.appendingPathComponent("logs")
+        )
+
+        #expect(result.succeeded)
+        #expect(try String(contentsOf: fastlaneCacheDirectory.appendingPathComponent("language.txt")) == "zh-Hans")
+        #expect(try String(contentsOf: fastlaneCacheDirectory.appendingPathComponent("locale.txt")) == "zh-Hans")
+    }
+
     @Test("imports ordered xcresult screenshot attachments")
     func importsOrderedXcresultScreenshotAttachments() throws {
         let root = try TemporaryDirectory()
@@ -553,6 +803,60 @@ struct ScreenshotTests {
         #expect(status.retryPlanItemIDs == ["en-US:iOS:APP_IPHONE_67:2:settings.png"])
         #expect(status.nextActions.contains { $0.contains("rerun screenshots upload") })
         #expect(status.recoveryCommands.contains("screenshots upload --workspace PATH --confirm-remote-mutation --json"))
+    }
+
+    @Test("treats already committed screenshot upload failure as complete")
+    func treatsAlreadyCommittedScreenshotUploadFailureAsComplete() {
+        let plan = ScreenshotUploadPlan(
+            sourceKind: .composed,
+            items: [
+                ScreenshotUploadPlanItem(
+                    locale: "en-US",
+                    platform: .iPadOS,
+                    displayType: "APP_IPAD_PRO_3GEN_129",
+                    appStoreVersionLocalizationID: "version-loc-1",
+                    sourcePath: "/tmp/home.png",
+                    fileName: "home.png",
+                    order: 1
+                )
+            ]
+        )
+        let result = ScreenshotUploadExecutionResult(
+            executed: true,
+            uploadedCount: 0,
+            findings: ["Screenshot upload completed with 1 failure(s); inspect failedItems before retrying."],
+            failedItems: [
+                ScreenshotUploadFailure(
+                    phase: "upload",
+                    planItemID: "en-US:iPadOS:APP_IPAD_PRO_3GEN_129:1:home.png",
+                    fileName: "home.png",
+                    message: """
+                    ASC app-screenshot.commit failed with HTTP 409: {
+                      "errors" : [ {
+                        "status" : "409",
+                        "code" : "STATE_ERROR",
+                        "detail" : "Asset in Completed! can't be re-committed!"
+                      }, {
+                        "status" : "409",
+                        "code" : "STATE_ERROR",
+                        "detail" : "Asset is already Approved! can't commit Asset!"
+                      } ]
+                    }
+                    """
+                )
+            ]
+        )
+
+        let status = ScreenshotUploadStatusBuilder().build(plan: plan, result: result)
+
+        #expect(status.uploadedCount == 1)
+        #expect(status.failedCount == 0)
+        #expect(status.deliveryCompleteCount == 1)
+        #expect(status.readyForReview)
+        #expect(!status.readyForRetry)
+        #expect(status.retryPlanItemIDs.isEmpty)
+        #expect(status.findings.contains { $0.contains("already complete; treated as uploaded") })
+        #expect(!status.findings.contains { $0.contains("completed with 1 failure") })
     }
 
     @Test("summarizes screenshot asset delivery recovery status")
@@ -1111,8 +1415,8 @@ struct ScreenshotTests {
         #expect(plan.items.first { $0.platform == .iPadOS }?.displayType == "APP_IPAD_PRO_3GEN_129")
     }
 
-    @Test("blocks upload plan platform display type mismatches")
-    func blocksUploadPlanPlatformDisplayTypeMismatches() throws {
+    @Test("filters upload plan artifacts by display type override")
+    func filtersUploadPlanArtifactsByDisplayTypeOverride() throws {
         let importManifest = ScreenshotImportManifest(
             sourceDirectory: "/tmp/screenshots",
             artifacts: [
@@ -1144,7 +1448,11 @@ struct ScreenshotTests {
             displayTypeOverride: "APP_IPHONE_67"
         )
 
-        #expect(plan.findings.contains { $0.contains("ipad-home.png has platform iPadOS but displayType APP_IPHONE_67") })
+        #expect(plan.findings.isEmpty)
+        #expect(plan.items.count == 1)
+        #expect(plan.items[0].platform == .iOS)
+        #expect(plan.items[0].displayType == "APP_IPHONE_67")
+        #expect(plan.items[0].fileName == "iphone-home.png")
     }
 
     @Test("blocks screenshot upload plan when ASC already has screenshots for target set")
@@ -1272,7 +1580,7 @@ struct ScreenshotTests {
         let root = try TemporaryDirectory()
         let input = root.url.appendingPathComponent("source/en-US/iOS/01-home.png")
         try FileManager.default.createDirectory(at: input.deletingLastPathComponent(), withIntermediateDirectories: true)
-        try makePNG(size: NSSize(width: 1_320, height: 2_868), url: input)
+        try makeScaledPNG(pixelSize: NSSize(width: 1_320, height: 2_868), pointSize: NSSize(width: 1_320, height: 2_868), url: input)
         let importManifest = ScreenshotImportManifest(
             sourceDirectory: root.url.appendingPathComponent("source").path,
             artifacts: [
@@ -1299,7 +1607,7 @@ struct ScreenshotTests {
         let root = try TemporaryDirectory()
         let input = root.url.appendingPathComponent("source/en-US/iOS/01-home.png")
         try FileManager.default.createDirectory(at: input.deletingLastPathComponent(), withIntermediateDirectories: true)
-        try makePNG(size: NSSize(width: 1_320, height: 2_868), url: input)
+        try makeScaledPNG(pixelSize: NSSize(width: 1_320, height: 2_868), pointSize: NSSize(width: 1_320, height: 2_868), url: input)
         let importManifest = ScreenshotImportManifest(
             sourceDirectory: root.url.appendingPathComponent("source").path,
             artifacts: [
@@ -1331,6 +1639,130 @@ struct ScreenshotTests {
         #expect(rep.pixelsWide == 1_320)
         #expect(rep.pixelsHigh == 2_868)
         try expectPNGHasNoAlpha(at: URL(fileURLWithPath: manifest.artifacts[0].outputPath))
+    }
+
+    @Test("matches inferred screenshot copy against device-prefixed filenames")
+    func matchesScreenshotCopyAgainstDevicePrefixedFilenames() {
+        let manifest = ScreenshotCompositionCopyManifest(items: [
+            ScreenshotCompositionCopy(
+                locale: "en-US",
+                platform: .iOS,
+                fileName: "01-home.png",
+                title: "Home",
+                subtitle: "Stay on beat"
+            )
+        ])
+
+        let copy = manifest.copy(
+            locale: "en-US",
+            platform: .iOS,
+            fileName: "iPhone 17 Pro Max-iPhone 17 Pro Max-01_home-framed-poster.png"
+        )
+
+        #expect(copy?.title == "Home")
+        #expect(copy?.subtitle == "Stay on beat")
+    }
+
+    @Test("imports screenshot semantics from device-prefixed filenames when plan is present")
+    func importsScreenshotSemanticsFromDevicePrefixedFilenames() throws {
+        let root = try TemporaryDirectory()
+        let source = root.url.appendingPathComponent("source/en-US/iOS")
+        try FileManager.default.createDirectory(at: source, withIntermediateDirectories: true)
+        let imageURL = source.appendingPathComponent("iPhone 17 Pro Max-iPhone 17 Pro Max-01_home.png")
+        try makePNG(size: NSSize(width: 390, height: 844), url: imageURL)
+
+        let plan = ScreenshotPlan(
+            inputPath: .uiTestCapture,
+            platforms: [.iOS],
+            locales: ["en-US"],
+            items: [
+                ScreenshotPlanItem(
+                    id: "home",
+                    screenName: "Home",
+                    order: 1,
+                    purpose: "Show the app's first meaningful screen."
+                )
+            ]
+        )
+
+        let manifest = ScreenshotImporter().makeManifest(plan: plan, sourceDirectory: root.url.appendingPathComponent("source"))
+        let artifact = try #require(manifest.artifacts.first)
+        #expect(artifact.planItemID == "home")
+        #expect(artifact.screenName == "Home")
+        #expect(artifact.purpose == "Show the app's first meaningful screen.")
+    }
+
+    @Test("renders framed poster composition at bitmap pixel size for scaled PNGs")
+    func rendersFramedPosterCompositionAtBitmapPixelSizeForScaledPNGs() throws {
+        let root = try TemporaryDirectory()
+        let input = root.url.appendingPathComponent("source/en-US/iOS/01-home.png")
+        try FileManager.default.createDirectory(at: input.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try makeScaledPNG(pixelSize: NSSize(width: 1_320, height: 2_868), pointSize: NSSize(width: 440, height: 956), url: input)
+
+        let importManifest = ScreenshotImportManifest(
+            sourceDirectory: root.url.appendingPathComponent("source").path,
+            artifacts: [
+                ScreenshotArtifact(locale: "en-US", platform: .iOS, path: input.path, fileName: "iPhone 17 Pro Max-iPhone 17 Pro Max-01_home.png")
+            ]
+        )
+        let copyManifest = ScreenshotCompositionCopyManifest(items: [
+            ScreenshotCompositionCopy(
+                locale: "en-US",
+                platform: .iOS,
+                fileName: "01-home.png",
+                title: "Choose Three",
+                subtitle: "Keep today simple"
+            )
+        ])
+
+        let manifest = try ScreenshotComposer().compose(
+            importManifest: importManifest,
+            outputRoot: root.url.appendingPathComponent("composed"),
+            mode: .framedPoster,
+            copyManifest: copyManifest
+        )
+
+        let output = try #require(NSImage(contentsOfFile: manifest.artifacts[0].outputPath))
+        let bitmap = try #require(output.representations.compactMap { $0 as? NSBitmapImageRep }.first)
+        #expect(manifest.artifacts[0].title == "Choose Three")
+        #expect(manifest.artifacts[0].subtitle == "Keep today simple")
+        #expect(bitmap.pixelsWide == 1_320)
+        #expect(bitmap.pixelsHigh == 2_868)
+        try expectPNGHasNoAlpha(at: URL(fileURLWithPath: manifest.artifacts[0].outputPath))
+    }
+
+    @Test("uses imported screenshot semantics when marketing copy is absent")
+    func usesImportedScreenshotSemanticsWhenMarketingCopyIsAbsent() throws {
+        let root = try TemporaryDirectory()
+        let input = root.url.appendingPathComponent("source/en-US/iOS/iPhone 17 Pro Max-iPhone 17 Pro Max-01_home.png")
+        try FileManager.default.createDirectory(at: input.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try makeScaledPNG(pixelSize: NSSize(width: 1_320, height: 2_868), pointSize: NSSize(width: 1_320, height: 2_868), url: input)
+
+        let importManifest = ScreenshotImportManifest(
+            sourceDirectory: root.url.appendingPathComponent("source").path,
+            artifacts: [
+                ScreenshotArtifact(
+                    locale: "en-US",
+                    platform: .iOS,
+                    path: input.path,
+                    fileName: input.lastPathComponent,
+                    planItemID: "home",
+                    screenName: "Home",
+                    purpose: "Show the app's first meaningful screen."
+                )
+            ]
+        )
+
+        let manifest = try ScreenshotComposer().compose(
+            importManifest: importManifest,
+            outputRoot: root.url.appendingPathComponent("composed"),
+            mode: .framedPoster
+        )
+
+        #expect(manifest.artifacts[0].planItemID == "home")
+        #expect(manifest.artifacts[0].screenName == "Home")
+        #expect(manifest.artifacts[0].title == "Home")
+        #expect(manifest.artifacts[0].subtitle == "Show the app's first meaningful screen.")
     }
 
     private func makePNG(size: NSSize, url: URL) throws {
@@ -1365,10 +1797,45 @@ struct ScreenshotTests {
         try png.write(to: url)
     }
 
+    private func makeScaledPNG(pixelSize: NSSize, pointSize: NSSize, url: URL) throws {
+        let bitmap = try #require(NSBitmapImageRep(
+            bitmapDataPlanes: nil,
+            pixelsWide: Int(pixelSize.width),
+            pixelsHigh: Int(pixelSize.height),
+            bitsPerSample: 8,
+            samplesPerPixel: 4,
+            hasAlpha: true,
+            isPlanar: false,
+            colorSpaceName: .deviceRGB,
+            bytesPerRow: 0,
+            bitsPerPixel: 0
+        ))
+        bitmap.size = pointSize
+        let context = try #require(NSGraphicsContext(bitmapImageRep: bitmap))
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = context
+        NSColor(calibratedRed: 0.20, green: 0.34, blue: 0.52, alpha: 1).setFill()
+        NSRect(origin: .zero, size: pointSize).fill()
+        NSGraphicsContext.restoreGraphicsState()
+
+        guard let png = bitmap.representation(using: .png, properties: [:]) else {
+            throw AscendKitError.invalidState("Failed to create scaled test PNG")
+        }
+        try png.write(to: url)
+    }
+
     private func expectPNGHasNoAlpha(at url: URL) throws {
         let data = try Data(contentsOf: url)
         let bitmap = try #require(NSBitmapImageRep(data: data))
         #expect(bitmap.hasAlpha == false)
         #expect(bitmap.samplesPerPixel == 3)
+    }
+
+    private func argumentValue(after flag: String, in arguments: [String]) -> String? {
+        guard let index = arguments.firstIndex(of: flag),
+              arguments.indices.contains(arguments.index(after: index)) else {
+            return nil
+        }
+        return arguments[arguments.index(after: index)]
     }
 }
