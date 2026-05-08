@@ -1170,7 +1170,7 @@ struct CLIRunner {
                 importManifest: try loadIfExists(ScreenshotImportManifest.self, path: workspace.paths.screenshotImportManifest),
                 compositionManifest: try loadIfExists(ScreenshotCompositionManifest.self, path: workspace.paths.screenshotCompositionManifest),
                 observedState: try loadIfExists(MetadataObservedState.self, path: workspace.paths.ascObservedState),
-                displayTypeOverride: existingPlan?.items.first?.displayType,
+                displayTypeOverride: displayTypeOverrideForReplacement(existingPlan),
                 replaceExistingRemoteScreenshots: true
             )
         } else {
@@ -1214,6 +1214,18 @@ struct CLIRunner {
             to: workspace
         )
         return result
+    }
+
+    private func displayTypeOverrideForReplacement(_ plan: ScreenshotUploadPlan?) -> String? {
+        guard let items = plan?.items, !items.isEmpty else {
+            return nil
+        }
+        let platforms = Set(items.map(\.platform))
+        let displayTypes = Set(items.map(\.displayType))
+        guard platforms.count == 1, displayTypes.count == 1 else {
+            return nil
+        }
+        return displayTypes.first
     }
 
     private func asc(_ args: [String], json: Bool) async throws -> String {

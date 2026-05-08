@@ -410,6 +410,19 @@ public struct ASCAPIClient {
                 findings: plan.findings + ["Screenshot upload plan has findings. Resolve them before executing remote upload."]
             )
         }
+        let displayTypeFindings = plan.items.compactMap {
+            ScreenshotDisplayTypeValidator.finding(
+                platform: $0.platform,
+                displayType: $0.displayType,
+                fileName: $0.fileName
+            )
+        }
+        guard displayTypeFindings.isEmpty else {
+            return ScreenshotUploadExecutionResult(
+                executed: false,
+                findings: displayTypeFindings + ["Screenshot upload plan has platform/displayType mismatches. Regenerate screenshots upload-plan before executing remote upload."]
+            )
+        }
         guard !plan.items.isEmpty else {
             return ScreenshotUploadExecutionResult(
                 executed: false,

@@ -4,6 +4,13 @@ AscendKit follows [Semantic Versioning](https://semver.org/). The `1.x` line kee
 
 ## Unreleased
 
+## 1.4.2 - 2026-05-08
+
+### Fixed
+
+- Fixed screenshot upload replacement planning so mixed iPhone and iPad screenshot sets keep platform-specific App Store Connect display types instead of inheriting the first existing plan item's display type globally.
+- Added upload-plan and upload-execution guards that block platform/display type mismatches before remote screenshot mutation.
+
 ## 1.4.1 - 2026-05-08
 
 ### Fixed

@@ -2720,6 +2720,34 @@ public struct ScreenshotUploadExecutionItem: Codable, Equatable, Identifiable, S
     }
 }
 
+enum ScreenshotDisplayTypeValidator {
+    static func finding(platform: ApplePlatform, displayType: String, fileName: String) -> String? {
+        guard isCompatible(platform: platform, displayType: displayType) else {
+            return "Screenshot item \(fileName) has platform \(platform.rawValue) but displayType \(displayType). Regenerate the upload plan so each platform targets its matching App Store Connect screenshot set."
+        }
+        return nil
+    }
+
+    private static func isCompatible(platform: ApplePlatform, displayType: String) -> Bool {
+        switch platform {
+        case .iOS:
+            return displayType.hasPrefix("APP_IPHONE_")
+        case .iPadOS:
+            return displayType.hasPrefix("APP_IPAD_")
+        case .macOS:
+            return displayType == "APP_DESKTOP"
+        case .tvOS:
+            return displayType == "APP_APPLE_TV"
+        case .watchOS:
+            return displayType.hasPrefix("APP_WATCH")
+        case .visionOS:
+            return displayType == "APP_VISION_PRO"
+        case .unknown:
+            return true
+        }
+    }
+}
+
 public struct ScreenshotUploadPlanBuilder {
     public init() {}
 
@@ -2779,6 +2807,7 @@ public struct ScreenshotUploadPlanBuilder {
 
         let remoteScreenshotsToDelete = existingRemoteScreenshots(items: items, observedState: observedState)
         findings.append(contentsOf: localizationMismatchFindings(items: items, observedState: observedState))
+        findings.append(contentsOf: displayTypeMismatchFindings(items: items))
         if !replaceExistingRemoteScreenshots {
             findings.append(contentsOf: existingScreenshotFindings(deletions: remoteScreenshotsToDelete))
         }
@@ -2896,6 +2925,16 @@ public struct ScreenshotUploadPlanBuilder {
             }
             return (
                 "Screenshot item \(item.fileName) targets localization \(item.appStoreVersionLocalizationID), which observed state maps to \(locale), not \(item.locale)."
+            )
+        }
+    }
+
+    private func displayTypeMismatchFindings(items: [ScreenshotUploadPlanItem]) -> [String] {
+        items.compactMap {
+            ScreenshotDisplayTypeValidator.finding(
+                platform: $0.platform,
+                displayType: $0.displayType,
+                fileName: $0.fileName
             )
         }
     }

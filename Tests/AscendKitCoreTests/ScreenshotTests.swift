@@ -1039,6 +1039,79 @@ struct ScreenshotTests {
         #expect(plan.findings.isEmpty)
     }
 
+    @Test("builds upload plan display types per platform")
+    func buildsUploadPlanDisplayTypesPerPlatform() throws {
+        let importManifest = ScreenshotImportManifest(
+            sourceDirectory: "/tmp/screenshots",
+            artifacts: [
+                ScreenshotArtifact(
+                    locale: "en-US",
+                    platform: .iOS,
+                    path: "/tmp/screenshots/en-US/iOS/01-home.png",
+                    fileName: "iphone-home.png"
+                ),
+                ScreenshotArtifact(
+                    locale: "en-US",
+                    platform: .iPadOS,
+                    path: "/tmp/screenshots/en-US/iPadOS/01-home.png",
+                    fileName: "ipad-home.png"
+                )
+            ]
+        )
+        let observed = MetadataObservedState(
+            metadataByLocale: ["en-US": AppMetadata(locale: "en-US", name: "Demo", description: "Demo description")],
+            resourceIDsByLocale: [
+                "en-US": MetadataLocalizationResourceIDs(appStoreVersionLocalizationID: "version-loc-1")
+            ]
+        )
+
+        let plan = ScreenshotUploadPlanBuilder().build(
+            importManifest: importManifest,
+            compositionManifest: nil,
+            observedState: observed
+        )
+
+        #expect(plan.findings.isEmpty)
+        #expect(plan.items.first { $0.platform == .iOS }?.displayType == "APP_IPHONE_67")
+        #expect(plan.items.first { $0.platform == .iPadOS }?.displayType == "APP_IPAD_PRO_3GEN_129")
+    }
+
+    @Test("blocks upload plan platform display type mismatches")
+    func blocksUploadPlanPlatformDisplayTypeMismatches() throws {
+        let importManifest = ScreenshotImportManifest(
+            sourceDirectory: "/tmp/screenshots",
+            artifacts: [
+                ScreenshotArtifact(
+                    locale: "en-US",
+                    platform: .iOS,
+                    path: "/tmp/screenshots/en-US/iOS/01-home.png",
+                    fileName: "iphone-home.png"
+                ),
+                ScreenshotArtifact(
+                    locale: "en-US",
+                    platform: .iPadOS,
+                    path: "/tmp/screenshots/en-US/iPadOS/01-home.png",
+                    fileName: "ipad-home.png"
+                )
+            ]
+        )
+        let observed = MetadataObservedState(
+            metadataByLocale: ["en-US": AppMetadata(locale: "en-US", name: "Demo", description: "Demo description")],
+            resourceIDsByLocale: [
+                "en-US": MetadataLocalizationResourceIDs(appStoreVersionLocalizationID: "version-loc-1")
+            ]
+        )
+
+        let plan = ScreenshotUploadPlanBuilder().build(
+            importManifest: importManifest,
+            compositionManifest: nil,
+            observedState: observed,
+            displayTypeOverride: "APP_IPHONE_67"
+        )
+
+        #expect(plan.findings.contains { $0.contains("ipad-home.png has platform iPadOS but displayType APP_IPHONE_67") })
+    }
+
     @Test("blocks screenshot upload plan when ASC already has screenshots for target set")
     func blocksScreenshotUploadPlanWithExistingRemoteScreenshots() throws {
         let importManifest = ScreenshotImportManifest(

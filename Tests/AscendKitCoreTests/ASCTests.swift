@@ -382,6 +382,34 @@ struct ASCTests {
         #expect(result.findings.contains { $0.contains("1 failure") })
     }
 
+    @Test("screenshot upload blocks platform display type mismatches")
+    func screenshotUploadBlocksPlatformDisplayTypeMismatches() async throws {
+        let plan = ScreenshotUploadPlan(
+            sourceKind: .imported,
+            items: [
+                ScreenshotUploadPlanItem(
+                    locale: "en-US",
+                    platform: .iPadOS,
+                    displayType: "APP_IPHONE_67",
+                    appStoreVersionLocalizationID: "version-loc-1",
+                    sourcePath: "/tmp/ipad.png",
+                    fileName: "ipad.png",
+                    order: 1
+                )
+            ]
+        )
+
+        let result = try await ASCAPIClient().executeScreenshotUpload(
+            plan: plan,
+            confirmRemoteMutation: true,
+            token: "unused"
+        )
+
+        #expect(result.executed == false)
+        #expect(result.findings.contains { $0.contains("ipad.png has platform iPadOS but displayType APP_IPHONE_67") })
+        #expect(result.findings.contains { $0.contains("platform/displayType mismatches") })
+    }
+
     @Test("serializes review submission execution result")
     func serializesReviewSubmissionExecutionResult() throws {
         let result = ReviewSubmissionExecutionResult(
