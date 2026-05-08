@@ -4,6 +4,8 @@ AscendKit follows [Semantic Versioning](https://semver.org/). The `1.x` line kee
 
 ## Unreleased
 
+## 1.4.6 - 2026-05-08
+
 ### Fixed
 
 - Framed-poster titles now stay on one line, shrinking long localized titles instead of wrapping into clipped text.
