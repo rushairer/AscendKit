@@ -2263,6 +2263,189 @@ public enum ScreenshotCompositionMode: String, Codable, Equatable, Sendable {
     }
 }
 
+// MARK: - Screenshot Theme
+
+public struct ScreenshotThemeColor: Codable, Equatable, Sendable {
+    public var red: Double
+    public var green: Double
+    public var blue: Double
+    public var alpha: Double
+
+    public init(red: Double, green: Double, blue: Double, alpha: Double = 1.0) {
+        self.red = red
+        self.green = green
+        self.blue = blue
+        self.alpha = alpha
+    }
+
+    public var nsColor: NSColor {
+        NSColor(calibratedRed: CGFloat(red), green: CGFloat(green), blue: CGFloat(blue), alpha: CGFloat(alpha))
+    }
+}
+
+public struct ScreenshotTheme: Codable, Equatable, Sendable {
+    public let name: String
+
+    // Framed poster
+    public var framedPosterBackground: ScreenshotThemeColor
+    public var framedPosterUpperOval: ScreenshotThemeColor
+    public var framedPosterLowerOval: ScreenshotThemeColor
+    public var framedPosterTitleColor: ScreenshotThemeColor
+    public var framedPosterSubtitleColor: ScreenshotThemeColor
+    public var framedPosterDeviceFrame: ScreenshotThemeColor
+    public var framedPosterDeviceFrameStroke: ScreenshotThemeColor
+
+    // Poster
+    public var posterBackground: ScreenshotThemeColor
+    public var posterAccentBar: ScreenshotThemeColor
+    public var posterTitleColor: ScreenshotThemeColor
+
+    // Device frame
+    public var deviceFrameBackground: ScreenshotThemeColor
+    public var deviceFrameStroke: ScreenshotThemeColor
+
+    public init(
+        name: String,
+        framedPosterBackground: ScreenshotThemeColor,
+        framedPosterUpperOval: ScreenshotThemeColor,
+        framedPosterLowerOval: ScreenshotThemeColor,
+        framedPosterTitleColor: ScreenshotThemeColor,
+        framedPosterSubtitleColor: ScreenshotThemeColor,
+        framedPosterDeviceFrame: ScreenshotThemeColor,
+        framedPosterDeviceFrameStroke: ScreenshotThemeColor,
+        posterBackground: ScreenshotThemeColor,
+        posterAccentBar: ScreenshotThemeColor,
+        posterTitleColor: ScreenshotThemeColor,
+        deviceFrameBackground: ScreenshotThemeColor,
+        deviceFrameStroke: ScreenshotThemeColor
+    ) {
+        self.name = name
+        self.framedPosterBackground = framedPosterBackground
+        self.framedPosterUpperOval = framedPosterUpperOval
+        self.framedPosterLowerOval = framedPosterLowerOval
+        self.framedPosterTitleColor = framedPosterTitleColor
+        self.framedPosterSubtitleColor = framedPosterSubtitleColor
+        self.framedPosterDeviceFrame = framedPosterDeviceFrame
+        self.framedPosterDeviceFrameStroke = framedPosterDeviceFrameStroke
+        self.posterBackground = posterBackground
+        self.posterAccentBar = posterAccentBar
+        self.posterTitleColor = posterTitleColor
+        self.deviceFrameBackground = deviceFrameBackground
+        self.deviceFrameStroke = deviceFrameStroke
+    }
+
+    internal func resolved() -> ScreenshotTheme {
+        guard name == "auto" else { return self }
+        return Self.randomPreset()
+    }
+
+    private static func randomPreset() -> ScreenshotTheme {
+        allCases.randomElement()!
+    }
+
+    public static let allCases: [ScreenshotTheme] = [
+        .tealGold, .midnightPurple, .oceanBlue, .warmAmber, .minimalLight
+    ]
+}
+
+public extension ScreenshotTheme {
+    static let tealGold = ScreenshotTheme(
+        name: "tealGold",
+        framedPosterBackground: ScreenshotThemeColor(red: 0.08, green: 0.12, blue: 0.10),
+        framedPosterUpperOval: ScreenshotThemeColor(red: 0.18, green: 0.36, blue: 0.30, alpha: 0.78),
+        framedPosterLowerOval: ScreenshotThemeColor(red: 0.88, green: 0.66, blue: 0.34, alpha: 0.30),
+        framedPosterTitleColor: ScreenshotThemeColor(red: 0.98, green: 0.96, blue: 0.90),
+        framedPosterSubtitleColor: ScreenshotThemeColor(red: 0.83, green: 0.88, blue: 0.78),
+        framedPosterDeviceFrame: ScreenshotThemeColor(red: 0.05, green: 0.06, blue: 0.06),
+        framedPosterDeviceFrameStroke: ScreenshotThemeColor(red: 1.0, green: 1.0, blue: 1.0, alpha: 0.16),
+        posterBackground: ScreenshotThemeColor(red: 0.95, green: 0.91, blue: 0.84),
+        posterAccentBar: ScreenshotThemeColor(red: 0.13, green: 0.24, blue: 0.23),
+        posterTitleColor: ScreenshotThemeColor(red: 1.0, green: 1.0, blue: 1.0),
+        deviceFrameBackground: ScreenshotThemeColor(red: 0.08, green: 0.09, blue: 0.10),
+        deviceFrameStroke: ScreenshotThemeColor(red: 1.0, green: 1.0, blue: 1.0, alpha: 0.18)
+    )
+
+    static let midnightPurple = ScreenshotTheme(
+        name: "midnightPurple",
+        framedPosterBackground: ScreenshotThemeColor(red: 0.06, green: 0.04, blue: 0.12),
+        framedPosterUpperOval: ScreenshotThemeColor(red: 0.22, green: 0.14, blue: 0.42, alpha: 0.78),
+        framedPosterLowerOval: ScreenshotThemeColor(red: 0.55, green: 0.38, blue: 0.72, alpha: 0.30),
+        framedPosterTitleColor: ScreenshotThemeColor(red: 0.96, green: 0.94, blue: 0.98),
+        framedPosterSubtitleColor: ScreenshotThemeColor(red: 0.78, green: 0.74, blue: 0.88),
+        framedPosterDeviceFrame: ScreenshotThemeColor(red: 0.04, green: 0.03, blue: 0.07),
+        framedPosterDeviceFrameStroke: ScreenshotThemeColor(red: 0.90, green: 0.85, blue: 1.0, alpha: 0.16),
+        posterBackground: ScreenshotThemeColor(red: 0.94, green: 0.91, blue: 0.96),
+        posterAccentBar: ScreenshotThemeColor(red: 0.18, green: 0.12, blue: 0.32),
+        posterTitleColor: ScreenshotThemeColor(red: 1.0, green: 1.0, blue: 1.0),
+        deviceFrameBackground: ScreenshotThemeColor(red: 0.06, green: 0.04, blue: 0.10),
+        deviceFrameStroke: ScreenshotThemeColor(red: 1.0, green: 1.0, blue: 1.0, alpha: 0.18)
+    )
+
+    static let oceanBlue = ScreenshotTheme(
+        name: "oceanBlue",
+        framedPosterBackground: ScreenshotThemeColor(red: 0.04, green: 0.08, blue: 0.14),
+        framedPosterUpperOval: ScreenshotThemeColor(red: 0.10, green: 0.28, blue: 0.52, alpha: 0.78),
+        framedPosterLowerOval: ScreenshotThemeColor(red: 0.30, green: 0.65, blue: 0.78, alpha: 0.30),
+        framedPosterTitleColor: ScreenshotThemeColor(red: 0.92, green: 0.96, blue: 1.0),
+        framedPosterSubtitleColor: ScreenshotThemeColor(red: 0.68, green: 0.82, blue: 0.88),
+        framedPosterDeviceFrame: ScreenshotThemeColor(red: 0.03, green: 0.05, blue: 0.08),
+        framedPosterDeviceFrameStroke: ScreenshotThemeColor(red: 0.85, green: 0.95, blue: 1.0, alpha: 0.16),
+        posterBackground: ScreenshotThemeColor(red: 0.90, green: 0.94, blue: 0.97),
+        posterAccentBar: ScreenshotThemeColor(red: 0.08, green: 0.18, blue: 0.32),
+        posterTitleColor: ScreenshotThemeColor(red: 1.0, green: 1.0, blue: 1.0),
+        deviceFrameBackground: ScreenshotThemeColor(red: 0.04, green: 0.07, blue: 0.12),
+        deviceFrameStroke: ScreenshotThemeColor(red: 1.0, green: 1.0, blue: 1.0, alpha: 0.18)
+    )
+
+    static let warmAmber = ScreenshotTheme(
+        name: "warmAmber",
+        framedPosterBackground: ScreenshotThemeColor(red: 0.12, green: 0.08, blue: 0.05),
+        framedPosterUpperOval: ScreenshotThemeColor(red: 0.36, green: 0.22, blue: 0.10, alpha: 0.78),
+        framedPosterLowerOval: ScreenshotThemeColor(red: 0.88, green: 0.62, blue: 0.22, alpha: 0.30),
+        framedPosterTitleColor: ScreenshotThemeColor(red: 1.0, green: 0.96, blue: 0.88),
+        framedPosterSubtitleColor: ScreenshotThemeColor(red: 0.88, green: 0.78, blue: 0.60),
+        framedPosterDeviceFrame: ScreenshotThemeColor(red: 0.06, green: 0.04, blue: 0.03),
+        framedPosterDeviceFrameStroke: ScreenshotThemeColor(red: 1.0, green: 0.94, blue: 0.80, alpha: 0.16),
+        posterBackground: ScreenshotThemeColor(red: 0.97, green: 0.93, blue: 0.86),
+        posterAccentBar: ScreenshotThemeColor(red: 0.26, green: 0.16, blue: 0.08),
+        posterTitleColor: ScreenshotThemeColor(red: 1.0, green: 1.0, blue: 1.0),
+        deviceFrameBackground: ScreenshotThemeColor(red: 0.10, green: 0.07, blue: 0.04),
+        deviceFrameStroke: ScreenshotThemeColor(red: 1.0, green: 0.94, blue: 0.80, alpha: 0.18)
+    )
+
+    static let minimalLight = ScreenshotTheme(
+        name: "minimalLight",
+        framedPosterBackground: ScreenshotThemeColor(red: 0.95, green: 0.95, blue: 0.96),
+        framedPosterUpperOval: ScreenshotThemeColor(red: 0.88, green: 0.90, blue: 0.92, alpha: 0.60),
+        framedPosterLowerOval: ScreenshotThemeColor(red: 0.92, green: 0.88, blue: 0.82, alpha: 0.25),
+        framedPosterTitleColor: ScreenshotThemeColor(red: 0.12, green: 0.12, blue: 0.14),
+        framedPosterSubtitleColor: ScreenshotThemeColor(red: 0.45, green: 0.45, blue: 0.50),
+        framedPosterDeviceFrame: ScreenshotThemeColor(red: 0.85, green: 0.85, blue: 0.87),
+        framedPosterDeviceFrameStroke: ScreenshotThemeColor(red: 0.60, green: 0.60, blue: 0.63, alpha: 0.25),
+        posterBackground: ScreenshotThemeColor(red: 0.98, green: 0.98, blue: 0.98),
+        posterAccentBar: ScreenshotThemeColor(red: 0.12, green: 0.12, blue: 0.14),
+        posterTitleColor: ScreenshotThemeColor(red: 1.0, green: 1.0, blue: 1.0),
+        deviceFrameBackground: ScreenshotThemeColor(red: 0.90, green: 0.90, blue: 0.92),
+        deviceFrameStroke: ScreenshotThemeColor(red: 0.50, green: 0.50, blue: 0.53, alpha: 0.25)
+    )
+
+    static let auto = ScreenshotTheme(
+        name: "auto",
+        framedPosterBackground: ScreenshotThemeColor(red: 0.08, green: 0.12, blue: 0.10),
+        framedPosterUpperOval: ScreenshotThemeColor(red: 0.18, green: 0.36, blue: 0.30, alpha: 0.78),
+        framedPosterLowerOval: ScreenshotThemeColor(red: 0.88, green: 0.66, blue: 0.34, alpha: 0.30),
+        framedPosterTitleColor: ScreenshotThemeColor(red: 0.98, green: 0.96, blue: 0.90),
+        framedPosterSubtitleColor: ScreenshotThemeColor(red: 0.83, green: 0.88, blue: 0.78),
+        framedPosterDeviceFrame: ScreenshotThemeColor(red: 0.05, green: 0.06, blue: 0.06),
+        framedPosterDeviceFrameStroke: ScreenshotThemeColor(red: 1.0, green: 1.0, blue: 1.0, alpha: 0.16),
+        posterBackground: ScreenshotThemeColor(red: 0.95, green: 0.91, blue: 0.84),
+        posterAccentBar: ScreenshotThemeColor(red: 0.13, green: 0.24, blue: 0.23),
+        posterTitleColor: ScreenshotThemeColor(red: 1.0, green: 1.0, blue: 1.0),
+        deviceFrameBackground: ScreenshotThemeColor(red: 0.08, green: 0.09, blue: 0.10),
+        deviceFrameStroke: ScreenshotThemeColor(red: 1.0, green: 1.0, blue: 1.0, alpha: 0.18)
+    )
+}
+
 public struct ScreenshotCompositionCopyManifest: Codable, Equatable, Sendable {
     public var items: [ScreenshotCompositionCopy]
 
@@ -3395,8 +3578,10 @@ public struct ScreenshotComposer {
         importManifest: ScreenshotImportManifest,
         outputRoot: URL,
         mode: ScreenshotCompositionMode,
-        copyManifest: ScreenshotCompositionCopyManifest? = nil
+        copyManifest: ScreenshotCompositionCopyManifest? = nil,
+        theme: ScreenshotTheme = .tealGold
     ) throws -> ScreenshotCompositionManifest {
+        let effectiveTheme = theme.resolved()
         let renderMode = mode.effectiveRenderMode
         var artifacts: [ScreenshotCompositionArtifact] = []
         for artifact in importManifest.artifacts {
@@ -3420,7 +3605,7 @@ public struct ScreenshotComposer {
                 let baseName = inputURL.deletingPathExtension().lastPathComponent
                 outputURL = outputDirectory.appendingPathComponent("\(baseName)-poster.png")
                 try replaceExistingFile(at: outputURL) {
-                    try renderPoster(inputURL: inputURL, outputURL: outputURL)
+                    try renderPoster(inputURL: inputURL, outputURL: outputURL, theme: effectiveTheme)
                 }
             case .deviceFrame:
                 fatalError("deviceFrame is normalized to framedPoster before rendering.")
@@ -3441,7 +3626,8 @@ public struct ScreenshotComposer {
                         inputURL: inputURL,
                         outputURL: outputURL,
                         title: effectiveTitle,
-                        subtitle: effectiveSubtitle
+                        subtitle: effectiveSubtitle,
+                        theme: effectiveTheme
                     )
                 }
             }
@@ -3477,7 +3663,7 @@ public struct ScreenshotComposer {
         try write()
     }
 
-    private func renderPoster(inputURL: URL, outputURL: URL) throws {
+    private func renderPoster(inputURL: URL, outputURL: URL, theme: ScreenshotTheme) throws {
         guard let screenshot = NSImage(contentsOf: inputURL), screenshot.isValid else {
             throw AscendKitError.invalidState("Cannot decode screenshot image for poster composition: \(inputURL.path)")
         }
@@ -3494,10 +3680,10 @@ public struct ScreenshotComposer {
 
         let png = try ScreenshotImageSanitizer.renderOpaquePNG(
             size: canvasSize,
-            backgroundColor: NSColor(calibratedRed: 0.95, green: 0.91, blue: 0.84, alpha: 1)
+            backgroundColor: theme.posterBackground.nsColor
         ) {
             let accentRect = NSRect(x: 0, y: canvasSize.height - 760, width: canvasSize.width, height: 760)
-            NSColor(calibratedRed: 0.13, green: 0.24, blue: 0.23, alpha: 1).setFill()
+            theme.posterAccentBar.nsColor.setFill()
             accentRect.fill()
 
             let title = inputURL.deletingPathExtension().lastPathComponent
@@ -3505,7 +3691,7 @@ public struct ScreenshotComposer {
                 .replacingOccurrences(of: "_", with: " ")
             let titleAttributes: [NSAttributedString.Key: Any] = [
                 .font: NSFont.systemFont(ofSize: 76, weight: .semibold),
-                .foregroundColor: NSColor.white
+                .foregroundColor: theme.posterTitleColor.nsColor
             ]
             NSString(string: title.capitalized).draw(
                 in: NSRect(x: 112, y: canvasSize.height - 300, width: canvasSize.width - 224, height: 110),
@@ -3537,7 +3723,7 @@ public struct ScreenshotComposer {
         try png.write(to: outputURL, options: [.atomic])
     }
 
-    private func renderDeviceFrame(inputURL: URL, outputURL: URL) throws {
+    private func renderDeviceFrame(inputURL: URL, outputURL: URL, theme: ScreenshotTheme) throws {
         guard let screenshot = NSImage(contentsOf: inputURL), screenshot.isValid else {
             throw AscendKitError.invalidState("Cannot decode screenshot image for device-frame composition: \(inputURL.path)")
         }
@@ -3567,7 +3753,7 @@ public struct ScreenshotComposer {
                 xRadius: outerRadius,
                 yRadius: outerRadius
             )
-            NSColor(calibratedRed: 0.08, green: 0.09, blue: 0.10, alpha: 1).setFill()
+            theme.deviceFrameBackground.nsColor.setFill()
             outerPath.fill()
 
             let innerPath = NSBezierPath(roundedRect: screenRect, xRadius: innerRadius, yRadius: innerRadius)
@@ -3583,14 +3769,14 @@ public struct ScreenshotComposer {
             )
             NSGraphicsContext.restoreGraphicsState()
 
-            NSColor.white.withAlphaComponent(0.18).setStroke()
+            theme.deviceFrameStroke.nsColor.setStroke()
             outerPath.lineWidth = max(2, border * 0.06)
             outerPath.stroke()
         }
         try png.write(to: outputURL, options: [.atomic])
     }
 
-    private func renderFramedPoster(inputURL: URL, outputURL: URL, title: String, subtitle: String?) throws {
+    private func renderFramedPoster(inputURL: URL, outputURL: URL, title: String, subtitle: String?, theme: ScreenshotTheme) throws {
         guard let screenshot = NSImage(contentsOf: inputURL), screenshot.isValid else {
             throw AscendKitError.invalidState("Cannot decode screenshot image for framed poster composition: \(inputURL.path)")
         }
@@ -3621,9 +3807,9 @@ public struct ScreenshotComposer {
 
         let png = try ScreenshotImageSanitizer.renderOpaquePNG(
             size: canvasSize,
-            backgroundColor: NSColor(calibratedRed: 0.08, green: 0.12, blue: 0.10, alpha: 1)
+            backgroundColor: theme.framedPosterBackground.nsColor
         ) {
-            drawFramedPosterBackground(canvasSize: canvasSize)
+            drawFramedPosterBackground(canvasSize: canvasSize, theme: theme)
 
             let titleFontSize = min(canvasSize.width * 0.085, topBandHeight * 0.32)
             let subtitleFontSize = titleFontSize * 0.34
@@ -3639,7 +3825,7 @@ public struct ScreenshotComposer {
                 maxFontSize: titleFontSize,
                 minFontSize: max(28, titleFontSize * 0.48),
                 weight: .bold,
-                color: NSColor(calibratedRed: 0.98, green: 0.96, blue: 0.90, alpha: 1),
+                color: theme.framedPosterTitleColor.nsColor,
                 lineSpacing: titleFontSize * 0.06
             )
 
@@ -3655,7 +3841,7 @@ public struct ScreenshotComposer {
                     maxFontSize: subtitleFontSize,
                     minFontSize: max(18, subtitleFontSize * 0.72),
                     weight: .medium,
-                    color: NSColor(calibratedRed: 0.83, green: 0.88, blue: 0.78, alpha: 1),
+                    color: theme.framedPosterSubtitleColor.nsColor,
                     lineSpacing: subtitleFontSize * 0.05
                 )
             }
@@ -3668,7 +3854,7 @@ public struct ScreenshotComposer {
 
             let frameRadius = framePadding * 1.55
             let framePath = NSBezierPath(roundedRect: frameRect, xRadius: frameRadius, yRadius: frameRadius)
-            NSColor(calibratedRed: 0.05, green: 0.06, blue: 0.06, alpha: 1).setFill()
+            theme.framedPosterDeviceFrame.nsColor.setFill()
             framePath.fill()
 
             NSGraphicsContext.saveGraphicsState()
@@ -3685,7 +3871,7 @@ public struct ScreenshotComposer {
             )
             NSGraphicsContext.restoreGraphicsState()
 
-            NSColor.white.withAlphaComponent(0.16).setStroke()
+            theme.framedPosterDeviceFrameStroke.nsColor.setStroke()
             framePath.lineWidth = max(2, framePadding * 0.08)
             framePath.stroke()
         }
@@ -3701,8 +3887,8 @@ public struct ScreenshotComposer {
         return image.size
     }
 
-    private func drawFramedPosterBackground(canvasSize: NSSize) {
-        NSColor(calibratedRed: 0.08, green: 0.12, blue: 0.10, alpha: 1).setFill()
+    private func drawFramedPosterBackground(canvasSize: NSSize, theme: ScreenshotTheme) {
+        theme.framedPosterBackground.nsColor.setFill()
         NSRect(origin: .zero, size: canvasSize).fill()
 
         let upper = NSBezierPath(ovalIn: NSRect(
@@ -3711,7 +3897,7 @@ public struct ScreenshotComposer {
             width: canvasSize.width * 1.35,
             height: canvasSize.height * 0.60
         ))
-        NSColor(calibratedRed: 0.18, green: 0.36, blue: 0.30, alpha: 0.78).setFill()
+        theme.framedPosterUpperOval.nsColor.setFill()
         upper.fill()
 
         let lower = NSBezierPath(ovalIn: NSRect(
@@ -3720,7 +3906,7 @@ public struct ScreenshotComposer {
             width: canvasSize.width * 0.95,
             height: canvasSize.height * 0.48
         ))
-        NSColor(calibratedRed: 0.88, green: 0.66, blue: 0.34, alpha: 0.30).setFill()
+        theme.framedPosterLowerOval.nsColor.setFill()
         lower.fill()
     }
 

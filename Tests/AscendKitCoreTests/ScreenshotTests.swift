@@ -1928,4 +1928,113 @@ struct ScreenshotTests {
         }
         return arguments[arguments.index(after: index)]
     }
+
+    // MARK: - Theme Tests
+
+    @Test("all named themes produce valid framed poster PNG output")
+    func allThemesProduceValidFramedPosterOutput() throws {
+        let root = try TemporaryDirectory()
+        let input = root.url.appendingPathComponent("source/en-US/iOS/01-home.png")
+        try FileManager.default.createDirectory(at: input.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try makeScaledPNG(
+            pixelSize: NSSize(width: 1_320, height: 2_868),
+            pointSize: NSSize(width: 1_320, height: 2_868),
+            url: input
+        )
+        let importManifest = ScreenshotImportManifest(
+            sourceDirectory: root.url.appendingPathComponent("source").path,
+            artifacts: [
+                ScreenshotArtifact(locale: "en-US", platform: .iOS, path: input.path, fileName: "01-home.png")
+            ]
+        )
+        let copyManifest = ScreenshotCompositionCopyManifest(items: [
+            ScreenshotCompositionCopy(
+                locale: "en-US",
+                platform: .iOS,
+                fileName: "01-home.png",
+                title: "Theme Test",
+                subtitle: "Verifying all presets"
+            )
+        ])
+
+        for theme in ScreenshotTheme.allCases {
+            let outputRoot = root.url.appendingPathComponent("composed-\(theme.name)")
+            let manifest = try ScreenshotComposer().compose(
+                importManifest: importManifest,
+                outputRoot: outputRoot,
+                mode: .framedPoster,
+                copyManifest: copyManifest,
+                theme: theme
+            )
+            #expect(manifest.artifacts.count == 1)
+            #expect(NSImage(contentsOfFile: manifest.artifacts[0].outputPath)?.isValid == true)
+            try expectPNGHasNoAlpha(at: URL(fileURLWithPath: manifest.artifacts[0].outputPath))
+        }
+    }
+
+    @Test("all named themes produce valid poster PNG output")
+    func allThemesProduceValidPosterOutput() throws {
+        let root = try TemporaryDirectory()
+        let input = root.url.appendingPathComponent("source/en-US/iOS/01-home.png")
+        try FileManager.default.createDirectory(at: input.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try makePNG(size: NSSize(width: 390, height: 844), url: input)
+        let importManifest = ScreenshotImportManifest(
+            sourceDirectory: root.url.appendingPathComponent("source").path,
+            artifacts: [
+                ScreenshotArtifact(locale: "en-US", platform: .iOS, path: input.path, fileName: "01-home.png")
+            ]
+        )
+
+        for theme in ScreenshotTheme.allCases {
+            let outputRoot = root.url.appendingPathComponent("poster-\(theme.name)")
+            let manifest = try ScreenshotComposer().compose(
+                importManifest: importManifest,
+                outputRoot: outputRoot,
+                mode: .poster,
+                theme: theme
+            )
+            #expect(manifest.artifacts.count == 1)
+            #expect(manifest.artifacts[0].outputPath.hasSuffix("01-home-poster.png"))
+            #expect(NSImage(contentsOfFile: manifest.artifacts[0].outputPath)?.isValid == true)
+            try expectPNGHasNoAlpha(at: URL(fileURLWithPath: manifest.artifacts[0].outputPath))
+        }
+    }
+
+    @Test("auto theme selection produces valid output")
+    func autoThemeProducesValidOutput() throws {
+        let root = try TemporaryDirectory()
+        let input = root.url.appendingPathComponent("source/en-US/iOS/01-home.png")
+        try FileManager.default.createDirectory(at: input.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try makeScaledPNG(
+            pixelSize: NSSize(width: 1_320, height: 2_868),
+            pointSize: NSSize(width: 1_320, height: 2_868),
+            url: input
+        )
+        let importManifest = ScreenshotImportManifest(
+            sourceDirectory: root.url.appendingPathComponent("source").path,
+            artifacts: [
+                ScreenshotArtifact(locale: "en-US", platform: .iOS, path: input.path, fileName: "01-home.png")
+            ]
+        )
+        let copyManifest = ScreenshotCompositionCopyManifest(items: [
+            ScreenshotCompositionCopy(
+                locale: "en-US",
+                platform: .iOS,
+                fileName: "01-home.png",
+                title: "Auto Theme",
+                subtitle: "Randomly selected"
+            )
+        ])
+
+        let manifest = try ScreenshotComposer().compose(
+            importManifest: importManifest,
+            outputRoot: root.url.appendingPathComponent("composed-auto"),
+            mode: .framedPoster,
+            copyManifest: copyManifest,
+            theme: .auto
+        )
+        #expect(manifest.artifacts.count == 1)
+        #expect(NSImage(contentsOfFile: manifest.artifacts[0].outputPath)?.isValid == true)
+        try expectPNGHasNoAlpha(at: URL(fileURLWithPath: manifest.artifacts[0].outputPath))
+    }
 }

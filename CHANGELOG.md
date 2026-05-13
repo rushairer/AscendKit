@@ -4,6 +4,15 @@ AscendKit follows [Semantic Versioning](https://semver.org/). The `1.x` line kee
 
 ## Unreleased
 
+## 1.5.0 - 2026-05-13
+
+### Added
+
+- Added configurable screenshot composition themes with 5 named presets (`tealGold`, `midnightPurple`, `oceanBlue`, `warmAmber`, `minimalLight`) for framed poster and poster rendering.
+- Added `auto` theme mode that randomly selects a harmonious color palette for each composition run.
+- Added `ScreenshotTheme` and `ScreenshotThemeColor` types for theme configuration, with full `Codable` support for serialization.
+- Extended `ScreenshotComposer.compose()` with a `theme` parameter (defaults to `tealGold` for backward compatibility).
+
 ## 1.4.6 - 2026-05-08
 
 ### Fixed
