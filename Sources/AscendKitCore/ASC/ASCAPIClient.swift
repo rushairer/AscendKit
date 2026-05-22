@@ -452,6 +452,12 @@ public struct ASCAPIClient {
             }
         }
 
+
+        if !deletedScreenshots.isEmpty {
+            // Provide a brief window for App Store Connect concurrent map wipe replication
+            try? await Task.sleep(nanoseconds: 3_000_000_000)
+        }
+
         for item in plan.items {
             do {
                 let fileURL = URL(fileURLWithPath: item.sourcePath)

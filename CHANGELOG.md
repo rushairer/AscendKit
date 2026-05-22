@@ -2,7 +2,12 @@
 
 AscendKit follows [Semantic Versioning](https://semver.org/). The `1.x` line keeps the documented v1 command surface stable; breaking workflow changes require a new major version.
 
-## Unreleased
+## 1.5.1 - 2026-05-22
+
+### Fixed
+
+- Added a 3-second delay after deleting old screenshots before uploading replacements, giving App Store Connect time to finish concurrent map wipe replication.
+- Set watchOS `defaultDestination` to `Apple Watch Ultra 3 (49mm)` so screenshot capture resolves a usable simulator automatically instead of falling through to `unknown`.
 
 ## 1.5.0 - 2026-05-13
 

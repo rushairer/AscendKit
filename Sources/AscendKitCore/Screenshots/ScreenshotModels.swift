@@ -1546,7 +1546,7 @@ public struct ScreenshotDoctorReport: Codable, Equatable, Sendable {
                 return ScreenshotPlatformSupport(
                     platform: .watchOS,
                     deterministicCapture: "explicit-destination-required",
-                    defaultDestination: nil,
+                    defaultDestination: "platform=watchOS Simulator,name=Apple Watch Ultra 3 (49mm)",
                     appStoreDisplayType: "APP_WATCH_ULTRA",
                     compositionSupport: "storeReadyCopy, poster, generic deviceFrame, framedPoster",
                     notes: ["Watch screenshots often need app-specific host app and simulator setup; use explicit destinations or manual import."]
