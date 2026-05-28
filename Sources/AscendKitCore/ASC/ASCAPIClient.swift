@@ -396,7 +396,8 @@ public struct ASCAPIClient {
     public func executeScreenshotUpload(
         plan: ScreenshotUploadPlan,
         confirmRemoteMutation: Bool,
-        token: String
+        token: String,
+        replaceExisting: Bool = false
     ) async throws -> ScreenshotUploadExecutionResult {
         guard confirmRemoteMutation else {
             return ScreenshotUploadExecutionResult(
@@ -434,9 +435,35 @@ public struct ASCAPIClient {
         var deletedScreenshots: [ScreenshotRemoteDeletion] = []
         var failedItems: [ScreenshotUploadFailure] = []
         var setIDs: [String: String] = [:]
-        let deletions = plan.replaceExistingRemoteScreenshots == true
-            ? uniqueDeletions(plan.remoteScreenshotsToDelete ?? [])
-            : []
+
+        let deletions: [ScreenshotRemoteDeletion]
+        if replaceExisting {
+            let localizationIDs = Set(plan.items.map(\.appStoreVersionLocalizationID))
+            let freshSets = await fetchCurrentScreenshotSets(
+                localizationIDs: Array(localizationIDs),
+                token: token
+            )
+            var plannedDeletions: [ScreenshotRemoteDeletion] = []
+            let planKeys = Set(plan.items.map { "\($0.appStoreVersionLocalizationID)|\($0.displayType)" })
+            for (localizationID, sets) in freshSets {
+                for set in sets where !set.screenshots.isEmpty {
+                    let key = "\(localizationID)|\(set.displayType)"
+                    guard planKeys.contains(key) else { continue }
+                    for screenshot in set.screenshots {
+                        plannedDeletions.append(ScreenshotRemoteDeletion(
+                            locale: plan.items.first { $0.appStoreVersionLocalizationID == localizationID }?.locale ?? "",
+                            displayType: set.displayType,
+                            appScreenshotSetID: set.id,
+                            appScreenshotID: screenshot.id,
+                            fileName: screenshot.fileName
+                        ))
+                    }
+                }
+            }
+            deletions = uniqueDeletions(plannedDeletions)
+        } else {
+            deletions = []
+        }
 
         for deletion in deletions {
             do {
@@ -986,6 +1013,24 @@ public struct ASCAPIClient {
             ))
         }
         return observedSets.sorted { $0.displayType < $1.displayType }
+    }
+
+    public func fetchCurrentScreenshotSets(
+        localizationIDs: [String],
+        token: String
+    ) async -> [String: [ObservedScreenshotSet]] {
+        var result: [String: [ObservedScreenshotSet]] = [:]
+        for localizationID in localizationIDs {
+            do {
+                result[localizationID] = try await observeScreenshotSets(
+                    appStoreVersionLocalizationID: localizationID,
+                    token: token
+                )
+            } catch {
+                result[localizationID] = []
+            }
+        }
+        return result
     }
 
     private func createAppScreenshotReservation(

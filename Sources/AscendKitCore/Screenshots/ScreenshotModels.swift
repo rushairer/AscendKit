@@ -2454,6 +2454,9 @@ public struct ScreenshotCompositionCopyManifest: Codable, Equatable, Sendable {
     }
 
     public func copy(locale: String, platform: ApplePlatform, fileName: String) -> ScreenshotCompositionCopy? {
+        let canonicalFileName = canonicalScreenshotCopyFileName(fileName)
+
+        // Tier 1: Exact match — locale + platform + fileName
         if let exact = items.first(where: {
             $0.locale == locale &&
                 $0.platform == platform &&
@@ -2462,7 +2465,7 @@ public struct ScreenshotCompositionCopyManifest: Codable, Equatable, Sendable {
             return exact
         }
 
-        let canonicalFileName = canonicalScreenshotCopyFileName(fileName)
+        // Tier 2: Canonical match — locale + platform + normalized fileName
         if let canonicalMatch = items.first(where: {
             $0.locale == locale &&
                 $0.platform == platform &&
@@ -2471,10 +2474,43 @@ public struct ScreenshotCompositionCopyManifest: Codable, Equatable, Sendable {
             return canonicalMatch
         }
 
+        // Tier 3: Same locale, any platform — exact fileName
+        if let sameLocaleFallback = items.first(where: {
+            $0.locale == locale && $0.fileName == fileName
+        }) {
+            return sameLocaleFallback
+        }
+
+        // Tier 4: Same locale, any platform — canonical fileName
+        if let sameLocaleCanonical = items.first(where: {
+            $0.locale == locale &&
+                canonicalScreenshotCopyFileName($0.fileName) == canonicalFileName
+        }) {
+            return sameLocaleCanonical
+        }
+
+        // Tier 5: Cross-locale, same platform — exact fileName
+        // Prefer same-platform copy from other locales before cross-platform.
+        if let samePlatformFallback = items.first(where: {
+            $0.platform == platform && $0.fileName == fileName
+        }) {
+            return samePlatformFallback
+        }
+
+        // Tier 6: Cross-locale, same platform — canonical fileName
+        if let samePlatformCanonical = items.first(where: {
+            $0.platform == platform &&
+                canonicalScreenshotCopyFileName($0.fileName) == canonicalFileName
+        }) {
+            return samePlatformCanonical
+        }
+
+        // Tier 7: Cross-locale, any platform — exact fileName
         if let exactFallback = items.first(where: { $0.fileName == fileName }) {
             return exactFallback
         }
 
+        // Tier 8: Cross-locale, any platform — canonical fileName (last resort)
         return items.first {
             canonicalScreenshotCopyFileName($0.fileName) == canonicalFileName
         }

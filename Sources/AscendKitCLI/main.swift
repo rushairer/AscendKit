@@ -1282,7 +1282,8 @@ struct CLIRunner {
         let result = try await ASCAPIClient().executeScreenshotUpload(
             plan: plan,
             confirmRemoteMutation: confirmed,
-            token: token
+            token: token,
+            replaceExisting: replaceExisting
         )
         try store.save(result, to: URL(fileURLWithPath: workspace.paths.screenshotUploadResult))
         try store.appendAudit(
