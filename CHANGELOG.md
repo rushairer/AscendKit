@@ -2,6 +2,13 @@
 
 AscendKit follows [Semantic Versioning](https://semver.org/). The `1.x` line keeps the documented v1 command surface stable; breaking workflow changes require a new major version.
 
+## 1.5.2 - 2026-05-28
+
+### Fixed
+
+- Fixed screenshot composition copy resolution fallback that could return wrong-locale or wrong-platform text (e.g. Arabic title on English iPadOS screenshots).
+- Fixed stale observed state in screenshot upload: `--replace-existing` now fetches fresh screenshot sets from App Store Connect before computing the deletion list, preventing duplicate uploads.
+
 ## 1.5.1 - 2026-05-22
 
 ### Fixed
