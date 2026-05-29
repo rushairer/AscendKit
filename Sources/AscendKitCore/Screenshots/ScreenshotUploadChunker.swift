@@ -59,7 +59,7 @@ public struct ScreenshotUploadChunker {
             
             if let deletes = plan.remoteScreenshotsToDelete {
                 for del in deletes {
-                    let platformStr = del.locale // fallback logic below isn't perfect for platform matching without API context, placing all deletes in a "global" block if unable to match
+                    let _ = del.locale // fallback logic below isn't perfect for platform matching without API context, placing all deletes in a "global" block if unable to match
                     // Since we don't always have easy inverse metadata lookup by remote ID, we put deletes mostly on the first available chunk, or split by whatever identifier we can. 
                     // However, we'll try a rough bucket approach or just bucket them into a generic string.
                     let bucket = "all_platforms_deletions" 
