@@ -1167,7 +1167,7 @@ public struct ASCAPIClient {
             || description.contains("Asset in Completed")
     }
 
-    private func deleteAppScreenshot(
+    public func deleteAppScreenshot(
         screenshotID: String,
         token: String
     ) async throws -> ReviewSubmissionExecutionResponse {
