@@ -6,7 +6,7 @@ The project is designed for AI-assisted release work without handing raw secrets
 
 ## Current Status
 
-Current documented release: `v1.6.2`.
+Current documented release: `v1.7.0`.
 
 AscendKit follows [Semantic Versioning](https://semver.org/). The v1 command surface is stable for `1.x`: breaking workflow changes require a new major version, while compatible commands, flags, diagnostics, and documentation can continue to evolve through minor releases.
 
@@ -18,7 +18,7 @@ Implemented today:
 - Durable release workspaces under `.ascendkit/releases/<release-id>`.
 - Project intake and release doctor checks.
 - Metadata templates, fastlane metadata import, linting, diffing, and ASC request planning.
-- Screenshot planning, import manifests, fastlane screenshot import, configurable composition themes (5 presets + auto mode), local composition outputs, guarded ASC upload planning, and native screenshot upload execution.
+- Screenshot planning, import manifests, fastlane screenshot import, configurable composition themes (5 presets + auto mode), local composition outputs, guarded ASC upload planning, native screenshot upload execution, and a high-fidelity Screenshot Studio with physical device frame registry (Dynamic Island, notch, metal-bezel vector overlays) for App Store-ready framed posters.
 - App Store Connect auth profiles using secret references.
 - ASC app lookup, build lookup, metadata observation, metadata apply, and guarded review handoff.
 - Reviewer information, readiness checks, review handoff, and submission result persistence.
@@ -191,7 +191,7 @@ After installation, run `ascendkit` from any app project directory. User-facing 
 Alternative direct installer from a source checkout or release asset:
 
 ```bash
-scripts/install-ascendkit.sh --version 1.6.2
+scripts/install-ascendkit.sh --version 1.7.0
 ASCENDKIT_INSTALL_DIR=/usr/local/bin scripts/install-ascendkit.sh
 ```
 
@@ -200,7 +200,7 @@ The installer downloads the macOS universal release archive from GitHub Releases
 Verify a published release before announcing it:
 
 ```bash
-scripts/verify-release-assets.sh --version 1.6.2
+scripts/verify-release-assets.sh --version 1.7.0
 ```
 
 The verifier checks for the expected GitHub Release assets and performs a temporary installer smoke test.
@@ -226,11 +226,11 @@ Homebrew formula maintenance:
 
 ```bash
 scripts/update-homebrew-formula.sh
-scripts/verify-homebrew-formula.sh --version 1.6.2
-scripts/diagnose-homebrew-install.sh --version 1.6.2
+scripts/verify-homebrew-formula.sh --version 1.7.0
+scripts/diagnose-homebrew-install.sh --version 1.7.0
 scripts/sync-homebrew-tap.sh --commit --push
-scripts/finalize-homebrew-release.sh --version 1.6.2 --commit --push --reinstall
-scripts/v1-release-readiness.sh --version 1.6.2 --app-root /path/to/RepresentativeApp
+scripts/finalize-homebrew-release.sh --version 1.7.0 --commit --push --reinstall
+scripts/v1-release-readiness.sh --version 1.7.0 --app-root /path/to/RepresentativeApp
 ruby -c Formula/ascendkit.rb
 ```
 
@@ -239,7 +239,7 @@ The generated formula points at the GitHub Release archive for the current `asce
 For normal post-tag release finalization, prefer the single finalizer:
 
 ```bash
-scripts/finalize-homebrew-release.sh --version 1.6.2 --commit --push --reinstall
+scripts/finalize-homebrew-release.sh --version 1.7.0 --commit --push --reinstall
 ```
 
 Run it only after `.github/workflows/release.yml` has completed for the tag. It refreshes the formula from the final GitHub Release asset digest, verifies the formula, syncs the Homebrew tap, and optionally reinstalls and diagnoses the installed Homebrew binary.
@@ -247,7 +247,7 @@ Run it only after `.github/workflows/release.yml` has completed for the tag. It 
 If Homebrew reports a checksum mismatch, stale formula, wrong tap, or unexpected installed version, run:
 
 ```bash
-scripts/diagnose-homebrew-install.sh --version 1.6.2
+scripts/diagnose-homebrew-install.sh --version 1.7.0
 ```
 
 The diagnostic is read-only. It checks the installed `ascendkit` binary, universal architectures, tap remote, formula URL, formula SHA-256, and GitHub Release asset digest, then prints repair commands such as re-tapping and reinstalling from `rushairer/ascendkit`.
@@ -579,7 +579,7 @@ Run release hygiene checks.
 ascendkit doctor release --workspace "$WORKSPACE" --json
 ```
 
-The doctor checks app icon presence, entitlements, Info.plist privacy purpose strings, local metadata, screenshot state, IAP templates, and release-sensitive residue.
+The doctor checks app icon presence, entitlements, Info.plist privacy purpose strings, local metadata, screenshot state, IAP templates, and release-sensitive residue. When Xcode's `GENERATE_INFOPLIST_FILE` build setting is enabled, AscendKit automatically parses keys under `INFOPLIST_KEY_*`, strips bracket SDK conditionals, and merges them into target-level Info.plist configurations, bypassing false-positive `missing-path` or `not-found` diagnostics that previously blocked agents from proceeding.
 
 ### `metadata`
 
@@ -621,6 +621,11 @@ Compares local metadata with observed ASC metadata saved in the workspace.
 ### `screenshots`
 
 Plan, import, validate, and compose local screenshot artifacts.
+
+**Screenshot Studio (v1.7.0)**: The `framedPoster` composition mode now uses a built-in `DeviceFrameRegistry` that maps physical marketing device specifications — pixel dimensions, bezel width, per-device corner radius, Dynamic Island cutout size, and notch dimensions — for iPhone 6.7" (1290x2796), iPhone 6.5" (1242x2688), iPad Pro 13-inch (2064x2752), and Mac Desktop (2560x1600). Source screenshots are matched to device specs automatically using tolerant orientation-aware size detection. The renderer draws high-fidelity vector hardware overlays: double-stroke metal-gradient bezels, Dynamic Island / notch cutout masks, translucent Home indicator bar, and soft drop-shadow back-drops matching App Store card styling. AI Agents can invoke Screenshot Studio with:
+```bash
+ascendkit screenshots compose --workspace "$WORKSPACE" --mode framedPoster --json
+```
 
 ```bash
 ascendkit screenshots doctor --workspace "$WORKSPACE" --json
@@ -748,7 +753,7 @@ Composition modes:
 - `storeReadyCopy`: organize imported images for upload.
 - `poster`: render local poster-style PNG artifacts.
 - `deviceFrame`: compatibility alias for `framedPoster`; renders a complete App Store marketing screenshot, not a border-only frame.
-- `framedPoster`: render App Store-sized PNG artifacts with an opaque background, title/subtitle copy, and an inset device frame while preserving the source screenshot dimensions.
+- `framedPoster`: render App Store-sized PNG artifacts with an opaque background, title/subtitle copy, and an inset high-fidelity device frame while preserving the source screenshot dimensions. Uses the built-in `DeviceFrameRegistry` to resolve physical hardware specifications (exact pixel size, corner radius, bezel width, Dynamic Island, and notch) by matching source image dimensions with tolerant orientation-aware detection. Supported device frames include iPhone 6.7" (1290x2796, Dynamic Island), iPhone 6.5" (1242x2688, notch), iPad Pro 13-inch (2064x2752), and Mac Desktop (2560x1600).
 
 Optional framed poster copy file. If `--copy` is omitted, AscendKit first reads default locale copy assets from `screenshots/copy/<locale>.json`, then falls back to `screenshot-plan.json` screen names and purposes as inferred title/subtitle copy:
 

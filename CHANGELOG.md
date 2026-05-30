@@ -2,6 +2,18 @@
 
 AscendKit follows [Semantic Versioning](https://semver.org/). The `1.x` line keeps the documented v1 command surface stable; breaking workflow changes require a new major version.
 
+## 1.7.0 - 2026-05-30
+
+### Added
+
+- Added `DeviceFrameRegistry` with inspectable, versioned `DeviceFrameSpecification` structs that map exact marketing hardware dimensions (pixel size, bezel width, corner radius, Dynamic Island, notch, and Home indicator presence) for iPhone 6.7", iPhone 6.5", iPad Pro 13-inch, and Mac Desktop.
+- Refactored `ScreenshotComposer` `.framedPoster` rendering to use the device frame registry for high-fidelity vector hardware overlays: precise per-device corner radius, double-stroke metal-gradient bezel outlines, Dynamic Island / notch cutout masks, translucent Home indicator bar, and soft drop-shadow back-drops matching App Store card styling.
+- Added tolerant orientation-aware size matching in `DeviceFrameRegistry` so landscape and portrait source screenshots resolve the correct physical device spec without manual dimension overrides.
+
+### Fixed
+
+- Existing entries from 1.6.2 (Info.plist generation) are included in this release.
+
 ## 1.6.2 - 2026-05-30
 
 ### Fixed

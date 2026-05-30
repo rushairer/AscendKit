@@ -2091,4 +2091,62 @@ struct ScreenshotTests {
         #expect(NSImage(contentsOfFile: manifest.artifacts[0].outputPath)?.isValid == true)
         try expectPNGHasNoAlpha(at: URL(fileURLWithPath: manifest.artifacts[0].outputPath))
     }
+
+    @Test("device frame registry provides spec and default spec")
+    func deviceFrameRegistrySpecAndDefaults() {
+        let registry = DeviceFrameRegistry.shared
+        #expect(registry.specifications.count >= 4)
+
+        let spec67 = registry.specification(for: "APP_IPHONE_67")
+        #expect(spec67 != nil)
+        #expect(spec67?.platform == .iOS)
+        #expect(spec67?.screenPixelSize.width == 1290)
+        #expect(spec67?.screenPixelSize.height == 2796)
+        #expect(spec67?.dynamicIslandSize != nil)
+        #expect(spec67?.packageSize.width == 1290 + 84.0)
+
+        let resolvedSpec = registry.specification(for: .iOS, size: NSSize(width: 1290, height: 2796))
+        #expect(resolvedSpec?.displayType == "APP_IPHONE_67")
+
+        let defaultSpec = registry.defaultSpecification(for: .iPadOS)
+        #expect(defaultSpec?.displayType == "APP_IPAD_PRO_3GEN_129")
+    }
+
+    @Test("composition renders framed poster with dynamic island and bezels using registry")
+    func rendersFramedPosterWithRegistrySpecifications() throws {
+        let root = try TemporaryDirectory()
+        let input = root.url.appendingPathComponent("source/en-US/iOS/01-home.png")
+        try FileManager.default.createDirectory(at: input.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try makeScaledPNG(
+            pixelSize: NSSize(width: 1290, height: 2796),
+            pointSize: NSSize(width: 1290, height: 2796),
+            url: input
+        )
+        let importManifest = ScreenshotImportManifest(
+            sourceDirectory: root.url.appendingPathComponent("source").path,
+            artifacts: [
+                ScreenshotArtifact(locale: "en-US", platform: .iOS, path: input.path, fileName: "01-home.png")
+            ]
+        )
+        let copyManifest = ScreenshotCompositionCopyManifest(items: [
+            ScreenshotCompositionCopy(
+                locale: "en-US",
+                platform: .iOS,
+                fileName: "01-home.png",
+                title: "Dynamic Island",
+                subtitle: "Rendering Bezel & Home Indicator"
+            )
+        ])
+
+        let manifest = try ScreenshotComposer().compose(
+            importManifest: importManifest,
+            outputRoot: root.url.appendingPathComponent("composed-spec"),
+            mode: .framedPoster,
+            copyManifest: copyManifest,
+            theme: .tealGold
+        )
+        #expect(manifest.artifacts.count == 1)
+        #expect(NSImage(contentsOfFile: manifest.artifacts[0].outputPath)?.isValid == true)
+        try expectPNGHasNoAlpha(at: URL(fileURLWithPath: manifest.artifacts[0].outputPath))
+    }
 }

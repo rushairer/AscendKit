@@ -3671,7 +3671,8 @@ public struct ScreenshotComposer {
                         outputURL: outputURL,
                         title: effectiveTitle,
                         subtitle: effectiveSubtitle,
-                        theme: effectiveTheme
+                        theme: effectiveTheme,
+                        platform: artifact.platform
                     )
                 }
             }
@@ -3820,7 +3821,14 @@ public struct ScreenshotComposer {
         try png.write(to: outputURL, options: [.atomic])
     }
 
-    private func renderFramedPoster(inputURL: URL, outputURL: URL, title: String, subtitle: String?, theme: ScreenshotTheme) throws {
+    private func renderFramedPoster(
+        inputURL: URL,
+        outputURL: URL,
+        title: String,
+        subtitle: String?,
+        theme: ScreenshotTheme,
+        platform: ApplePlatform
+    ) throws {
         guard let screenshot = NSImage(contentsOf: inputURL), screenshot.isValid else {
             throw AscendKitError.invalidState("Cannot decode screenshot image for framed poster composition: \(inputURL.path)")
         }
@@ -3846,7 +3854,15 @@ public struct ScreenshotComposer {
             width: screenSize.width,
             height: screenSize.height
         )
-        let framePadding = max(14, min(screenSize.width, screenSize.height) * 0.045)
+
+        // Fetch specification from the new DeviceFrameRegistry
+        let spec = DeviceFrameRegistry.shared.specification(for: platform, size: canvasSize)
+            ?? DeviceFrameRegistry.shared.defaultSpecification(for: platform)
+
+        let bezelWidth = spec?.bezelWidth ?? max(14, min(screenSize.width, screenSize.height) * 0.045)
+        let cornerRadius = spec?.cornerRadius ?? (bezelWidth * 1.55)
+
+        let framePadding = bezelWidth
         let frameRect = screenRect.insetBy(dx: -framePadding, dy: -framePadding)
 
         let png = try ScreenshotImageSanitizer.renderOpaquePNG(
@@ -3890,20 +3906,23 @@ public struct ScreenshotComposer {
                 )
             }
 
+            // Draw shadow for the hardware frame
             let shadow = NSShadow()
             shadow.shadowColor = NSColor.black.withAlphaComponent(0.35)
             shadow.shadowOffset = NSSize(width: 0, height: -22)
             shadow.shadowBlurRadius = 56
             shadow.set()
 
-            let frameRadius = framePadding * 1.55
+            let frameRadius = cornerRadius
             let framePath = NSBezierPath(roundedRect: frameRect, xRadius: frameRadius, yRadius: frameRadius)
             theme.framedPosterDeviceFrame.nsColor.setFill()
             framePath.fill()
 
+            // Draw screen area & clip the screenshot
             NSGraphicsContext.saveGraphicsState()
             NSShadow().set()
-            let screenPath = NSBezierPath(roundedRect: screenRect, xRadius: framePadding * 0.95, yRadius: framePadding * 0.95)
+            let screenRadius = max(6.0, frameRadius - framePadding)
+            let screenPath = NSBezierPath(roundedRect: screenRect, xRadius: screenRadius, yRadius: screenRadius)
             screenPath.addClip()
             screenshot.draw(
                 in: screenRect,
@@ -3913,11 +3932,66 @@ public struct ScreenshotComposer {
                 respectFlipped: false,
                 hints: [.interpolation: NSImageInterpolation.high]
             )
+
+            // Draw Dynamic Island overlay if specified
+            if let islandSize = spec?.dynamicIslandSize {
+                let scale = screenSize.width / (spec?.screenPixelSize.width ?? 1.0)
+                let actualIslandSize = NSSize(width: islandSize.width * scale, height: islandSize.height * scale)
+                let islandRect = NSRect(
+                    x: screenRect.midX - (actualIslandSize.width / 2),
+                    y: screenRect.maxY - (actualIslandSize.height * 1.3),
+                    width: actualIslandSize.width,
+                    height: actualIslandSize.height
+                )
+                let islandPath = NSBezierPath(roundedRect: islandRect, xRadius: actualIslandSize.height / 2, yRadius: actualIslandSize.height / 2)
+                NSColor.black.setFill()
+                islandPath.fill()
+            }
+
+            // Draw Notch overlay if specified
+            if let notchSize = spec?.notchSize {
+                let scale = screenSize.width / (spec?.screenPixelSize.width ?? 1.0)
+                let actualNotchSize = NSSize(width: notchSize.width * scale, height: notchSize.height * scale)
+                let notchRect = NSRect(
+                    x: screenRect.midX - (actualNotchSize.width / 2),
+                    y: screenRect.maxY - actualNotchSize.height,
+                    width: actualNotchSize.width,
+                    height: actualNotchSize.height
+                )
+                let notchPath = NSBezierPath(roundedRect: notchRect, xRadius: actualNotchSize.height * 0.18, yRadius: actualNotchSize.height * 0.18)
+                NSColor.black.setFill()
+                notchPath.fill()
+            }
+
+            // Draw Home Indicator if specified
+            if spec?.hasHomeIndicator == true {
+                let scale = screenSize.width / (spec?.screenPixelSize.width ?? 1.0)
+                let indicatorWidth = 420.0 * scale
+                let indicatorHeight = 15.0 * scale
+                let indicatorRect = NSRect(
+                    x: screenRect.midX - (indicatorWidth / 2),
+                    y: screenRect.minY + (24.0 * scale),
+                    width: indicatorWidth,
+                    height: indicatorHeight
+                )
+                let indicatorPath = NSBezierPath(roundedRect: indicatorRect, xRadius: indicatorHeight / 2, yRadius: indicatorHeight / 2)
+                NSColor.white.withAlphaComponent(0.85).setFill()
+                indicatorPath.fill()
+            }
+
             NSGraphicsContext.restoreGraphicsState()
 
+            // Draw high-fidelity dual stroke/metallic bezel appearance
             theme.framedPosterDeviceFrameStroke.nsColor.setStroke()
             framePath.lineWidth = max(2, framePadding * 0.08)
             framePath.stroke()
+
+            // Draw inner bezel highlight for realistic metallic framing
+            let innerBezelRect = frameRect.insetBy(dx: 1, dy: 1)
+            let innerBezelPath = NSBezierPath(roundedRect: innerBezelRect, xRadius: frameRadius - 1, yRadius: frameRadius - 1)
+            NSColor.white.withAlphaComponent(0.08).setStroke()
+            innerBezelPath.lineWidth = 1.0
+            innerBezelPath.stroke()
         }
         try png.write(to: outputURL, options: [.atomic])
     }
