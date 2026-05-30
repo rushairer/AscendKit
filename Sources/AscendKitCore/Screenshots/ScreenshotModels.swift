@@ -3452,6 +3452,14 @@ public struct ScreenshotUploadPlanBuilder {
             observedState: observedState,
             matchingFilesOnly: deleteOnlyMatchingRemoteFiles
         )
+
+        // When --delete-matching-files-only is used without --only-item,
+        // the intent is delete-only with no new uploads. Clear upload items
+        // but keep the deletions that were computed above.
+        if deleteOnlyMatchingRemoteFiles && onlyPlanItemIDs.isEmpty {
+            items = []
+            findings.append("--delete-matching-files-only was used without --only-item; upload items have been cleared. Only remote file deletions will be planned.")
+        }
         findings.append(contentsOf: localizationMismatchFindings(items: items, observedState: observedState))
         findings.append(contentsOf: displayTypeMismatchFindings(items: items))
         if !replaceExistingRemoteScreenshots {

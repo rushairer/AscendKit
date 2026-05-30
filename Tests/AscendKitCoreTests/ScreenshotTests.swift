@@ -1606,6 +1606,60 @@ struct ScreenshotTests {
         #expect(plan.remoteScreenshotsToDelete?.map(\.appScreenshotID) == ["screenshot-2"])
     }
 
+    @Test("delete-matching-files-only without --only-item clears upload items")
+    func deleteMatchingFilesOnlyClearsUploadItemsWhenNoOnlyItem() throws {
+        let importManifest = ScreenshotImportManifest(
+            sourceDirectory: "/tmp/screenshots",
+            artifacts: [
+                ScreenshotArtifact(
+                    locale: "en-US",
+                    platform: .iPadOS,
+                    path: "/tmp/screenshots/en-US/iPadOS/01-home.png",
+                    fileName: "01-home.png"
+                ),
+                ScreenshotArtifact(
+                    locale: "en-US",
+                    platform: .iPadOS,
+                    path: "/tmp/screenshots/en-US/iPadOS/02-beats.png",
+                    fileName: "02-beats.png"
+                )
+            ]
+        )
+        let observed = MetadataObservedState(
+            metadataByLocale: [
+                "en-US": AppMetadata(locale: "en-US", name: "Demo", description: "Demo description")
+            ],
+            resourceIDsByLocale: [
+                "en-US": MetadataLocalizationResourceIDs(appStoreVersionLocalizationID: "version-loc-1")
+            ],
+            screenshotSetsByLocale: [
+                "en-US": [
+                    ObservedScreenshotSet(
+                        id: "set-1",
+                        displayType: "APP_IPAD_PRO_3GEN_129",
+                        screenshots: [
+                            ObservedScreenshot(id: "screenshot-1", fileName: "01-home.png", assetDeliveryState: "COMPLETE"),
+                            ObservedScreenshot(id: "screenshot-2", fileName: "02-beats.png", assetDeliveryState: "COMPLETE")
+                        ]
+                    )
+                ]
+            ]
+        )
+
+        let plan = ScreenshotUploadPlanBuilder().build(
+            importManifest: importManifest,
+            compositionManifest: nil,
+            observedState: observed,
+            displayTypeOverride: "APP_IPAD_PRO_3GEN_129",
+            replaceExistingRemoteScreenshots: true,
+            onlyPlanItemIDs: [],
+            deleteOnlyMatchingRemoteFiles: true
+        )
+
+        #expect(plan.items.isEmpty)
+        #expect(plan.remoteScreenshotsToDelete?.isEmpty == false)
+    }
+
     @Test("renders poster composition as a PNG artifact")
     func rendersPosterComposition() throws {
         let root = try TemporaryDirectory()
