@@ -210,17 +210,53 @@ struct PBXProjectScanner {
     private func scanBuildConfigurations() -> [String: BuildConfiguration] {
         Dictionary(uniqueKeysWithValues: blocks(inSectionNamed: "XCBuildConfiguration").map { id, body in
             let settingsBody = nestedDictionary("buildSettings", in: body) ?? ""
-            let settings = [
-                "PRODUCT_BUNDLE_IDENTIFIER": firstValue("PRODUCT_BUNDLE_IDENTIFIER", in: settingsBody),
-                "MARKETING_VERSION": firstValue("MARKETING_VERSION", in: settingsBody),
-                "CURRENT_PROJECT_VERSION": firstValue("CURRENT_PROJECT_VERSION", in: settingsBody),
-                "INFOPLIST_FILE": firstValue("INFOPLIST_FILE", in: settingsBody),
-                "ASSETCATALOG_COMPILER_APPICON_NAME": firstValue("ASSETCATALOG_COMPILER_APPICON_NAME", in: settingsBody),
-                "CODE_SIGN_ENTITLEMENTS": firstValue("CODE_SIGN_ENTITLEMENTS", in: settingsBody),
-                "SUPPORTED_PLATFORMS": firstValue("SUPPORTED_PLATFORMS", in: settingsBody)
-            ].compactMapValues { $0 }
+            let parsed = parseAllSettings(in: settingsBody)
+
+            var settings: [String: String] = [:]
+            let commonKeys = [
+                "PRODUCT_BUNDLE_IDENTIFIER",
+                "MARKETING_VERSION",
+                "CURRENT_PROJECT_VERSION",
+                "INFOPLIST_FILE",
+                "ASSETCATALOG_COMPILER_APPICON_NAME",
+                "CODE_SIGN_ENTITLEMENTS",
+                "SUPPORTED_PLATFORMS",
+                "GENERATE_INFOPLIST_FILE"
+            ]
+            for key in commonKeys {
+                if let val = parsed[key] {
+                    settings[key] = val
+                }
+            }
+
+            for (key, val) in parsed {
+                if key.hasPrefix("INFOPLIST_KEY_") {
+                    var cleanKey = key.replacingOccurrences(of: "INFOPLIST_KEY_", with: "")
+                    if let bracketIndex = cleanKey.firstIndex(of: "[") {
+                        cleanKey = String(cleanKey[..<bracketIndex])
+                    }
+                    settings["INFOPLIST_KEY_CLEANED_\(cleanKey)"] = val
+                }
+            }
+
             return (id, BuildConfiguration(id: id, name: firstValue("name", in: body) ?? "", settings: settings))
         })
+    }
+
+    private func parseAllSettings(in settingsBody: String) -> [String: String] {
+        let pattern = #"(?m)^\s*("(?:[^"\\]|\\.)*"|[A-Za-z_][A-Za-z0-9_]*(?:\[(?:[^\]])*\])?)\s*=\s*([^;]*?);"#
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return [:] }
+        var dict: [String: String] = [:]
+        let range = NSRange(settingsBody.startIndex..<settingsBody.endIndex, in: settingsBody)
+        for match in regex.matches(in: settingsBody, range: range) {
+            guard match.numberOfRanges >= 3,
+                  let keyRange = Range(match.range(at: 1), in: settingsBody),
+                  let valRange = Range(match.range(at: 2), in: settingsBody) else { continue }
+            let key = clean(String(settingsBody[keyRange]))
+            let val = clean(String(settingsBody[valRange]))
+            dict[key] = val
+        }
+        return dict
     }
 
     private func preferredSettings(
@@ -238,7 +274,17 @@ struct PBXProjectScanner {
     }
 
     private func makeTarget(name: String, productType: String?, settings: [String: String]) -> BundleTarget {
-        BundleTarget(
+        let generateInfoPlist = settings["GENERATE_INFOPLIST_FILE"] == "YES"
+
+        var plistKeys: [String: String] = [:]
+        for (key, val) in settings {
+            if key.hasPrefix("INFOPLIST_KEY_CLEANED_") {
+                let cleanKey = key.replacingOccurrences(of: "INFOPLIST_KEY_CLEANED_", with: "")
+                plistKeys[cleanKey] = val
+            }
+        }
+
+        return BundleTarget(
             name: name,
             platform: inferPlatform(from: settings["SUPPORTED_PLATFORMS"]),
             bundleIdentifier: settings["PRODUCT_BUNDLE_IDENTIFIER"],
@@ -250,7 +296,9 @@ struct PBXProjectScanner {
             appIconName: settings["ASSETCATALOG_COMPILER_APPICON_NAME"],
             entitlementsPath: settings["CODE_SIGN_ENTITLEMENTS"],
             productType: productType,
-            isExtension: productType?.contains("app-extension") == true || settings["PRODUCT_BUNDLE_IDENTIFIER"]?.contains(".extension") == true
+            isExtension: productType?.contains("app-extension") == true || settings["PRODUCT_BUNDLE_IDENTIFIER"]?.contains(".extension") == true,
+            infoPlistKeys: plistKeys,
+            generateInfoPlistFile: generateInfoPlist
         )
     }
 

@@ -31,6 +31,8 @@ public struct BundleTarget: Codable, Equatable, Identifiable, Sendable {
     public var entitlementsPath: String?
     public var productType: String?
     public var isExtension: Bool
+    public var infoPlistKeys: [String: String]?
+    public var generateInfoPlistFile: Bool?
     public var isTestBundle: Bool {
         productType?.contains("unit-test") == true || productType?.contains("ui-testing") == true
     }
@@ -54,7 +56,9 @@ public struct BundleTarget: Codable, Equatable, Identifiable, Sendable {
         appIconName: String? = nil,
         entitlementsPath: String? = nil,
         productType: String? = nil,
-        isExtension: Bool = false
+        isExtension: Bool = false,
+        infoPlistKeys: [String: String]? = nil,
+        generateInfoPlistFile: Bool? = nil
     ) {
         self.name = name
         self.platform = platform
@@ -65,6 +69,8 @@ public struct BundleTarget: Codable, Equatable, Identifiable, Sendable {
         self.entitlementsPath = entitlementsPath
         self.productType = productType
         self.isExtension = isExtension
+        self.infoPlistKeys = infoPlistKeys
+        self.generateInfoPlistFile = generateInfoPlistFile
     }
 }
 

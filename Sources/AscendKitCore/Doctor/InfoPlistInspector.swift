@@ -20,66 +20,85 @@ public struct InfoPlistInspector {
     }
 
     public func inspect(target: BundleTarget, projectReferences: [ProjectReference]) -> InfoPlistInspectionResult? {
-        guard let infoPlistPath = target.infoPlistPath, !infoPlistPath.isEmpty else {
-            return InfoPlistInspectionResult(
-                targetName: target.name,
-                path: "",
-                findings: [
-                    DoctorFinding(
-                        id: "plist.\(target.name).missing-path",
-                        severity: .warning,
-                        category: .privacy,
-                        title: "Info.plist path was not detected for \(target.name)",
-                        detail: "Release-sensitive plist checks were skipped for this target.",
-                        nextAction: "Set INFOPLIST_FILE or provide a manifest with the Info.plist path."
+        let isGenerating = target.generateInfoPlistFile == true
+        let hasPath = target.infoPlistPath.map { !$0.isEmpty } ?? false
+
+        var basePlist: [String: Any] = [:]
+        var infoPlistResolvedPath = ""
+
+        if hasPath, let infoPlistPath = target.infoPlistPath {
+            let resolvedURL = resolve(infoPlistPath, projectReferences: projectReferences)
+            infoPlistResolvedPath = resolvedURL.path
+            if fileManager.fileExists(atPath: resolvedURL.path) {
+                do {
+                    let data = try Data(contentsOf: resolvedURL)
+                    let object = try PropertyListSerialization.propertyList(from: data, options: [], format: nil)
+                    basePlist = object as? [String: Any] ?? [:]
+                } catch {
+                    return InfoPlistInspectionResult(
+                        targetName: target.name,
+                        path: resolvedURL.path,
+                        findings: [
+                            DoctorFinding(
+                                id: "plist.\(target.name).decode-failed",
+                                severity: .error,
+                                category: .privacy,
+                                title: "Info.plist could not be decoded for \(target.name)",
+                                detail: "Property list parsing failed: \(error.localizedDescription)",
+                                nextAction: "Open the plist in Xcode and fix malformed content."
+                            )
+                        ]
                     )
-                ]
-            )
+                }
+            } else {
+                if !isGenerating {
+                    return InfoPlistInspectionResult(
+                        targetName: target.name,
+                        path: resolvedURL.path,
+                        findings: [
+                            DoctorFinding(
+                                id: "plist.\(target.name).not-found",
+                                severity: .warning,
+                                category: .privacy,
+                                title: "Info.plist not found for \(target.name)",
+                                detail: "Expected Info.plist at \(resolvedURL.path).",
+                                nextAction: "Verify INFOPLIST_FILE or regenerate intake with the correct project root."
+                            )
+                        ]
+                    )
+                }
+            }
+        } else {
+            if !isGenerating {
+                return InfoPlistInspectionResult(
+                    targetName: target.name,
+                    path: "",
+                    findings: [
+                        DoctorFinding(
+                            id: "plist.\(target.name).missing-path",
+                            severity: .warning,
+                            category: .privacy,
+                            title: "Info.plist path was not detected for \(target.name)",
+                            detail: "Release-sensitive plist checks were skipped for this target.",
+                            nextAction: "Set INFOPLIST_FILE or provide a manifest with the Info.plist path."
+                        )
+                    ]
+                )
+            }
         }
 
-        let resolvedURL = resolve(infoPlistPath, projectReferences: projectReferences)
-        guard fileManager.fileExists(atPath: resolvedURL.path) else {
-            return InfoPlistInspectionResult(
-                targetName: target.name,
-                path: resolvedURL.path,
-                findings: [
-                    DoctorFinding(
-                        id: "plist.\(target.name).not-found",
-                        severity: .warning,
-                        category: .privacy,
-                        title: "Info.plist not found for \(target.name)",
-                        detail: "Expected Info.plist at \(resolvedURL.path).",
-                        nextAction: "Verify INFOPLIST_FILE or regenerate intake with the correct project root."
-                    )
-                ]
-            )
+        var mergedPlist = basePlist
+        if let infoPlistKeys = target.infoPlistKeys {
+            for (key, val) in infoPlistKeys {
+                mergedPlist[key] = val
+            }
         }
 
-        do {
-            let data = try Data(contentsOf: resolvedURL)
-            let object = try PropertyListSerialization.propertyList(from: data, options: [], format: nil)
-            let plist = object as? [String: Any] ?? [:]
-            return InfoPlistInspectionResult(
-                targetName: target.name,
-                path: resolvedURL.path,
-                findings: findings(for: target, plist: plist, projectReferences: projectReferences)
-            )
-        } catch {
-            return InfoPlistInspectionResult(
-                targetName: target.name,
-                path: resolvedURL.path,
-                findings: [
-                    DoctorFinding(
-                        id: "plist.\(target.name).decode-failed",
-                        severity: .error,
-                        category: .privacy,
-                        title: "Info.plist could not be decoded for \(target.name)",
-                        detail: "Property list parsing failed: \(error.localizedDescription)",
-                        nextAction: "Open the plist in Xcode and fix malformed content."
-                    )
-                ]
-            )
-        }
+        return InfoPlistInspectionResult(
+            targetName: target.name,
+            path: infoPlistResolvedPath,
+            findings: findings(for: target, plist: mergedPlist, projectReferences: projectReferences)
+        )
     }
 
     private func resolve(_ path: String, projectReferences: [ProjectReference]) -> URL {

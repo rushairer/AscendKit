@@ -2,6 +2,12 @@
 
 AscendKit follows [Semantic Versioning](https://semver.org/). The `1.x` line keeps the documented v1 command surface stable; breaking workflow changes require a new major version.
 
+## 1.6.2 - 2026-05-30
+
+### Fixed
+
+- Added support for Xcode target-level Info.plist generation (`GENERATE_INFOPLIST_FILE = YES`). Extracted keys under `INFOPLIST_KEY_*` are dynamically parsed, stripped of bracket SDK conditionals, and merged into target-level configurations, bypassing false-positive `missing-path`/`not-found` Info.plist diagnostics.
+
 ## 1.6.1 - 2026-05-30
 
 ### Added
