@@ -2,6 +2,12 @@
 
 AscendKit follows [Semantic Versioning](https://semver.org/). The `1.x` line keeps the documented v1 command surface stable; breaking workflow changes require a new major version.
 
+## 1.6.1 - 2026-05-30
+
+### Added
+
+- Native Chunking & Resumable Upload Engine (Two-Stage & Exponential Backoff).
+
 ## 1.5.2 - 2026-05-28
 
 ### Fixed
