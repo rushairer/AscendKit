@@ -2128,27 +2128,28 @@ struct CLIRunner {
                 try store.save(result, to: URL(fileURLWithPath: workspace.paths.reviewSubmissionResult))
                 return try render(result, json: json) {
                     [
-                        "Review submission execution was not run: pass --confirm-remote-submission to record the current boundary-disabled result.",
+                        "Review submission execution was not run: pass --confirm-remote-submission to execute.",
                         "AscendKit version: \(result.ascendKitVersion ?? "unknown")"
                     ].joined(separator: "\n")
                 }
             }
             guard plan.remoteSubmissionExecutionAllowed else {
-                let result = ReviewSubmissionExecutionResult.boundaryDisabled(
+                let result = ReviewSubmissionExecutionResult.executionBlocked(
                     appStoreVersionID: try loadIfExists(MetadataObservedState.self, path: workspace.paths.ascObservedState)?.appStoreVersionID,
-                    buildID: plan.selectedBuildID
+                    buildID: plan.selectedBuildID,
+                    findings: plan.findings
                 )
                 try store.save(result, to: URL(fileURLWithPath: workspace.paths.reviewSubmissionResult))
                 try store.appendAudit(
                     .init(
                         action: .reviewSubmissionPlanned,
-                        summary: "Skipped remote review submission because execution is disabled"
+                        summary: "Skipped remote review submission: execution conditions not met"
                     ),
                     to: workspace
                 )
                 return try render(result, json: json) {
                     [
-                        "Review submission execution is disabled by AscendKit boundary; use submit handoff and submit manually in App Store Connect.",
+                        "Review submission execution is blocked: not all readiness and review plan conditions are met. See findings for details.",
                         "AscendKit version: \(result.ascendKitVersion ?? "unknown")"
                     ].joined(separator: "\n")
                 }

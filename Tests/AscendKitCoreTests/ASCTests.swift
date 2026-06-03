@@ -480,11 +480,12 @@ struct ASCTests {
         #expect(decoded.responses.first?.id == "review-submission.submit")
     }
 
-    @Test("creates boundary disabled review submission execution result")
-    func createsBoundaryDisabledReviewSubmissionExecutionResult() {
-        let result = ReviewSubmissionExecutionResult.boundaryDisabled(
+    @Test("creates execution blocked review submission result with findings")
+    func createsExecutionBlockedReviewSubmissionResult() {
+        let result = ReviewSubmissionExecutionResult.executionBlocked(
             appStoreVersionID: "version-1",
-            buildID: "build-7"
+            buildID: "build-7",
+            findings: ["Readiness not ready.", "Build not selected."]
         )
 
         #expect(result.executed == false)
@@ -493,7 +494,9 @@ struct ASCTests {
         #expect(result.appStoreVersionID == "version-1")
         #expect(result.buildID == "build-7")
         #expect(result.responses.isEmpty)
-        #expect(result.findings.contains { $0.contains("disabled by the current AscendKit boundary") })
+        #expect(result.findings.contains { $0.contains("not yet allowed") })
+        #expect(result.findings.contains { $0.contains("Readiness not ready") })
+        #expect(result.findings.contains { $0.contains("Build not selected") })
     }
 
     @Test("serializes preflight remote state round-trip")
