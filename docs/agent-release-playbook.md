@@ -185,12 +185,12 @@ ascendkit asc builds observe --workspace "$WORKSPACE" --json
 Plan and apply metadata:
 
 ```bash
+ascendkit asc metadata observe --workspace "$WORKSPACE" --json
+ascendkit metadata sync --workspace "$WORKSPACE" --json
 ascendkit metadata diff --workspace "$WORKSPACE" --json
 ascendkit asc metadata plan --workspace "$WORKSPACE" --json
 ascendkit asc metadata requests --workspace "$WORKSPACE" --json
 ascendkit asc metadata apply --workspace "$WORKSPACE" --confirm-remote-mutation --json
-ascendkit asc metadata observe --workspace "$WORKSPACE" --json
-ascendkit metadata diff --workspace "$WORKSPACE" --json
 ascendkit asc metadata status --workspace "$WORKSPACE" --json
 ```
 

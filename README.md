@@ -6,7 +6,7 @@ The project is designed for AI-assisted release work without handing raw secrets
 
 ## Current Status
 
-Current documented release: `v1.8.0`.
+Current documented release: `v1.9.0`.
 
 AscendKit follows [Semantic Versioning](https://semver.org/). The v1 command surface is stable for `1.x`: breaking workflow changes require a new major version, while compatible commands, flags, diagnostics, and documentation can continue to evolve through minor releases.
 
@@ -193,7 +193,7 @@ After installation, run `ascendkit` from any app project directory. User-facing 
 Alternative direct installer from a source checkout or release asset:
 
 ```bash
-scripts/install-ascendkit.sh --version 1.8.0
+scripts/install-ascendkit.sh --version 1.9.0
 ASCENDKIT_INSTALL_DIR=/usr/local/bin scripts/install-ascendkit.sh
 ```
 
@@ -202,7 +202,7 @@ The installer downloads the macOS universal release archive from GitHub Releases
 Verify a published release before announcing it:
 
 ```bash
-scripts/verify-release-assets.sh --version 1.8.0
+scripts/verify-release-assets.sh --version 1.9.0
 ```
 
 The verifier checks for the expected GitHub Release assets and performs a temporary installer smoke test.
@@ -228,11 +228,11 @@ Homebrew formula maintenance:
 
 ```bash
 scripts/update-homebrew-formula.sh
-scripts/verify-homebrew-formula.sh --version 1.8.0
-scripts/diagnose-homebrew-install.sh --version 1.8.0
+scripts/verify-homebrew-formula.sh --version 1.9.0
+scripts/diagnose-homebrew-install.sh --version 1.9.0
 scripts/sync-homebrew-tap.sh --commit --push
-scripts/finalize-homebrew-release.sh --version 1.8.0 --commit --push --reinstall
-scripts/v1-release-readiness.sh --version 1.8.0 --app-root /path/to/RepresentativeApp
+scripts/finalize-homebrew-release.sh --version 1.9.0 --commit --push --reinstall
+scripts/v1-release-readiness.sh --version 1.9.0 --app-root /path/to/RepresentativeApp
 ruby -c Formula/ascendkit.rb
 ```
 
@@ -241,7 +241,7 @@ The generated formula points at the GitHub Release archive for the current `asce
 For normal post-tag release finalization, prefer the single finalizer:
 
 ```bash
-scripts/finalize-homebrew-release.sh --version 1.8.0 --commit --push --reinstall
+scripts/finalize-homebrew-release.sh --version 1.9.0 --commit --push --reinstall
 ```
 
 Run it only after `.github/workflows/release.yml` has completed for the tag. It refreshes the formula from the final GitHub Release asset digest, verifies the formula, syncs the Homebrew tap, and optionally reinstalls and diagnoses the installed Homebrew binary.
@@ -249,7 +249,7 @@ Run it only after `.github/workflows/release.yml` has completed for the tag. It 
 If Homebrew reports a checksum mismatch, stale formula, wrong tap, or unexpected installed version, run:
 
 ```bash
-scripts/diagnose-homebrew-install.sh --version 1.8.0
+scripts/diagnose-homebrew-install.sh --version 1.9.0
 ```
 
 The diagnostic is read-only. It checks the installed `ascendkit` binary, universal architectures, tap remote, formula URL, formula SHA-256, and GitHub Release asset digest, then prints repair commands such as re-tapping and reinstalling from `rushairer/ascendkit`.
@@ -623,11 +623,17 @@ ascendkit metadata diff --workspace "$WORKSPACE" --json
 
 Compares local metadata with observed ASC metadata saved in the workspace.
 
+```bash
+ascendkit metadata sync --workspace "$WORKSPACE" --json
+```
+
+Writes observed ASC metadata (from `asc metadata observe`) into local source files. This is useful when a workspace was created after manual ASC submissions and local metadata is still template text. After sync, `metadata diff` shows 0 blocking diffs. Use `--dry-run` to preview without writing.
+
 ### `screenshots`
 
 Plan, import, validate, and compose local screenshot artifacts.
 
-**Screenshot Studio (v1.8.0)**: The `framedPoster` composition mode now uses a built-in `DeviceFrameRegistry` that maps physical marketing device specifications — pixel dimensions, bezel width, per-device corner radius, Dynamic Island cutout size, and notch dimensions — for iPhone 6.7" (1290x2796), iPhone 6.5" (1242x2688), iPad Pro 13-inch (2064x2752), and Mac Desktop (2560x1600). Source screenshots are matched to device specs automatically using tolerant orientation-aware size detection. The renderer draws high-fidelity vector hardware overlays: double-stroke metal-gradient bezels, Dynamic Island / notch cutout masks, translucent Home indicator bar, and soft drop-shadow back-drops matching App Store card styling. AI Agents can invoke Screenshot Studio with:
+**Screenshot Studio (v1.9.0)**: The `framedPoster` composition mode now uses a built-in `DeviceFrameRegistry` that maps physical marketing device specifications — pixel dimensions, bezel width, per-device corner radius, Dynamic Island cutout size, and notch dimensions — for iPhone 6.7" (1290x2796), iPhone 6.5" (1242x2688), iPad Pro 13-inch (2064x2752), and Mac Desktop (2560x1600). Source screenshots are matched to device specs automatically using tolerant orientation-aware size detection. The renderer draws high-fidelity vector hardware overlays: double-stroke metal-gradient bezels, Dynamic Island / notch cutout masks, translucent Home indicator bar, and soft drop-shadow back-drops matching App Store card styling. AI Agents can invoke Screenshot Studio with:
 ```bash
 ascendkit screenshots compose --workspace "$WORKSPACE" --mode framedPoster --json
 ```

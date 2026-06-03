@@ -331,7 +331,7 @@ public struct ASCMetadataStatusBuilder {
         var findings: [String] = []
         var nextActions: [String] = []
 
-        if applyResult?.applied != true {
+        if applyResult?.applied != true && (blockingDiffs?.isEmpty == false || remainingDiffs?.isEmpty == false) {
             findings.append("ASC metadata apply has not completed.")
             nextActions.append("Run asc metadata plan, asc metadata requests, then asc metadata apply --confirm-remote-mutation.")
         }
@@ -359,7 +359,7 @@ public struct ASCMetadataStatusBuilder {
             remainingDiffCount: remainingDiffs?.count,
             blockingDiffCount: blockingDiffs?.count,
             releaseNotesOnlyDiff: releaseNotesOnly,
-            readyForReviewPlan: applyResult?.applied == true && diffFresh == true && (blockingDiffs?.isEmpty == true),
+            readyForReviewPlan: (blockingDiffs?.isEmpty == true) || (applyResult?.applied == true && diffFresh == true),
             findings: findings + (applyResult?.findings ?? []),
             nextActions: deduplicated(nextActions)
         )

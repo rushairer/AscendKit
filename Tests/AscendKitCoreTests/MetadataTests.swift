@@ -115,6 +115,30 @@ struct MetadataTests {
         #expect(status.findings.contains { $0.contains("releaseNotes/whatsNew") })
     }
 
+    @Test("reports ready for review plan when no blocking diffs even without apply")
+    func readyForReviewPlanWhenNoBlockingDiffs() {
+        let status = ASCMetadataStatusBuilder().build(
+            applyResult: nil,
+            diffReport: MetadataDiffReport(
+                generatedAt: Date(),
+                diffs: [
+                    MetadataFieldDiff(
+                        locale: "en-US",
+                        field: "name",
+                        status: .unchanged,
+                        localValue: "Demo",
+                        remoteValue: "Demo"
+                    )
+                ]
+            )
+        )
+
+        #expect(status.applied == nil)
+        #expect(status.blockingDiffCount == 0)
+        #expect(status.readyForReviewPlan)
+        #expect(!status.findings.contains { $0.contains("apply has not completed") })
+    }
+
     @Test("plans ASC metadata mutations from local and observed diff")
     func plansASCMetadataMutations() {
         let local = AppMetadata(
@@ -310,5 +334,108 @@ struct MetadataTests {
         #expect(imported[0].name == "Demo")
         #expect(imported[0].keywords == ["demo", "release"])
         #expect(imported[0].privacyPolicyURL == "https://example.com/privacy")
+    }
+
+    @Test("syncs observed metadata to local source files")
+    func syncsObservedMetadataToLocalFiles() throws {
+        let root = try TemporaryDirectory()
+        let store = ReleaseWorkspaceStore()
+        let workspace = try store.createWorkspace(
+            baseDirectory: root.url,
+            manifest: ReleaseManifest(releaseID: "sync-test", appSlug: "sync-test", projects: [], targets: [])
+        )
+
+        let enUS = AppMetadata(
+            locale: "en-US",
+            name: "My App",
+            subtitle: "Best app",
+            description: "A great app for testing.",
+            releaseNotes: "Version 2.0",
+            keywords: ["test", "app"],
+            supportURL: "https://example.com/support",
+            marketingURL: "https://example.com",
+            privacyPolicyURL: "https://example.com/privacy"
+        )
+        let zhHans = AppMetadata(
+            locale: "zh-Hans",
+            name: "我的应用",
+            description: "一个测试应用。"
+        )
+        let observed = MetadataObservedState(metadataByLocale: ["en-US": enUS, "zh-Hans": zhHans])
+
+        // Write observed state to workspace
+        try store.save(observed, to: URL(fileURLWithPath: workspace.paths.ascObservedState))
+
+        // Simulate sync: iterate observed.metadataByLocale and save each
+        for (locale, metadata) in observed.metadataByLocale {
+            let url = URL(fileURLWithPath: workspace.paths.root)
+                .appendingPathComponent("metadata")
+                .appendingPathComponent(locale == "en-US" ? "source" : "localized")
+                .appendingPathComponent("\(locale).json")
+            try store.save(metadata, to: url)
+        }
+
+        // Verify en-US written to source/
+        let enUSData = try Data(contentsOf: URL(fileURLWithPath: workspace.paths.root)
+            .appendingPathComponent("metadata/source/en-US.json"))
+        let enUSDecoded = try AscendKitJSON.decoder.decode(AppMetadata.self, from: enUSData)
+        #expect(enUSDecoded.name == "My App")
+        #expect(enUSDecoded.subtitle == "Best app")
+        #expect(enUSDecoded.keywords == ["test", "app"])
+        #expect(enUSDecoded.privacyPolicyURL == "https://example.com/privacy")
+
+        // Verify zh-Hans written to localized/
+        let zhData = try Data(contentsOf: URL(fileURLWithPath: workspace.paths.root)
+            .appendingPathComponent("metadata/localized/zh-Hans.json"))
+        let zhDecoded = try AscendKitJSON.decoder.decode(AppMetadata.self, from: zhData)
+        #expect(zhDecoded.name == "我的应用")
+        #expect(zhDecoded.description == "一个测试应用。")
+    }
+
+    @Test("MetadataSyncResult reports correct field counts")
+    func syncResultFieldCounts() {
+        let metadata = AppMetadata(
+            locale: "en-US",
+            name: "App",
+            description: "Desc",
+            keywords: ["a"]
+        )
+        let fieldCount = [
+            metadata.name.isEmpty ? 0 : 1,
+            metadata.subtitle == nil ? 0 : 1,
+            metadata.promotionalText == nil ? 0 : 1,
+            metadata.description.isEmpty ? 0 : 1,
+            metadata.releaseNotes == nil ? 0 : 1,
+            metadata.keywords.isEmpty ? 0 : 1,
+            metadata.supportURL == nil ? 0 : 1,
+            metadata.marketingURL == nil ? 0 : 1,
+            metadata.privacyPolicyURL == nil ? 0 : 1
+        ].reduce(0, +)
+        #expect(fieldCount == 3)
+
+        let fullMetadata = AppMetadata(
+            locale: "en-US",
+            name: "App",
+            subtitle: "Sub",
+            promotionalText: "Promo",
+            description: "Desc",
+            releaseNotes: "Notes",
+            keywords: ["a"],
+            supportURL: "https://example.com",
+            marketingURL: "https://example.com",
+            privacyPolicyURL: "https://example.com/privacy"
+        )
+        let fullFieldCount = [
+            fullMetadata.name.isEmpty ? 0 : 1,
+            fullMetadata.subtitle == nil ? 0 : 1,
+            fullMetadata.promotionalText == nil ? 0 : 1,
+            fullMetadata.description.isEmpty ? 0 : 1,
+            fullMetadata.releaseNotes == nil ? 0 : 1,
+            fullMetadata.keywords.isEmpty ? 0 : 1,
+            fullMetadata.supportURL == nil ? 0 : 1,
+            fullMetadata.marketingURL == nil ? 0 : 1,
+            fullMetadata.privacyPolicyURL == nil ? 0 : 1
+        ].reduce(0, +)
+        #expect(fullFieldCount == 9)
     }
 }

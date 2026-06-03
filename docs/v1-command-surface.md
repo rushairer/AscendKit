@@ -25,6 +25,7 @@ These command groups are expected to remain available through `v1.x`:
 - `intake`
 - `doctor`
 - `metadata`
+- `metadata sync`
 - `screenshots`
 - `asc auth`
 - `asc lookup`

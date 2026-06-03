@@ -379,7 +379,7 @@ struct CLIRunner {
 
     private func metadata(_ args: [String], json: Bool) throws -> String {
         guard let subcommand = args.first else {
-            throw AscendKitError.invalidArguments("Usage: ascendkit metadata init|import-fastlane|status|lint|diff --workspace PATH")
+            throw AscendKitError.invalidArguments("Usage: ascendkit metadata init|import-fastlane|status|lint|diff|sync --workspace PATH")
         }
         let workspace = try loadWorkspace(from: args)
         let store = ReleaseWorkspaceStore(fileManager: fileManager)
@@ -439,7 +439,45 @@ struct CLIRunner {
                 "Metadata diff complete: \(report.changedCount) changed/missing field(s)\nAscendKit version: \(report.ascendKitVersion ?? "unknown")"
             }
         case "sync":
-            throw AscendKitError.invalidArguments("metadata sync has been replaced by asc metadata plan and asc metadata apply --confirm-remote-mutation.")
+            guard let observed = try loadIfExists(MetadataObservedState.self, path: workspace.paths.ascObservedState) else {
+                throw AscendKitError.invalidState("No observed ASC metadata found. Run `asc metadata observe` first.")
+            }
+            let dryRun = args.contains("--dry-run")
+            var syncedLocales: [MetadataSyncResult.SyncedLocale] = []
+            for (locale, metadata) in observed.metadataByLocale.sorted(by: { $0.key < $1.key }) {
+                let url = metadataURL(locale: locale, workspace: workspace)
+                if !dryRun {
+                    try store.save(metadata, to: url)
+                }
+                let fieldCount = [
+                    metadata.name.isEmpty ? 0 : 1,
+                    metadata.subtitle == nil ? 0 : 1,
+                    metadata.promotionalText == nil ? 0 : 1,
+                    metadata.description.isEmpty ? 0 : 1,
+                    metadata.releaseNotes == nil ? 0 : 1,
+                    metadata.keywords.isEmpty ? 0 : 1,
+                    metadata.supportURL == nil ? 0 : 1,
+                    metadata.marketingURL == nil ? 0 : 1,
+                    metadata.privacyPolicyURL == nil ? 0 : 1
+                ].reduce(0, +)
+                syncedLocales.append(.init(locale: locale, path: url.path, fieldCount: fieldCount))
+            }
+            let result = MetadataSyncResult(
+                generatedAt: Date(),
+                ascendKitVersion: AscendKitVersion.current,
+                dryRun: dryRun,
+                syncedLocales: syncedLocales
+            )
+            if !dryRun {
+                try store.appendAudit(
+                    .init(action: .metadataSynced, summary: "Synced \(syncedLocales.count) locale(s) from observed ASC state"),
+                    to: workspace
+                )
+            }
+            return try render(result, json: json) {
+                let prefix = dryRun ? "[dry-run] Would sync" : "Synced"
+                return "\(prefix) \(syncedLocales.count) locale(s) from observed ASC state to local metadata files.\nAscendKit version: \(result.ascendKitVersion ?? "unknown")"
+            }
         default:
             throw AscendKitError.invalidArguments("Unknown metadata command: \(subcommand)")
         }

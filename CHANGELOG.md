@@ -2,6 +2,21 @@
 
 AscendKit follows [Semantic Versioning](https://semver.org/). The `1.x` line keeps the documented v1 command surface stable; breaking workflow changes require a new major version.
 
+## 1.9.0 - 2026-06-04
+
+### Added
+
+- Added `metadata sync --workspace PATH [--dry-run]` command. Writes observed ASC metadata from `asc metadata observe` into local source files (`metadata/source/` and `metadata/localized/`). After sync, `metadata diff` shows 0 blocking diffs. Essential for workspaces created after manual ASC submissions where local metadata is still template text.
+- Added `metadataSynced` audit action.
+
+### Changed
+
+- `asc metadata status`: `readyForReviewPlan` is now `true` when `blockingDiffCount == 0`, even if `metadata apply` has not been run. Zero diffs means nothing to apply.
+- `submit review-plan` / `submit execute`: `readyForManualReviewSubmission` no longer requires `metadataApplied` when `blockingMetadataDiffs` is empty. Zero blocking diffs means metadata is already in sync.
+- "ASC metadata apply has not completed" finding now only appears when there are actual blocking diffs to apply.
+- `submit execute` error messages now include specific plan findings instead of generic "disabled by AscendKit boundary" text, so agents can see exactly which conditions are unmet.
+- Replaced `boundaryDisabled` result with `executionBlocked` that carries plan findings.
+
 ## 1.8.0 - 2026-06-03
 
 ### Added

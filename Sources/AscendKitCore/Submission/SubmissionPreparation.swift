@@ -205,7 +205,7 @@ public struct ReviewSubmissionPlanBuilder {
         if selectedBuild == nil {
             findings.append("No processable ASC build candidate is selected.")
         }
-        if !metadataApplied {
+        if !metadataApplied && (blockingMetadataDiffs?.isEmpty == false) {
             findings.append("ASC metadata apply has not completed.")
         }
         if metadataApplied && metadataDiffReport == nil {
@@ -237,12 +237,11 @@ public struct ReviewSubmissionPlanBuilder {
         let reviewerName = reviewInfo.map {
             "\($0.contact.firstName) \($0.contact.lastName)".trimmingCharacters(in: .whitespacesAndNewlines)
         }
+        let metadataReady = (blockingMetadataDiffs?.isEmpty == true) || (metadataApplied && metadataDiffFresh)
         let readyForManualReviewSubmission = readiness.ready &&
             selectedBuild != nil &&
-            metadataApplied &&
-            metadataDiffFresh &&
-            effectiveAppPrivacyStatus.readyForSubmission &&
-            (blockingMetadataDiffs?.isEmpty == true)
+            metadataReady &&
+            effectiveAppPrivacyStatus.readyForSubmission
 
         let remoteSubmissionExecutionAllowed = readyForManualReviewSubmission
 

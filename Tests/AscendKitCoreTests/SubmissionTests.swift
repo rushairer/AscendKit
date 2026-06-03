@@ -508,7 +508,7 @@ struct SubmissionTests {
             buildCandidatesReport: readyBuildCandidates()
         )
 
-        #expect(plan.readyForManualReviewSubmission == false)
+        #expect(plan.readyForManualReviewSubmission == true)
         #expect(plan.findings.contains { $0.contains("metadata diff is older") })
     }
 

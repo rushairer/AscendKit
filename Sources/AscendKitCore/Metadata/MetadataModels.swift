@@ -49,6 +49,32 @@ public struct AppMetadata: Codable, Equatable, Sendable {
     )
 }
 
+public struct MetadataSyncResult: Codable, Equatable, Sendable {
+    public var generatedAt: Date
+    public var ascendKitVersion: String?
+    public var dryRun: Bool
+    public var syncedLocales: [SyncedLocale]
+
+    public struct SyncedLocale: Codable, Equatable, Sendable {
+        public var locale: String
+        public var path: String
+        public var fieldCount: Int
+
+        public init(locale: String, path: String, fieldCount: Int) {
+            self.locale = locale
+            self.path = path
+            self.fieldCount = fieldCount
+        }
+    }
+
+    public init(generatedAt: Date, ascendKitVersion: String?, dryRun: Bool, syncedLocales: [SyncedLocale]) {
+        self.generatedAt = generatedAt
+        self.ascendKitVersion = ascendKitVersion
+        self.dryRun = dryRun
+        self.syncedLocales = syncedLocales
+    }
+}
+
 public enum MetadataLintSeverity: String, Codable, Equatable, Sendable {
     case warning
     case error

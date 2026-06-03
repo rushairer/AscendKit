@@ -43,6 +43,7 @@ public enum AuditAction: String, Codable, Equatable, Sendable {
     case metadataDiffed
     case preflightRemoteStateChecked
     case submissionStatusChecked
+    case metadataSynced
 }
 
 public struct AuditRecord: Codable, Equatable, Sendable {
