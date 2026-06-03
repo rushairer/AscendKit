@@ -1146,13 +1146,22 @@ public struct ReleaseWorkspaceSummaryReader {
                     severity: reviewPlanFindingSeverity(finding, plan: reviewPlan)
                 ))
             }
-            if reviewPlan.readyForManualReviewSubmission && !reviewPlan.remoteSubmissionExecutionAllowed {
-                actions.append(.init(
-                    id: "review.submit-manual",
-                    title: "Complete final App Review submission manually",
-                    detail: "Run submit handoff, then submit the prepared version in App Store Connect. Remote submission execution is boundary-disabled.",
-                    severity: .info
-                ))
+            if reviewPlan.readyForManualReviewSubmission {
+                if reviewPlan.remoteSubmissionExecutionAllowed {
+                    actions.append(.init(
+                        id: "review.execute-remote",
+                        title: "Execute remote review submission",
+                        detail: "Run `submit preflight --remote` to verify ASC state, then `submit execute --confirm-remote-submission` to submit for review.",
+                        severity: .info
+                    ))
+                } else {
+                    actions.append(.init(
+                        id: "review.submit-manual",
+                        title: "Complete final App Review submission manually",
+                        detail: "Run submit handoff, then submit the prepared version in App Store Connect. Remote submission execution requires all readiness and review plan conditions to be met.",
+                        severity: .info
+                    ))
+                }
             }
         } else {
             actions.append(.init(
@@ -1278,8 +1287,11 @@ public struct ReleaseWorkspaceSummaryReader {
     }
 
     private func reviewPlanFindingSeverity(_ finding: String, plan: ReviewSubmissionPlan) -> ReleaseActionSeverity {
-        if finding.contains("Remote review submission execution is intentionally disabled") {
+        if finding.contains("Remote review submission execution is allowed") {
             return .info
+        }
+        if finding.contains("Remote review submission execution is not allowed until") {
+            return .warning
         }
         if finding.contains("releaseNotes/whatsNew remains unsynced") {
             return .warning

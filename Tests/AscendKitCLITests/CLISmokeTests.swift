@@ -6,7 +6,7 @@ import Testing
 struct CLISmokeTests {
     @Test("reports current semantic version")
     func reportsCurrentSemanticVersion() {
-        #expect(AscendKitVersion.current == "1.7.0")
+        #expect(AscendKitVersion.current == "1.8.0")
     }
 
     @Test("core JSON encoder produces sorted manifest output")
@@ -142,7 +142,7 @@ struct CLISmokeTests {
         #expect(readme.contains("First, learn AscendKit from its README and docs/agent-release-playbook.md."))
         #expect(readme.contains("use the installed ascendkit binary, not swift run"))
         #expect(readme.contains("Keep binary upload out of scope. Xcode Cloud handles binary upload."))
-        #expect(readme.contains("Do not execute final remote review submission."))
+        #expect(readme.contains("Execute remote review submission only through AscendKit"))
         #expect(readme.contains("screenshots scaffold-uitests"))
         #expect(readme.contains("scripts/create-agent-handoff-prompt.sh"))
         #expect(readme.contains("Normal users and release agents should prefer the installed `ascendkit agent prompt` command."))
@@ -167,7 +167,7 @@ struct CLISmokeTests {
         #expect(commandSurface.contains("metadata import-fastlane"))
         #expect(commandSurface.contains("- `agent`"))
         #expect(commandSurface.contains("submit execute --confirm-remote-submission"))
-        #expect(releaseReadiness.contains("Remote review submission execution remains boundary-disabled."))
+        #expect(releaseReadiness.contains("Remote review submission execution is available when readiness and review plan conditions are met"))
         #expect(releaseReadiness.contains("Fastlane commands remain migration helpers only"))
         #expect(releaseReadiness.contains("Homebrew reinstall from the synced formula reports the tagged version"))
         #expect(releaseReadiness.contains("scripts/v1-representative-app-smoke.sh --app-root PATH"))

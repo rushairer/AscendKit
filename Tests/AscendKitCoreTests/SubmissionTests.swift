@@ -477,7 +477,7 @@ struct SubmissionTests {
 
         #expect(plan.readyForManualReviewSubmission)
         #expect(plan.ascendKitVersion == AscendKitVersion.current)
-        #expect(plan.remoteSubmissionExecutionAllowed == false)
+        #expect(plan.remoteSubmissionExecutionAllowed == true)
         #expect(plan.metadataRemainingDiffCount == 1)
         #expect(plan.metadataRemainingBlockingDiffCount == 0)
         #expect(plan.findings.contains { $0.contains("releaseNotes/whatsNew remains unsynced") })
@@ -604,7 +604,7 @@ struct SubmissionTests {
             appPrivacyNextActions: [],
             readinessReady: true,
             readyForManualReviewSubmission: true,
-            findings: ["Remote review submission execution is intentionally disabled by the current AscendKit boundary."]
+            findings: ["Remote review submission execution is not allowed until all readiness and review plan conditions are met."]
         )
 
         let markdown = ReviewHandoffMarkdown().render(plan: plan)
@@ -616,6 +616,125 @@ struct SubmissionTests {
         #expect(markdown.contains("- State: publishedDataNotCollected"))
         #expect(markdown.contains("- Ready for submission: yes"))
         #expect(markdown.contains("AscendKit does not execute remote review submission."))
+    }
+
+    @Test("renders handoff markdown with execution allowed")
+    func rendersReviewHandoffMarkdownWhenExecutionAllowed() {
+        let plan = ReviewSubmissionPlan(
+            releaseID: "demo-1.0",
+            appID: "app-1",
+            selectedBuildID: "build-7",
+            selectedBuildVersion: "1.0",
+            selectedBuildNumber: "7",
+            reviewerName: "Ada Lovelace",
+            reviewerPhone: "+15555555555",
+            metadataApplied: true,
+            metadataRemainingDiffCount: 0,
+            metadataRemainingBlockingDiffCount: 0,
+            metadataApplyFindings: [],
+            screenshotArtifactCount: 3,
+            appPrivacyState: "publishedDataNotCollected",
+            appPrivacySource: "manual-app-store-connect",
+            appPrivacyReadyForSubmission: true,
+            appPrivacyNextActions: [],
+            readinessReady: true,
+            readyForManualReviewSubmission: true,
+            remoteSubmissionExecutionAllowed: true,
+            findings: ["Remote review submission execution is allowed. Use `submit execute --confirm-remote-submission` to execute."]
+        )
+
+        let markdown = ReviewHandoffMarkdown().render(plan: plan)
+
+        #expect(markdown.contains("Remote submission execution allowed: yes"))
+        #expect(markdown.contains("AscendKit can execute remote review submission"))
+    }
+
+    @Test("blocks remote execution when readiness is not ready")
+    func reviewPlanBlocksExecutionWhenReadinessNotReady() {
+        let plan = ReviewSubmissionPlanBuilder().build(
+            manifest: readyManifest(),
+            reviewInfo: readyReviewInfo(),
+            readiness: SubmissionReadinessReport(items: [
+                SubmissionChecklistItem(id: "ready", title: "Ready", satisfied: false, note: "Missing something")
+            ]),
+            screenshotCompositionManifest: readyScreenshotComposition(),
+            appsLookupReport: ASCAppsLookupReport(
+                bundleIDs: ["com.example.demo"],
+                apps: [ASCObservedApp(id: "app-1", name: "Demo", bundleID: "com.example.demo")]
+            ),
+            metadataApplyResult: ASCMetadataApplyResult(
+                generatedAt: Date(timeIntervalSince1970: 100),
+                applied: true
+            ),
+            metadataDiffReport: MetadataDiffReport(
+                generatedAt: Date(timeIntervalSince1970: 101),
+                diffs: []
+            ),
+            appPrivacyStatus: readyAppPrivacyStatus(),
+            buildCandidatesReport: readyBuildCandidates()
+        )
+
+        #expect(plan.remoteSubmissionExecutionAllowed == false)
+        #expect(plan.findings.contains { $0.contains("is not allowed until") })
+    }
+
+    @Test("blocks remote execution when build is missing")
+    func reviewPlanBlocksExecutionWhenBuildMissing() {
+        let plan = ReviewSubmissionPlanBuilder().build(
+            manifest: readyManifest(),
+            reviewInfo: readyReviewInfo(),
+            readiness: SubmissionReadinessReport(items: [
+                SubmissionChecklistItem(id: "ready", title: "Ready", satisfied: true)
+            ]),
+            screenshotCompositionManifest: readyScreenshotComposition(),
+            appsLookupReport: ASCAppsLookupReport(
+                bundleIDs: ["com.example.demo"],
+                apps: [ASCObservedApp(id: "app-1", name: "Demo", bundleID: "com.example.demo")]
+            ),
+            metadataApplyResult: ASCMetadataApplyResult(
+                generatedAt: Date(timeIntervalSince1970: 100),
+                applied: true
+            ),
+            metadataDiffReport: MetadataDiffReport(
+                generatedAt: Date(timeIntervalSince1970: 101),
+                diffs: []
+            ),
+            appPrivacyStatus: readyAppPrivacyStatus(),
+            buildCandidatesReport: nil
+        )
+
+        #expect(plan.remoteSubmissionExecutionAllowed == false)
+        #expect(plan.findings.contains { $0.contains("is not allowed until") })
+    }
+
+    @Test("allows remote execution when all conditions are met")
+    func reviewPlanAllowsExecutionWhenAllConditionsMet() {
+        let plan = ReviewSubmissionPlanBuilder().build(
+            manifest: readyManifest(),
+            reviewInfo: readyReviewInfo(),
+            readiness: SubmissionReadinessReport(items: [
+                SubmissionChecklistItem(id: "ready", title: "Ready", satisfied: true)
+            ]),
+            screenshotCompositionManifest: readyScreenshotComposition(),
+            appsLookupReport: ASCAppsLookupReport(
+                bundleIDs: ["com.example.demo"],
+                apps: [ASCObservedApp(id: "app-1", name: "Demo", bundleID: "com.example.demo")]
+            ),
+            metadataApplyResult: ASCMetadataApplyResult(
+                generatedAt: Date(timeIntervalSince1970: 100),
+                applied: true
+            ),
+            metadataDiffReport: MetadataDiffReport(
+                generatedAt: Date(timeIntervalSince1970: 101),
+                diffs: []
+            ),
+            appPrivacyStatus: readyAppPrivacyStatus(),
+            buildCandidatesReport: readyBuildCandidates()
+        )
+
+        #expect(plan.remoteSubmissionExecutionAllowed == true)
+        #expect(plan.readyForManualReviewSubmission == true)
+        #expect(plan.findings.contains { $0.contains("is allowed") })
     }
 
     private func readyASCLookupPlan() -> ASCLookupPlan {

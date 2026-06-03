@@ -1948,7 +1948,7 @@ struct CLIRunner {
     }
 
     private func submit(_ args: [String], json: Bool) async throws -> String {
-        guard args.first == "readiness" || args.first == "prepare" || args.first == "review-plan" || args.first == "handoff" || args.first == "execute" else {
+        guard args.first == "readiness" || args.first == "prepare" || args.first == "review-plan" || args.first == "handoff" || args.first == "execute" || args.first == "preflight" || args.first == "status" else {
             if args.first == "review-info", args.dropFirst().first == "init" {
                 let workspace = try loadWorkspace(from: args)
                 let store = ReleaseWorkspaceStore(fileManager: fileManager)
@@ -1987,7 +1987,65 @@ struct CLIRunner {
                     "Reviewer info updated at \(workspace.paths.reviewInfo)"
                 }
             }
-            throw AscendKitError.invalidArguments("Usage: ascendkit submit readiness|prepare|review-plan|handoff|execute --workspace PATH OR ascendkit submit review-info init --workspace PATH")
+            if args.first == "preflight" {
+                guard args.contains("--remote") else {
+                    throw AscendKitError.invalidArguments("Usage: ascendkit submit preflight --workspace PATH --remote [--json]")
+                }
+                let workspace = try loadWorkspace(from: args)
+                let store = ReleaseWorkspaceStore(fileManager: fileManager)
+                guard let authConfig = try loadIfExists(ASCAuthConfig.self, path: workspace.paths.ascAuthConfig) else {
+                    throw AscendKitError.invalidState("ASC auth config is missing. Run asc auth init first.")
+                }
+                let authStatus = ASCAuthStatus(config: authConfig)
+                guard authStatus.configured else {
+                    throw AscendKitError.invalidState("ASC auth config is not ready: \(authStatus.findings.joined(separator: " "))")
+                }
+                guard let observed = try loadIfExists(MetadataObservedState.self, path: workspace.paths.ascObservedState),
+                      let appStoreVersionID = observed.appStoreVersionID else {
+                    throw AscendKitError.invalidState("ASC observed appStoreVersionID is missing. Run asc metadata observe first.")
+                }
+                guard let appID = try loadIfExists(ASCAppsLookupReport.self, path: workspace.paths.ascApps)?.apps.first?.id else {
+                    throw AscendKitError.invalidState("ASC app ID is missing. Run asc apps lookup first.")
+                }
+                let plan = try loadIfExists(ReviewSubmissionPlan.self, path: workspace.paths.reviewSubmissionPlan)
+                guard let buildID = plan?.selectedBuildID else {
+                    throw AscendKitError.invalidState("Selected ASC build ID is missing. Run submit review-plan first.")
+                }
+                let platform = try loadSubmissionContext(workspace: workspace).manifest.targets.first(where: \.isAppStoreApplication)?.platform ?? .iOS
+                let privateKey = try ASCSecretResolver(fileManager: fileManager).resolve(authConfig.privateKey)
+                let token = try ASCJWTSigner().token(config: authConfig, privateKeyPEM: privateKey)
+                let result = try await ASCAPIClient().fetchReviewSubmissionRemoteState(
+                    appID: appID,
+                    appStoreVersionID: appStoreVersionID,
+                    buildID: buildID,
+                    platform: platform.rawValue,
+                    token: token
+                )
+                try store.save(result, to: URL(fileURLWithPath: workspace.paths.preflightRemoteState))
+                try store.appendAudit(
+                    .init(
+                        action: .preflightRemoteStateChecked,
+                        summary: "Fetched remote preflight state from ASC",
+                        details: ["versionState": result.appStoreVersionState ?? "unknown"]
+                    ),
+                    to: workspace
+                )
+                return try render(result, json: json) {
+                    var lines: [String] = ["Remote preflight state fetched."]
+                    if let versionState = result.appStoreVersionState {
+                        lines.append("App store version state: \(versionState)")
+                    }
+                    if let processing = result.buildProcessingState {
+                        lines.append("Build processing: \(processing ? "yes" : "no")")
+                    }
+                    lines.append("Existing review submissions: \(result.existingReviewSubmissions.count)")
+                    for finding in result.findings {
+                        lines.append("- \(finding)")
+                    }
+                    return lines.joined(separator: "\n")
+                }
+            }
+            throw AscendKitError.invalidArguments("Usage: ascendkit submit readiness|prepare|review-plan|handoff|execute|preflight|status --workspace PATH OR ascendkit submit review-info init --workspace PATH")
         }
         let workspace = try loadWorkspace(from: args)
         let store = ReleaseWorkspaceStore(fileManager: fileManager)
@@ -2146,6 +2204,53 @@ struct CLIRunner {
                         : "Review submission execution finished but submission is not marked submitted.",
                     "AscendKit version: \(result.ascendKitVersion ?? "unknown")"
                 ].joined(separator: "\n")
+            }
+        }
+
+        if args.first == "status" {
+            let plan = try loadIfExists(ReviewSubmissionPlan.self, path: workspace.paths.reviewSubmissionPlan)
+            let executionResult = try loadIfExists(ReviewSubmissionExecutionResult.self, path: workspace.paths.reviewSubmissionResult)
+            try store.appendAudit(
+                .init(action: .submissionStatusChecked, summary: "Checked submission status"),
+                to: workspace
+            )
+            struct SubmissionStatusSummary: Codable, Sendable {
+                var readiness: SubmissionReadinessReport
+                var planReady: Bool?
+                var executionAllowed: Bool?
+                var executed: Bool?
+                var submitted: Bool?
+                var reviewSubmissionID: String?
+            }
+            let summary = SubmissionStatusSummary(
+                readiness: report,
+                planReady: plan?.readyForManualReviewSubmission,
+                executionAllowed: plan?.remoteSubmissionExecutionAllowed,
+                executed: executionResult?.executed,
+                submitted: executionResult?.submitted,
+                reviewSubmissionID: executionResult?.reviewSubmissionID
+            )
+            return try render(summary, json: json) {
+                var lines: [String] = []
+                lines.append("Readiness: \(report.ready ? "ready" : "not ready") (\(report.items.filter(\.satisfied).count)/\(report.items.count) items satisfied)")
+                if let plan {
+                    lines.append("Review plan ready: \(plan.readyForManualReviewSubmission ? "yes" : "no")")
+                    lines.append("Remote execution allowed: \(plan.remoteSubmissionExecutionAllowed ? "yes" : "no")")
+                } else {
+                    lines.append("Review plan: not generated (run submit review-plan)")
+                }
+                if let executionResult {
+                    lines.append("Last execution: \(executionResult.executed ? "executed" : "not executed")")
+                    if executionResult.executed {
+                        lines.append("Submitted: \(executionResult.submitted ? "yes" : "no")")
+                        if let submissionID = executionResult.reviewSubmissionID {
+                            lines.append("Review submission ID: \(submissionID)")
+                        }
+                    }
+                } else {
+                    lines.append("Execution result: none (run submit execute --confirm-remote-submission)")
+                }
+                return lines.joined(separator: "\n")
             }
         }
 

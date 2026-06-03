@@ -23,6 +23,7 @@ public struct ReleaseWorkspacePaths: Codable, Equatable, Sendable {
     public var reviewSubmissionPlan: String
     public var reviewSubmissionResult: String
     public var reviewHandoffMarkdown: String
+    public var preflightRemoteState: String
     public var buildCandidates: String
     public var ascAuthConfig: String
     public var ascLookupPlan: String
@@ -62,6 +63,7 @@ public struct ReleaseWorkspacePaths: Codable, Equatable, Sendable {
         self.reviewSubmissionPlan = releaseRoot.appendingPathComponent("review/submission-plan.json").path
         self.reviewSubmissionResult = releaseRoot.appendingPathComponent("review/submission-result.json").path
         self.reviewHandoffMarkdown = releaseRoot.appendingPathComponent("review/handoff.md").path
+        self.preflightRemoteState = releaseRoot.appendingPathComponent("review/preflight-remote-state.json").path
         self.buildCandidates = releaseRoot.appendingPathComponent("build/candidates.json").path
         self.ascAuthConfig = releaseRoot.appendingPathComponent("asc/auth.json").path
         self.ascLookupPlan = releaseRoot.appendingPathComponent("asc/lookup-plan.json").path

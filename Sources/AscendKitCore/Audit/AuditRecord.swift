@@ -41,6 +41,8 @@ public enum AuditAction: String, Codable, Equatable, Sendable {
     case iapTemplateInitialized
     case iapValidated
     case metadataDiffed
+    case preflightRemoteStateChecked
+    case submissionStatusChecked
 }
 
 public struct AuditRecord: Codable, Equatable, Sendable {

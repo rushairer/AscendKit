@@ -496,6 +496,34 @@ struct ASCTests {
         #expect(result.findings.contains { $0.contains("disabled by the current AscendKit boundary") })
     }
 
+    @Test("serializes preflight remote state round-trip")
+    func serializesPreflightRemoteState() throws {
+        let state = PreflightRemoteState(
+            appStoreVersionID: "version-1",
+            appStoreVersionState: "READY_FOR_REVIEW",
+            selectedBuildID: "build-7",
+            buildProcessingState: false,
+            existingReviewSubmissions: [
+                RemoteReviewSubmissionSnapshot(id: "sub-1", platform: "IOS", submitted: false, state: "OPEN"),
+                RemoteReviewSubmissionSnapshot(id: "sub-2", platform: "IOS", submitted: true, state: "SUBMITTED")
+            ],
+            findings: ["No blocking issues found."]
+        )
+
+        let encoded = try AscendKitJSON.encoder.encode(state)
+        let decoded = try AscendKitJSON.decoder.decode(PreflightRemoteState.self, from: encoded)
+
+        #expect(decoded.appStoreVersionID == "version-1")
+        #expect(decoded.appStoreVersionState == "READY_FOR_REVIEW")
+        #expect(decoded.selectedBuildID == "build-7")
+        #expect(decoded.buildProcessingState == false)
+        #expect(decoded.existingReviewSubmissions.count == 2)
+        #expect(decoded.existingReviewSubmissions.first?.id == "sub-1")
+        #expect(decoded.existingReviewSubmissions.first?.submitted == false)
+        #expect(decoded.existingReviewSubmissions.last?.submitted == true)
+        #expect(decoded.findings.count == 1)
+    }
+
     private func decodeBase64URL(_ value: String) throws -> Data {
         var base64 = value
             .replacingOccurrences(of: "-", with: "+")

@@ -266,7 +266,14 @@ Use `workspace validate-handoff` as the final machine-readable handoff gate. It 
 
 Use `workspace next-steps` after any failed readiness or handoff check. It returns priority-sorted steps with command hints and directly executable commands, so the receiving agent can act without parsing prose or replacing placeholders by hand.
 
-Only complete final review submission when readiness and the review plan are clean. AscendKit stops at the handoff boundary; use the generated handoff and submit manually in App Store Connect.
+Only complete final review submission when readiness and the review plan are clean. Use `submit preflight --remote` to verify ASC state, then `submit execute --confirm-remote-submission` to submit for review through AscendKit's audited pipeline.
+
+```bash
+ascendkit submit preflight --workspace "$WORKSPACE" --remote --json
+ascendkit submit execute --workspace "$WORKSPACE" --confirm-remote-submission --json
+```
+
+If remote execution is not allowed (readiness or review plan conditions not met), use `submit handoff` and complete the final submit-for-review action manually in App Store Connect.
 
 ```bash
 ascendkit submit handoff --workspace "$WORKSPACE" --json

@@ -85,7 +85,9 @@ Tool must require explicit user confirmation and cannot hide the significance of
 ## 3.10 Review submission
 - evaluate readiness: Class A
 - prepare submission payload/plan: Class B
-- actually submit for review: Class E
+- fetch remote preflight state from ASC: Class A (read-only)
+- check submission status: Class A (read-only)
+- actually submit for review via `submit execute --confirm-remote-submission`: Class E (requires readiness clean + review plan clean + explicit confirmation flag)
 
 ## 3.11 IAP / subscriptions
 - scaffold local subscription template: Class C
@@ -146,6 +148,8 @@ ascendkit doctor release --workspace "$WORKSPACE" --json
 ascendkit asc metadata plan --workspace "$WORKSPACE" --json
 ascendkit asc metadata apply --workspace "$WORKSPACE" --confirm-remote-mutation --json
 ascendkit submit plan --workspace "$WORKSPACE" --json
+ascendkit submit preflight --workspace "$WORKSPACE" --remote --json
+ascendkit submit execute --workspace "$WORKSPACE" --confirm-remote-submission --json
 ascendkit submit handoff --workspace "$WORKSPACE" --output review-handoff.md
 ```
 

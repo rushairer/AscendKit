@@ -56,7 +56,7 @@ Target outcomes:
 
 - Every published AscendKit release is reproducible through Homebrew and direct installer diagnostics.
 - Remote App Store Connect mutations stay explicit and require confirmation.
-- Final review submission execution remains boundary-disabled until the safety model is revisited.
+- Final review submission execution is available when readiness and review plan conditions are met, with explicit confirmation via `--confirm-remote-submission`.
 
 ### Pillar 3: App Store Analytics and Growth
 
@@ -251,7 +251,27 @@ Acceptance:
 - Three can produce store-ready iPhone and iPad composed screenshots through a documented local workflow.
 - Missing screenshot size, locale, or copy coverage produces deterministic next steps.
 
-### v1.8.0: Cross-Platform Screenshot Expansion
+### v1.8.0: Submit Loop Closure
+
+Outcome:
+
+- AI Agents can execute review submissions through AscendKit's audited, guarded pipeline instead of bypassing it.
+
+Deliverables:
+
+- `remoteSubmissionExecutionAllowed` computed from readiness and review plan conditions (not hardcoded).
+- `submit preflight --remote` reads ASC remote state before execution.
+- `submit status` shows combined local readiness, review plan, and execution result.
+- Standard audit trail for preflight and status checks.
+- Updated documentation reflecting conditional submission execution.
+
+Acceptance:
+
+- `submit execute --confirm-remote-submission` works when all conditions are met.
+- `submit preflight --remote` verifies ASC state before execution.
+- Workspace status correctly shows "execute remote" vs "submit manually" actions.
+
+### v1.9.0: Cross-Platform Screenshot Expansion
 
 Outcome:
 

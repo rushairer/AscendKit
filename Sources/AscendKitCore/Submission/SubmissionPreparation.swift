@@ -233,7 +233,6 @@ public struct ReviewSubmissionPlanBuilder {
                 findings.append("App Privacy answers are not recorded as published. Run asc privacy status, then complete App Privacy in App Store Connect UI or run asc privacy confirm-manual after publishing.")
             }
         }
-        findings.append("Remote review submission execution is intentionally disabled by the current AscendKit boundary.")
 
         let reviewerName = reviewInfo.map {
             "\($0.contact.firstName) \($0.contact.lastName)".trimmingCharacters(in: .whitespacesAndNewlines)
@@ -244,6 +243,14 @@ public struct ReviewSubmissionPlanBuilder {
             metadataDiffFresh &&
             effectiveAppPrivacyStatus.readyForSubmission &&
             (blockingMetadataDiffs?.isEmpty == true)
+
+        let remoteSubmissionExecutionAllowed = readyForManualReviewSubmission
+
+        if remoteSubmissionExecutionAllowed {
+            findings.append("Remote review submission execution is allowed. Use `submit execute --confirm-remote-submission` to execute.")
+        } else {
+            findings.append("Remote review submission execution is not allowed until all readiness and review plan conditions are met.")
+        }
 
         return ReviewSubmissionPlan(
             releaseID: manifest.releaseID,
@@ -264,6 +271,7 @@ public struct ReviewSubmissionPlanBuilder {
             appPrivacyNextActions: effectiveAppPrivacyStatus.nextActions,
             readinessReady: readiness.ready,
             readyForManualReviewSubmission: readyForManualReviewSubmission,
+            remoteSubmissionExecutionAllowed: remoteSubmissionExecutionAllowed,
             findings: findings
         )
     }
@@ -345,6 +353,51 @@ public struct ReviewSubmissionExecutionResponse: Codable, Equatable, Identifiabl
     }
 }
 
+public struct PreflightRemoteState: Codable, Equatable, Sendable {
+    public var generatedAt: Date
+    public var ascendKitVersion: String?
+    public var appStoreVersionID: String?
+    public var appStoreVersionState: String?
+    public var selectedBuildID: String?
+    public var buildProcessingState: Bool?
+    public var existingReviewSubmissions: [RemoteReviewSubmissionSnapshot]
+    public var findings: [String]
+
+    public init(
+        generatedAt: Date = Date(),
+        ascendKitVersion: String? = AscendKitVersion.current,
+        appStoreVersionID: String? = nil,
+        appStoreVersionState: String? = nil,
+        selectedBuildID: String? = nil,
+        buildProcessingState: Bool? = nil,
+        existingReviewSubmissions: [RemoteReviewSubmissionSnapshot] = [],
+        findings: [String] = []
+    ) {
+        self.generatedAt = generatedAt
+        self.ascendKitVersion = ascendKitVersion
+        self.appStoreVersionID = appStoreVersionID
+        self.appStoreVersionState = appStoreVersionState
+        self.selectedBuildID = selectedBuildID
+        self.buildProcessingState = buildProcessingState
+        self.existingReviewSubmissions = existingReviewSubmissions
+        self.findings = findings
+    }
+}
+
+public struct RemoteReviewSubmissionSnapshot: Codable, Equatable, Sendable {
+    public var id: String
+    public var platform: String?
+    public var submitted: Bool?
+    public var state: String?
+
+    public init(id: String, platform: String? = nil, submitted: Bool? = nil, state: String? = nil) {
+        self.id = id
+        self.platform = platform
+        self.submitted = submitted
+        self.state = state
+    }
+}
+
 public struct ReviewHandoffMarkdown {
     public init() {}
 
@@ -367,6 +420,9 @@ public struct ReviewHandoffMarkdown {
         } else {
             appPrivacyNextActions = "- None"
         }
+        let boundaryStatement = plan.remoteSubmissionExecutionAllowed
+            ? "AscendKit can execute remote review submission via `submit execute --confirm-remote-submission`."
+            : "AscendKit does not execute remote review submission. Use this handoff to complete the final submit-for-review action manually in App Store Connect."
 
         return """
         # AscendKit Review Handoff
@@ -414,7 +470,7 @@ public struct ReviewHandoffMarkdown {
 
         ## Boundary
 
-        AscendKit does not execute remote review submission. Use this handoff to complete the final submit-for-review action manually in App Store Connect.
+        \(boundaryStatement)
         """
     }
 }

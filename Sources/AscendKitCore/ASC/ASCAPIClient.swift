@@ -1506,6 +1506,101 @@ public struct ASCAPIClient {
         }?.id
     }
 
+    public func fetchReviewSubmissionRemoteState(
+        appID: String,
+        appStoreVersionID: String,
+        buildID: String,
+        platform: String,
+        token: String
+    ) async throws -> PreflightRemoteState {
+        var findings: [String] = []
+
+        let versionResource: AppStoreVersionResource
+        do {
+            versionResource = try await getResource(
+                path: "v1/appStoreVersions/\(appStoreVersionID)",
+                token: token,
+                as: AppStoreVersionResource.self
+            )
+        } catch {
+            findings.append("Failed to fetch app store version: \(error.localizedDescription)")
+            return PreflightRemoteState(
+                appStoreVersionID: appStoreVersionID,
+                selectedBuildID: buildID,
+                findings: findings
+            )
+        }
+
+        let buildResource: BuildResource
+        do {
+            buildResource = try await getResource(
+                path: "v1/builds/\(buildID)",
+                token: token,
+                as: BuildResource.self
+            )
+        } catch {
+            findings.append("Failed to fetch build: \(error.localizedDescription)")
+            return PreflightRemoteState(
+                appStoreVersionID: appStoreVersionID,
+                appStoreVersionState: versionResource.attributes.appStoreVersionState,
+                selectedBuildID: buildID,
+                findings: findings
+            )
+        }
+
+        let submissions: [ReviewSubmissionResource]
+        do {
+            submissions = try await getList(
+                path: "v1/apps/\(appID)/reviewSubmissions",
+                query: ["limit": "200"],
+                token: token,
+                as: ReviewSubmissionResource.self
+            )
+        } catch {
+            findings.append("Failed to fetch review submissions: \(error.localizedDescription)")
+            return PreflightRemoteState(
+                appStoreVersionID: appStoreVersionID,
+                appStoreVersionState: versionResource.attributes.appStoreVersionState,
+                selectedBuildID: buildID,
+                buildProcessingState: buildResource.attributes.processingState == "PROCESSING",
+                findings: findings
+            )
+        }
+
+        let snapshots = submissions.map { submission in
+            RemoteReviewSubmissionSnapshot(
+                id: submission.id,
+                platform: submission.attributes.platform,
+                submitted: submission.attributes.submitted,
+                state: submission.attributes.state
+            )
+        }
+
+        let processingState = buildResource.attributes.processingState
+        if processingState == "PROCESSING" {
+            findings.append("Build \(buildID) is still processing.")
+        }
+
+        let versionState = versionResource.attributes.appStoreVersionState
+        if let versionState, versionState != "READY_FOR_REVIEW" && versionState != "WAITING_FOR_REVIEW" && versionState != "READY_FOR_DISTRIBUTION" {
+            findings.append("App store version state is \(versionState).")
+        }
+
+        let activeSubmissions = snapshots.filter { $0.submitted != true }
+        if !activeSubmissions.isEmpty {
+            findings.append("\(activeSubmissions.count) active (non-submitted) review submission(s) found.")
+        }
+
+        return PreflightRemoteState(
+            appStoreVersionID: appStoreVersionID,
+            appStoreVersionState: versionState,
+            selectedBuildID: buildID,
+            buildProcessingState: processingState == "PROCESSING",
+            existingReviewSubmissions: snapshots,
+            findings: findings
+        )
+    }
+
     private func defaultAgeRatingDeclarationAttributes() -> [String: Any] {
         [
             "advertising": false,
@@ -1871,11 +1966,13 @@ public struct ASCAPIClient {
     private struct ReviewSubmissionAttributes: Decodable {
         var platform: String?
         var submitted: Bool?
+        var state: String?
     }
 
     private struct AppStoreVersionAttributes: Decodable {
         var versionString: String?
         var platform: String?
+        var appStoreVersionState: String?
     }
 
     private struct AppStoreVersionLocalizationResource: Decodable {

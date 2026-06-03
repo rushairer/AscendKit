@@ -47,11 +47,15 @@ The following commands are supported as migration helpers, not as the primary wo
 
 They should remain documented as optional migration paths only. AscendKit must not require fastlane at runtime for the core release workflow.
 
-## Boundary-Disabled Commands
+## Remote Review Submission
 
-`submit execute --confirm-remote-submission` is intentionally boundary-disabled. It records non-execution and tells the user to complete final submit-for-review manually in App Store Connect.
+`submit execute --confirm-remote-submission` executes remote review submission through AscendKit's audited pipeline when all readiness and review plan conditions are met. The `remoteSubmissionExecutionAllowed` flag on the review plan is computed from: readiness clean, build selected, metadata applied, metadata diff fresh, App Privacy ready, and no blocking metadata diffs.
 
-Do not enable remote review submission execution in `1.x` without a deliberate scope change and explicit safety review.
+When conditions are not met, the command records a non-execution result and explains which conditions remain unsatisfied.
+
+`submit preflight --remote` reads ASC remote state (version state, build processing, existing review submissions) before execution.
+
+`submit status` shows combined local readiness, review plan, and previous execution result.
 
 ## Out-of-Scope for 1.x
 
@@ -62,7 +66,6 @@ These remain out of scope:
 - Xcode Cloud replacement.
 - Deep MCP integration.
 - Hidden Apple ID web-session automation.
-- Remote review submission execution.
 
 ## Documentation Invariants
 

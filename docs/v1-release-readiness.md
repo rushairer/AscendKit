@@ -24,7 +24,7 @@ This checklist defines the final gates before tagging `v1.0.0`.
 - Xcode Cloud replacement remains out of scope.
 - Deep MCP integration remains out of scope.
 - Hidden Apple ID web-session automation remains out of scope.
-- Remote review submission execution remains boundary-disabled.
+- Remote review submission execution is available when readiness and review plan conditions are met; use `submit preflight --remote` to verify ASC state before `submit execute --confirm-remote-submission`.
 - Fastlane commands remain migration helpers only and are not required for the core workflow.
 
 ## Public Safety Gates

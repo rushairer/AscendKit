@@ -2,6 +2,24 @@
 
 AscendKit follows [Semantic Versioning](https://semver.org/). The `1.x` line keeps the documented v1 command surface stable; breaking workflow changes require a new major version.
 
+## 1.8.0 - 2026-06-03
+
+### Added
+
+- `submit execute --confirm-remote-submission` now executes remote review submission through AscendKit's audited pipeline when all readiness and review plan conditions are met. The `remoteSubmissionExecutionAllowed` flag is computed from: readiness clean, build selected, metadata applied, metadata diff fresh, App Privacy ready, and no blocking metadata diffs.
+- Added `submit preflight --remote` to read ASC remote state (version state, build processing, existing review submissions) before execution.
+- Added `submit status` to show combined local readiness, review plan, and previous execution result.
+- Added `PreflightRemoteState` and `RemoteReviewSubmissionSnapshot` models for remote state inspection.
+- Added `fetchReviewSubmissionRemoteState()` ASC API method.
+- Added `preflightRemoteStateChecked` and `submissionStatusChecked` audit actions.
+
+### Changed
+
+- `ReviewSubmissionPlanBuilder` now computes `remoteSubmissionExecutionAllowed` from real conditions instead of hardcoding `false`.
+- `ReviewHandoffMarkdown` boundary statement is now conditional on execution eligibility.
+- Workspace status next actions now differentiate between "execute remote" and "submit manually" based on execution eligibility.
+- Updated docs (`v1-command-surface.md`, `automation-boundaries.md`, `v1-release-readiness.md`, `agent-release-playbook.md`, `app-store-growth-copilot-roadmap.md`) to reflect conditional submission execution.
+
 ## 1.7.0 - 2026-05-30
 
 ### Added
