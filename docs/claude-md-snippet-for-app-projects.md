@@ -24,8 +24,10 @@ ascendkit asc metadata apply --workspace ".ascendkit/releases/app-1.0-b1" --conf
 
 # Prepare submission
 ascendkit submit readiness --workspace ".ascendkit/releases/app-1.0-b1" --json
+ascendkit submit preflight --workspace ".ascendkit/releases/app-1.0-b1" --remote --json
+ascendkit submit execute --workspace ".ascendkit/releases/app-1.0-b1" --confirm-remote-submission --json
 ascendkit submit handoff --workspace ".ascendkit/releases/app-1.0-b1" --json
 ```
 
 If `ascendkit` is not installed, tell the user to run `brew tap rushairer/ascendkit && brew install ascendkit`.
-All commands support `--json`. Always run plan/observe before apply. Final submission is done manually in App Store Connect.
+All commands support `--json`. Always run plan/observe before apply. Use `submit preflight --remote` to verify ASC state, then `submit execute --confirm-remote-submission` when all conditions are met. If conditions are not met, use `submit handoff` and complete final submission manually in App Store Connect.

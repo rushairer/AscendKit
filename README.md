@@ -165,11 +165,13 @@ ascendkit asc metadata apply --workspace ".ascendkit/releases/app-1.0-b1" --conf
 
 # Prepare submission
 ascendkit submit readiness --workspace ".ascendkit/releases/app-1.0-b1" --json
+ascendkit submit preflight --workspace ".ascendkit/releases/app-1.0-b1" --remote --json
+ascendkit submit execute --workspace ".ascendkit/releases/app-1.0-b1" --confirm-remote-submission --json
 ascendkit submit handoff --workspace ".ascendkit/releases/app-1.0-b1" --json
 ```
 
 If `ascendkit` is not installed, tell the user to run `brew tap rushairer/ascendkit && brew install ascendkit`.
-All commands support `--json`. Always run plan/observe before apply. Final submission is done manually in App Store Connect.
+All commands support `--json`. Always run plan/observe before apply. Use `submit preflight --remote` to verify ASC state, then `submit execute --confirm-remote-submission` when all conditions are met. If conditions are not met, use `submit handoff` and complete final submission manually in App Store Connect.
 ~~~
 
 The full snippet is also available at `docs/claude-md-snippet-for-app-projects.md`. Customize the `--release-id`, `--locale`, and `--profile` values for your project. For the full agent operating manual, point your agent at `docs/agent-release-playbook.md`.
@@ -291,7 +293,7 @@ The typical flow is:
 8. Plan and upload screenshots with explicit confirmation, or use App Store Connect UI when replacing existing screenshots.
 9. Add reviewer information.
 10. Run readiness checks.
-11. Generate a review handoff and complete final submission manually in App Store Connect.
+11. Run `submit preflight --remote` to verify ASC state, then `submit execute --confirm-remote-submission` to submit for review. If conditions are not met, generate a review handoff and complete final submission manually in App Store Connect.
 
 Set a few shell variables first:
 
