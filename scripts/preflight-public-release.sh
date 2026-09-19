@@ -24,6 +24,9 @@ bash -n scripts/package-release.sh \
   scripts/v1-release-readiness.sh \
   scripts/preflight-public-release.sh
 
+echo "==> Markdown links"
+ruby scripts/check-markdown-links.rb
+
 echo "==> Release archive"
 scripts/package-release.sh
 

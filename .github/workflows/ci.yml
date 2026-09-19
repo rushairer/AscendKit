@@ -28,6 +28,9 @@ jobs:
       - name: Check whitespace
         run: git diff --check
 
+      - name: Check Markdown links
+        run: ruby scripts/check-markdown-links.rb
+
       - name: Check shell scripts
         run: |
           bash -n \

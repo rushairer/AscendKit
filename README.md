@@ -162,7 +162,7 @@ ascendkit workspace next-steps --workspace "$WORKSPACE" --json
 
 This creates a local `.ascendkit/releases/local-check` workspace and updates the app's ignore rules. It needs no App Store Connect key and makes no remote changes. The doctor reports project-specific blockers; a finding is useful feedback, not a promise that the app is ready to publish. Reuse this workspace to inspect progress, or choose a distinct release ID for a real release.
 
-Next, follow the [full release walkthrough](#quick-start-submit-an-app-store-release), explore [screenshot commands](#screenshots), or [hand the workflow to an agent](#ai-agent-quick-start).
+Next, follow the [full release walkthrough](#quick-start-submit-an-app-store-release), explore the [command reference](#command-reference), or [hand the workflow to an agent](#ai-agent-quick-start).
 
 ## AI Agent Quick Start
 
@@ -1273,15 +1273,15 @@ Please keep the project local-first and secret-safe. Features that require hidde
 
 Useful design docs:
 
-- `docs/project-charter.md`
-- `docs/product-scope.md`
-- `docs/security-model.md`
-- `docs/automation-boundaries.md`
-- `docs/v1-command-surface.md`
-- `docs/release-workspace-model.md`
-- `docs/asc-api-strategy.md`
-- `docs/screenshot-pipeline.md`
-- `docs/agent-release-playbook.md`
+- [Project charter](docs/project-charter.md)
+- [Product scope](docs/product-scope.md)
+- [Security model](docs/security-model.md)
+- [Automation boundaries](docs/automation-boundaries.md)
+- [Stable v1 command surface](docs/v1-command-surface.md)
+- [Release workspace model](docs/release-workspace-model.md)
+- [App Store Connect API strategy](docs/asc-api-strategy.md)
+- [Screenshot pipeline](docs/screenshot-pipeline.md)
+- [AI agent release playbook](docs/agent-release-playbook.md)
 
 ## License
 

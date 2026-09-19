@@ -65,6 +65,6 @@ https://github.com/rushairer/AscendKit
 ## 下一步
 
 - [完整发布流程](../README.md#quick-start-submit-an-app-store-release)
-- [截图命令](../README.md#screenshots)
+- [命令参考](../README.md#command-reference)
 - [添加项目级 Agent 指令](claude-md-snippet-for-app-projects.md)
 - [安全模型](security-model.md)与[自动化边界](automation-boundaries.md)
