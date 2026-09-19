@@ -1,39 +1,33 @@
 # AscendKit
 
-AscendKit is a local-first Swift toolkit for preparing App Store releases. It helps Apple platform teams organize release workspaces, inspect projects, lint App Store metadata, prepare screenshots, compare local metadata with App Store Connect, and execute a guarded review-submission workflow.
+**Prepare App Store screenshots, metadata, and review submissions — from your terminal or with an AI agent.**
 
-The project is designed for AI-assisted release work without handing raw secrets or mutable App Store state directly to an agent. AscendKit keeps release state in deterministic local files, stores only secret references, and requires explicit confirmation flags before remote App Store Connect mutations.
+AscendKit is a local-first Swift CLI for Apple developers. Turn screenshots into localized App Store posters, check release readiness, compare metadata with App Store Connect, and submit a prepared release for review. Use individual steps or hand the workflow to an AI coding agent.
 
-## Current Status
+[Install](#installation) · [Try locally](#try-a-local-release-check) · [Give this page to an AI agent](#ai-agent-quick-start) · [Command reference](#command-reference) · [简体中文](https://github.com/rushairer/AscendKit/blob/main/docs/getting-started.zh-CN.md)
 
-Current documented release: `v1.9.0`.
+> **AI agents starting from this URL:** read [AI Agent Quick Start](#ai-agent-quick-start) below, including its full handoff prompt. Follow the linked [release playbook](https://github.com/rushairer/AscendKit/blob/main/docs/agent-release-playbook.md) before release work. The complete prompt, workflow, and command reference remain in this README; expand the sections in a browser or read the raw Markdown. Use real app-specific values and the installed `ascendkit` binary.
 
-AscendKit follows [Semantic Versioning](https://semver.org/). The v1 command surface is stable for `1.x`: breaking workflow changes require a new major version, while compatible commands, flags, diagnostics, and documentation can continue to evolve through minor releases.
+## What you can do
 
-AscendKit has been used end-to-end on real iOS app release workflows covering local screenshot preparation, metadata, pricing, reviewer information, build selection, screenshot upload, and guarded App Review handoff. App Privacy publishing is currently documented as a boundary where Apple's IRIS endpoint may require App Store Connect UI or future Apple ID web-session support.
+| Your task | What AscendKit provides |
+| --- | --- |
+| Prepare store screenshots | Import screenshots or use deterministic UI tests, add localized copy, and compose themed posters with device frames. |
+| Update store metadata | Create or import metadata, lint it, and inspect local-versus-remote changes before applying them. |
+| Check an upcoming release | Inspect the Xcode project and get release diagnostics plus suggested next commands. |
+| Hand release work to an agent | Keep progress in a local workspace, use JSON output, and resume through `workspace next-steps`. |
+| Submit a prepared build | Select an existing ASC build, check readiness, and execute a guarded App Review submission. |
 
-Implemented today:
+Core workflows do not require fastlane. Existing fastlane metadata and screenshot folders can be imported. Keep your current archive, signing, and binary-upload pipeline; AscendKit works with builds already delivered by tools such as Xcode Cloud. App Privacy may still require an App Store Connect UI handoff.
 
-- Swift Package with `AscendKitCore` and the `ascendkit` CLI.
-- Durable release workspaces under `.ascendkit/releases/<release-id>`.
-- Project intake and release doctor checks.
-- Metadata templates, fastlane metadata import, linting, diffing, and ASC request planning.
-- Screenshot planning, import manifests, fastlane screenshot import, configurable composition themes (5 presets + auto mode), local composition outputs, guarded ASC upload planning, native screenshot upload execution, and a high-fidelity Screenshot Studio with physical device frame registry (Dynamic Island, notch, metal-bezel vector overlays) for App Store-ready framed posters.
-- App Store Connect auth profiles using secret references.
-- ASC app lookup, build lookup, metadata observation, metadata apply, and guarded review handoff.
-- Reviewer information, readiness checks, review handoff, and submission result persistence.
-- Local IAP subscription template validation.
+```mermaid
+flowchart LR
+    A[Inspect project] --> B[Prepare metadata and screenshots]
+    B --> C[Review plans and apply changes]
+    C --> D[Check readiness and submit for review]
+```
 
-Out of scope for the current release:
-
-- Binary upload.
-- Archive/sign/export replacement.
-- Xcode Cloud replacement.
-- Deep MCP integration.
-- Fully managed App Store Connect pricing/App Privacy abstractions for every Apple API edge case.
-- Broad remote screenshot lifecycle management beyond guarded replace-existing deletion.
-
-`v1.0.0` release readiness is tracked in `docs/v1-release-readiness.md`. Post-v1 work is tracked in `docs/post-v1-roadmap.md`, and the longer product direction is tracked in `docs/app-store-growth-copilot-roadmap.md`.
+Local files preserve release progress. Remote changes require explicit confirmation flags after plan review; credentials are stored as references rather than raw key contents.
 
 ## Requirements
 
@@ -42,139 +36,6 @@ Out of scope for the current release:
 - An App Store Connect API key for remote ASC operations.
 - Optional: `fastlane` only if you are migrating existing metadata or screenshot folders. It is not required for the core workflow.
 - Optional for contributors: Swift 6.1 or later when building from source.
-
-## AI Agent Quick Start
-
-AscendKit is designed so a developer can hand the release workflow to an AI coding agent without giving the agent raw secrets or uncontrolled App Store Connect authority.
-
-Before copying the prompt, replace every `<<...>>` placeholder with a real value. If you do not know a value yet, leave it as `<<...>>`; the prompt instructs the agent to stop and ask for that value instead of guessing or using the placeholder literally. The safest path is to install AscendKit and run `ascendkit agent prompt` below because it generates a prompt with concrete app-specific values instead of template placeholders.
-
-```text
-You are helping me prepare an Apple app for App Store submission with AscendKit.
-
-AscendKit repository: https://github.com/rushairer/AscendKit
-App project root: <<ABSOLUTE_APP_PROJECT_ROOT>>
-Release id: <<RELEASE_ID_FOR_THIS_APP_VERSION>>
-ASC profile name: <<ASC_PROFILE_NAME_OR_ASK_ME_TO_CREATE_ONE>>
-
-The values wrapped in <<...>> are placeholders, not real paths or credentials. Before running commands, verify that every placeholder has been replaced with a real value. If any placeholder remains, stop and ask me for the missing value. Do not run commands with placeholder values.
-
-First, learn AscendKit from its README and docs/agent-release-playbook.md.
-Install AscendKit with Homebrew:
-
-brew tap rushairer/ascendkit
-brew install ascendkit
-ascendkit --version
-ascendkit version --json
-
-Then use the installed ascendkit binary, not swift run, to drive this app from 0 to 1:
-
-1. Inspect the app project and create a release workspace.
-2. Protect the app repo from committing .ascendkit/ artifacts.
-3. Run release doctor checks and report blockers.
-4. Prepare or import App Store metadata.
-5. Use screenshots doctor to decide whether deterministic UI-test-driven screenshots are available.
-6. If UI-test screenshots are missing, generate a scaffold with screenshots scaffold-uitests, review it, and add app-specific deterministic navigation without real credentials.
-7. Generate, import, compose, lint, and upload screenshots only after dry-run plans are clean.
-8. Configure ASC auth through a saved profile or secret reference only; do not paste private key contents into code or prompts.
-9. Observe App Store Connect state, plan metadata changes, and apply remote mutations only with explicit --confirm-remote-mutation after reviewing JSON plans.
-10. Keep binary upload out of scope. Xcode Cloud handles binary upload.
-11. Execute remote review submission only through AscendKit's audited pipeline: run `submit preflight --remote` to verify ASC state, then `submit execute --confirm-remote-submission` when all readiness and review plan conditions are met. If conditions are not met, stop at `submit handoff` and complete the final submission manually in App Store Connect.
-
-Safety boundaries:
-
-- Do not commit secrets, .ascendkit workspaces, screenshots, reviewer info, ASC identifiers, App Store Connect credentials, app binaries, or generated release artifacts.
-- Do not hardcode my app-specific data into AscendKit.
-- Do not use real user credentials in UI Tests or screenshots.
-- If App Privacy cannot be published through the official ASC API, stop and provide a manual App Store Connect UI handoff.
-
-Start with these commands:
-
-APP_ROOT="<<ABSOLUTE_APP_PROJECT_ROOT>>"
-RELEASE_ID="<<RELEASE_ID_FOR_THIS_APP_VERSION>>"
-WORKSPACE="$APP_ROOT/.ascendkit/releases/$RELEASE_ID"
-ASC_PROFILE="<<ASC_PROFILE_NAME_OR_ASK_ME_TO_CREATE_ONE>>"
-
-case "$APP_ROOT $RELEASE_ID $ASC_PROFILE" in
-  *'<<'*'>>'*)
-    echo "Stop: replace AscendKit prompt placeholders before running release commands." >&2
-    exit 64
-    ;;
-esac
-
-ascendkit intake inspect --root "$APP_ROOT" --release-id "$RELEASE_ID" --save --json
-ascendkit workspace gitignore --workspace "$WORKSPACE" --fix --json
-ascendkit workspace next-steps --workspace "$WORKSPACE" --json
-
-During the work, prefer workspace next-steps --json, workspace summary --json, workspace validate-handoff --json, and workspace export-summary --json over guessing.
-
-Finish by reporting AscendKit version, bundle id, app version, selected ASC build, metadata status, screenshot status, pricing, App Privacy status, review handoff status, remaining blockers, and validation commands run.
-```
-
-Generate a shorter app-specific prompt with the installed CLI:
-
-```bash
-APP_ROOT="<<ABSOLUTE_APP_PROJECT_ROOT>>"
-RELEASE_ID="<<RELEASE_ID_FOR_THIS_APP_VERSION>>"
-ASC_PROFILE="<<ASC_PROFILE_NAME_OR_ASK_ME_TO_CREATE_ONE>>"
-
-case "$APP_ROOT $RELEASE_ID $ASC_PROFILE" in
-  *'<<'*'>>'*)
-    echo "Stop: replace AscendKit prompt placeholders before generating the handoff prompt." >&2
-    exit 64
-    ;;
-esac
-
-ascendkit agent prompt \
-  --app-root "$APP_ROOT" \
-  --release-id "$RELEASE_ID" \
-  --asc-profile "$ASC_PROFILE" \
-  --output /tmp/ascendkit-agent-prompt.txt
-```
-
-For an existing AscendKit source checkout, maintainers can also run `scripts/create-agent-handoff-prompt.sh` with the same `--app-root`, `--release-id`, and `--asc-profile` values. Normal users and release agents should prefer the installed `ascendkit agent prompt` command.
-
-## Add to Your Project's CLAUDE.md
-
-When an AI agent works in your app project and you ask it to submit to the App Store, it may not know AscendKit exists and will try to write Python scripts calling the App Store Connect API directly. To prevent this, add the following section to your app project's `CLAUDE.md`:
-
-~~~markdown
-## App Store Release
-
-When the user asks to submit this app to the App Store, use **AscendKit** (`ascendkit` CLI, installed via `brew install rushairer/ascendkit/ascendkit`).
-
-**Do NOT write Python/Shell scripts to call the App Store Connect API.** AscendKit handles JWT auth, metadata, screenshots, pricing, privacy, and submission readiness.
-
-```bash
-# Initialize release workspace
-ascendkit intake inspect --root "$(pwd)" --release-id "app-1.0-b1" --save --json
-ascendkit doctor release --workspace ".ascendkit/releases/app-1.0-b1" --json
-
-# Prepare metadata (edit the generated file for your app)
-ascendkit metadata init --workspace ".ascendkit/releases/app-1.0-b1" --locale en-US --json
-ascendkit metadata lint --workspace ".ascendkit/releases/app-1.0-b1" --locale en-US --json
-
-# Configure ASC auth
-ascendkit asc auth init --workspace ".ascendkit/releases/app-1.0-b1" --profile YOUR_ASC_PROFILE --json
-
-# Observe and apply metadata
-ascendkit asc apps lookup --workspace ".ascendkit/releases/app-1.0-b1" --json
-ascendkit asc metadata observe --workspace ".ascendkit/releases/app-1.0-b1" --json
-ascendkit asc metadata plan --workspace ".ascendkit/releases/app-1.0-b1" --json
-ascendkit asc metadata apply --workspace ".ascendkit/releases/app-1.0-b1" --confirm-remote-mutation --json
-
-# Prepare submission
-ascendkit submit readiness --workspace ".ascendkit/releases/app-1.0-b1" --json
-ascendkit submit preflight --workspace ".ascendkit/releases/app-1.0-b1" --remote --json
-ascendkit submit execute --workspace ".ascendkit/releases/app-1.0-b1" --confirm-remote-submission --json
-ascendkit submit handoff --workspace ".ascendkit/releases/app-1.0-b1" --json
-```
-
-If `ascendkit` is not installed, tell the user to run `brew tap rushairer/ascendkit && brew install ascendkit`.
-All commands support `--json`. Always run plan/observe before apply. Use `submit preflight --remote` to verify ASC state, then `submit execute --confirm-remote-submission` when all conditions are met. If conditions are not met, use `submit handoff` and complete final submission manually in App Store Connect.
-~~~
-
-The full snippet is also available at `docs/claude-md-snippet-for-app-projects.md`. Customize the `--release-id`, `--locale`, and `--profile` values for your project. For the full agent operating manual, point your agent at `docs/agent-release-playbook.md`.
 
 ## Installation
 
@@ -189,6 +50,9 @@ ascendkit version --json
 ```
 
 After installation, run `ascendkit` from any app project directory. User-facing documentation assumes this installed binary.
+
+<details>
+<summary>Alternative installation, troubleshooting, and contributor packaging</summary>
 
 Alternative direct installer from a source checkout or release asset:
 
@@ -279,7 +143,178 @@ scripts/create-agent-handoff-prompt.sh \
 
 The prompt generator is read-only. It references the playbook, uses installed `ascendkit` commands, and keeps secrets, screenshots, reviewer data, binaries, and raw `.ascendkit/` workspaces out of the prompt.
 
+</details>
+
+## Try a local release check
+
+After installation, open a terminal **in your app project's root directory** and run:
+
+```bash
+APP_ROOT="$PWD"
+RELEASE_ID="local-check"
+WORKSPACE="$APP_ROOT/.ascendkit/releases/$RELEASE_ID"
+
+ascendkit intake inspect --root "$APP_ROOT" --release-id "$RELEASE_ID" --save --json
+ascendkit workspace gitignore --workspace "$WORKSPACE" --fix --json
+ascendkit doctor release --workspace "$WORKSPACE" --json
+ascendkit workspace next-steps --workspace "$WORKSPACE" --json
+```
+
+This creates a local `.ascendkit/releases/local-check` workspace and updates the app's ignore rules. It needs no App Store Connect key and makes no remote changes. The doctor reports project-specific blockers; a finding is useful feedback, not a promise that the app is ready to publish. Reuse this workspace to inspect progress, or choose a distinct release ID for a real release.
+
+Next, follow the [full release walkthrough](#quick-start-submit-an-app-store-release), explore [screenshot commands](#screenshots), or [hand the workflow to an agent](#ai-agent-quick-start).
+
+## AI Agent Quick Start
+
+AscendKit is designed so a developer can hand the release workflow to an AI coding agent without giving the agent raw secrets or uncontrolled App Store Connect authority.
+
+**You can give an agent just this repository URL and your release request.** The entry instructions above route it here. Supply the app root, release ID, and ASC profile in your request when known; the full prompt below explains how to handle missing values.
+
+For agents reading this README: the following prompt is the release operating contract. Read it before running commands. When more detail is needed, use the [agent release playbook](https://github.com/rushairer/AscendKit/blob/main/docs/agent-release-playbook.md), [automation boundaries](https://github.com/rushairer/AscendKit/blob/main/docs/automation-boundaries.md), and [command reference](#command-reference). If linked documentation cannot be fetched, report the missing information before performing dependent operations.
+
+<details>
+<summary>Full copy-and-paste agent prompt and app-specific prompt generator</summary>
+
+Before copying the prompt, replace every `<<...>>` placeholder with a real value. If you do not know a value yet, leave it as `<<...>>`; the prompt instructs the agent to stop and ask for that value instead of guessing or using the placeholder literally. The safest path is to install AscendKit and run `ascendkit agent prompt` below because it generates a prompt with concrete app-specific values instead of template placeholders.
+
+```text
+You are helping me prepare an Apple app for App Store submission with AscendKit.
+
+AscendKit repository: https://github.com/rushairer/AscendKit
+App project root: <<ABSOLUTE_APP_PROJECT_ROOT>>
+Release id: <<RELEASE_ID_FOR_THIS_APP_VERSION>>
+ASC profile name: <<ASC_PROFILE_NAME_OR_ASK_ME_TO_CREATE_ONE>>
+
+The values wrapped in <<...>> are placeholders, not real paths or credentials. Before running commands, verify that every placeholder has been replaced with a real value. If any placeholder remains, stop and ask me for the missing value. Do not run commands with placeholder values.
+
+First, learn AscendKit from its README and docs/agent-release-playbook.md.
+Install AscendKit with Homebrew:
+
+brew tap rushairer/ascendkit
+brew install ascendkit
+ascendkit --version
+ascendkit version --json
+
+Then use the installed ascendkit binary, not swift run, to drive this app from 0 to 1:
+
+1. Inspect the app project and create a release workspace.
+2. Protect the app repo from committing .ascendkit/ artifacts.
+3. Run release doctor checks and report blockers.
+4. Prepare or import App Store metadata.
+5. Use screenshots doctor to decide whether deterministic UI-test-driven screenshots are available.
+6. If UI-test screenshots are missing, generate a scaffold with screenshots scaffold-uitests, review it, and add app-specific deterministic navigation without real credentials.
+7. Generate, import, compose, lint, and upload screenshots only after dry-run plans are clean.
+8. Configure ASC auth through a saved profile or secret reference only; do not paste private key contents into code or prompts.
+9. Observe App Store Connect state, plan metadata changes, and apply remote mutations only with explicit --confirm-remote-mutation after reviewing JSON plans.
+10. Keep binary upload out of scope. Xcode Cloud handles binary upload.
+11. Execute remote review submission only through AscendKit's audited pipeline: run `submit preflight --remote` to verify ASC state, then `submit execute --confirm-remote-submission` when all readiness and review plan conditions are met. If conditions are not met, stop at `submit handoff` and complete the final submission manually in App Store Connect.
+
+Safety boundaries:
+
+- Do not commit secrets, .ascendkit workspaces, screenshots, reviewer info, ASC identifiers, App Store Connect credentials, app binaries, or generated release artifacts.
+- Do not hardcode my app-specific data into AscendKit.
+- Do not use real user credentials in UI Tests or screenshots.
+- If App Privacy cannot be published through the official ASC API, stop and provide a manual App Store Connect UI handoff.
+
+Start with these commands:
+
+APP_ROOT="<<ABSOLUTE_APP_PROJECT_ROOT>>"
+RELEASE_ID="<<RELEASE_ID_FOR_THIS_APP_VERSION>>"
+WORKSPACE="$APP_ROOT/.ascendkit/releases/$RELEASE_ID"
+ASC_PROFILE="<<ASC_PROFILE_NAME_OR_ASK_ME_TO_CREATE_ONE>>"
+
+case "$APP_ROOT $RELEASE_ID $ASC_PROFILE" in
+  *'<<'*'>>'*)
+    echo "Stop: replace AscendKit prompt placeholders before running release commands." >&2
+    exit 64
+    ;;
+esac
+
+ascendkit intake inspect --root "$APP_ROOT" --release-id "$RELEASE_ID" --save --json
+ascendkit workspace gitignore --workspace "$WORKSPACE" --fix --json
+ascendkit workspace next-steps --workspace "$WORKSPACE" --json
+
+During the work, prefer workspace next-steps --json, workspace summary --json, workspace validate-handoff --json, and workspace export-summary --json over guessing.
+
+Finish by reporting AscendKit version, bundle id, app version, selected ASC build, metadata status, screenshot status, pricing, App Privacy status, review handoff status, remaining blockers, and validation commands run.
+```
+
+Generate a shorter app-specific prompt with the installed CLI:
+
+```bash
+APP_ROOT="<<ABSOLUTE_APP_PROJECT_ROOT>>"
+RELEASE_ID="<<RELEASE_ID_FOR_THIS_APP_VERSION>>"
+ASC_PROFILE="<<ASC_PROFILE_NAME_OR_ASK_ME_TO_CREATE_ONE>>"
+
+case "$APP_ROOT $RELEASE_ID $ASC_PROFILE" in
+  *'<<'*'>>'*)
+    echo "Stop: replace AscendKit prompt placeholders before generating the handoff prompt." >&2
+    exit 64
+    ;;
+esac
+
+ascendkit agent prompt \
+  --app-root "$APP_ROOT" \
+  --release-id "$RELEASE_ID" \
+  --asc-profile "$ASC_PROFILE" \
+  --output /tmp/ascendkit-agent-prompt.txt
+```
+
+For an existing AscendKit source checkout, maintainers can also run `scripts/create-agent-handoff-prompt.sh` with the same `--app-root`, `--release-id`, and `--asc-profile` values. Normal users and release agents should prefer the installed `ascendkit agent prompt` command.
+
+</details>
+
+## Add to Your Project's CLAUDE.md
+
+<details>
+<summary>Project instructions for recurring AI-assisted releases</summary>
+
+When an AI agent works in your app project and you ask it to submit to the App Store, it may not know AscendKit exists and will try to write Python scripts calling the App Store Connect API directly. To prevent this, add the following section to your app project's `CLAUDE.md`:
+
+~~~markdown
+## App Store Release
+
+When the user asks to submit this app to the App Store, use **AscendKit** (`ascendkit` CLI, installed via `brew install rushairer/ascendkit/ascendkit`).
+
+**Do NOT write Python/Shell scripts to call the App Store Connect API.** AscendKit handles JWT auth, metadata, screenshots, pricing, privacy, and submission readiness.
+
+```bash
+# Initialize release workspace
+ascendkit intake inspect --root "$(pwd)" --release-id "app-1.0-b1" --save --json
+ascendkit doctor release --workspace ".ascendkit/releases/app-1.0-b1" --json
+
+# Prepare metadata (edit the generated file for your app)
+ascendkit metadata init --workspace ".ascendkit/releases/app-1.0-b1" --locale en-US --json
+ascendkit metadata lint --workspace ".ascendkit/releases/app-1.0-b1" --locale en-US --json
+
+# Configure ASC auth
+ascendkit asc auth init --workspace ".ascendkit/releases/app-1.0-b1" --profile YOUR_ASC_PROFILE --json
+
+# Observe and apply metadata
+ascendkit asc apps lookup --workspace ".ascendkit/releases/app-1.0-b1" --json
+ascendkit asc metadata observe --workspace ".ascendkit/releases/app-1.0-b1" --json
+ascendkit asc metadata plan --workspace ".ascendkit/releases/app-1.0-b1" --json
+ascendkit asc metadata apply --workspace ".ascendkit/releases/app-1.0-b1" --confirm-remote-mutation --json
+
+# Prepare submission
+ascendkit submit readiness --workspace ".ascendkit/releases/app-1.0-b1" --json
+ascendkit submit preflight --workspace ".ascendkit/releases/app-1.0-b1" --remote --json
+ascendkit submit execute --workspace ".ascendkit/releases/app-1.0-b1" --confirm-remote-submission --json
+ascendkit submit handoff --workspace ".ascendkit/releases/app-1.0-b1" --json
+```
+
+If `ascendkit` is not installed, tell the user to run `brew tap rushairer/ascendkit && brew install ascendkit`.
+All commands support `--json`. Always run plan/observe before apply. Use `submit preflight --remote` to verify ASC state, then `submit execute --confirm-remote-submission` when all conditions are met. If conditions are not met, use `submit handoff` and complete final submission manually in App Store Connect.
+~~~
+
+The full snippet is also available at `docs/claude-md-snippet-for-app-projects.md`. Customize the `--release-id`, `--locale`, and `--profile` values for your project. For the full agent operating manual, point your agent at `docs/agent-release-playbook.md`.
+
+</details>
+
 ## Quick Start: Submit an App Store Release
+
+<details>
+<summary>Complete release walkthrough: intake → screenshots → App Store Connect → review</summary>
 
 The typical flow is:
 
@@ -497,7 +532,12 @@ When all readiness and review plan conditions are met, `submit execute --confirm
 
 Use `submit handoff` to generate a human-readable Markdown handoff, or `submit status` to check combined readiness, plan, and execution state.
 
+</details>
+
 ## Command Reference
+
+<details>
+<summary>All CLI commands and examples (also available to agents in raw Markdown)</summary>
 
 All commands support `--json` where shown in `ascendkit --help`. JSON output is intended for scripts, CI, and AI-agent wrappers.
 
@@ -1069,7 +1109,12 @@ ascendkit iap validate --workspace "$WORKSPACE" --json
 
 This is a local validation layer. Remote IAP creation and subscription sync are not part of the current command surface.
 
+</details>
+
 ## Workspace Layout
+
+<details>
+<summary>Release workspace files and persisted results</summary>
 
 AscendKit writes release state under:
 
@@ -1105,6 +1150,8 @@ Important files:
 
 `.ascendkit/` is ignored by default because it may contain app-specific release state.
 
+</details>
+
 ## Security Model
 
 AscendKit's core rule is: commit configuration and references, not secrets.
@@ -1123,7 +1170,46 @@ Remote mutation commands require explicit flags:
 - `screenshots upload --replace-existing --confirm-remote-mutation` for planned remote screenshot replacement.
 - `submit execute --confirm-remote-submission` executes remote review submission when all readiness and review plan conditions are met. Use `submit preflight --remote` to verify ASC state first.
 
+## Current Status
+
+<details>
+<summary>Version, supported capabilities, and current boundaries</summary>
+
+Current documented release: `v1.9.0`.
+
+AscendKit follows [Semantic Versioning](https://semver.org/). The v1 command surface is stable for `1.x`: breaking workflow changes require a new major version, while compatible commands, flags, diagnostics, and documentation can continue to evolve through minor releases.
+
+AscendKit has been used end-to-end on real iOS app release workflows covering local screenshot preparation, metadata, pricing, reviewer information, build selection, screenshot upload, and guarded App Review handoff. App Privacy publishing is currently documented as a boundary where Apple's IRIS endpoint may require App Store Connect UI or future Apple ID web-session support.
+
+Implemented today:
+
+- Swift Package with `AscendKitCore` and the `ascendkit` CLI.
+- Durable release workspaces under `.ascendkit/releases/<release-id>`.
+- Project intake and release doctor checks.
+- Metadata templates, fastlane metadata import, linting, diffing, and ASC request planning.
+- Screenshot planning, import manifests, fastlane screenshot import, configurable composition themes (5 presets + auto mode), local composition outputs, guarded ASC upload planning, native screenshot upload execution, and a high-fidelity Screenshot Studio with physical device frame registry (Dynamic Island, notch, metal-bezel vector overlays) for App Store-ready framed posters.
+- App Store Connect auth profiles using secret references.
+- ASC app lookup, build lookup, metadata observation, metadata apply, and guarded review handoff.
+- Reviewer information, readiness checks, review handoff, and submission result persistence.
+- Local IAP subscription template validation.
+
+Out of scope for the current release:
+
+- Binary upload.
+- Archive/sign/export replacement.
+- Xcode Cloud replacement.
+- Deep MCP integration.
+- Fully managed App Store Connect pricing/App Privacy abstractions for every Apple API edge case.
+- Broad remote screenshot lifecycle management beyond guarded replace-existing deletion.
+
+`v1.0.0` release readiness is tracked in `docs/v1-release-readiness.md`. Post-v1 work is tracked in `docs/post-v1-roadmap.md`, and the longer product direction is tracked in `docs/app-store-growth-copilot-roadmap.md`.
+
+</details>
+
 ## Maintainer Workflow
+
+<details>
+<summary>Contributor validation and release maintenance</summary>
 
 Run this before committing:
 
@@ -1168,6 +1254,8 @@ Fastlane removal roadmap:
 2. Harden native ASC screenshot replacement with ordering sync and deeper real-world recovery checks.
 3. Formalize App Privacy declarations on official ASC API where available and explicit fallback paths where Apple exposes only private iris endpoints.
 4. Keep binary upload out of scope; Xcode Cloud remains the preferred binary delivery path.
+
+</details>
 
 ## Contributing
 
