@@ -12,6 +12,9 @@ case "${PACKAGE_ARCH}" in
   universal)
     swift build -c release --product ascendkit --arch arm64 --arch x86_64
     BINARY_PATH="$(swift build -c release --product ascendkit --show-bin-path)/ascendkit"
+    if [[ ! -x "${BINARY_PATH}" ]]; then
+      BINARY_PATH="$(find "${ROOT_DIR}/.build" -path '*/Products/Release/ascendkit' -type f -perm -111 -print -quit)"
+    fi
     ;;
   arm64|x86_64)
     swift build -c release --product ascendkit --arch "${PACKAGE_ARCH}"
