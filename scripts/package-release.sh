@@ -11,11 +11,11 @@ cd "${ROOT_DIR}"
 case "${PACKAGE_ARCH}" in
   universal)
     swift build -c release --product ascendkit --arch arm64 --arch x86_64
-    BINARY_PATH="${ROOT_DIR}/.build/apple/Products/Release/ascendkit"
+    BINARY_PATH="$(swift build -c release --product ascendkit --show-bin-path)/ascendkit"
     ;;
   arm64|x86_64)
     swift build -c release --product ascendkit --arch "${PACKAGE_ARCH}"
-    BINARY_PATH="${ROOT_DIR}/.build/apple/Products/Release/ascendkit"
+    BINARY_PATH="$(swift build -c release --product ascendkit --show-bin-path)/ascendkit"
     ;;
   native)
     swift build -c release --product ascendkit

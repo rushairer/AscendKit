@@ -219,6 +219,31 @@ struct MetadataTests {
         #expect(plan.operations.contains { $0.field == "description" && $0.resourceKind == .appStoreVersionLocalization })
     }
 
+    @Test("builds one metadata PATCH request per localized resource")
+    func buildsRequestsForEveryLocale() {
+        let make = { (locale: String, id: String, value: String) in
+            ASCMetadataPlanOperation(
+                locale: locale,
+                field: "promotionalText",
+                resourceKind: .appStoreVersionLocalization,
+                action: .updateField,
+                resourceID: id,
+                localValue: value
+            )
+        }
+        let plan = ASCMetadataMutationPlan(operations: [
+            make("en-US", "version-en", "Practice mode"),
+            make("da", "version-da", "Øvetilstand"),
+            make("zh-Hans", "version-zh", "练习模式")
+        ])
+
+        let requests = ASCMetadataRequestPlanBuilder().build(from: plan)
+
+        #expect(requests.requests.count == 3)
+        #expect(Set(requests.requests.map(\.locale)) == ["en-US", "da", "zh-Hans"])
+        #expect(requests.requests.allSatisfy { $0.method == "PATCH" })
+    }
+
     @Test("plans creation when only one remote localization resource exists")
     func plansCreationForMissingVersionLocalizationResource() {
         let local = AppMetadata(

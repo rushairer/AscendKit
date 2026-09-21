@@ -1751,8 +1751,10 @@ struct CLIRunner {
         guard authStatus.configured else {
             throw AscendKitError.invalidState("ASC auth config is not ready: \(authStatus.findings.joined(separator: " "))")
         }
-        let requestPlan = try loadIfExists(ASCMetadataRequestPlan.self, path: workspace.paths.ascMetadataRequests)
-            ?? planASCMetadataRequests(workspace: workspace, store: store)
+        // Rebuild immediately before mutation so all current localized bundles
+        // are included. Reusing a stale persisted plan can silently apply only
+        // an older subset (for example, just en-US) while reporting success.
+        let requestPlan = try planASCMetadataRequests(workspace: workspace, store: store)
         let privateKey = try ASCSecretResolver(fileManager: fileManager).resolve(authConfig.privateKey)
         let token = try ASCJWTSigner().token(config: authConfig, privateKeyPEM: privateKey)
         let result = try await ASCAPIClient().applyMetadataRequests(requestPlan, token: token)

@@ -2,6 +2,13 @@
 
 AscendKit follows [Semantic Versioning](https://semver.org/). The `1.x` line keeps the documented v1 command surface stable; breaking workflow changes require a new major version.
 
+## 1.9.1 - 2026-09-21
+
+### Fixed
+
+- `asc metadata apply` now rebuilds the request plan immediately before a confirmed remote mutation, preventing stale persisted plans from applying only a subset of localized metadata.
+- Added regression coverage proving that each localized resource receives its own metadata PATCH request.
+
 ## 1.9.0 - 2026-06-04
 
 ### Added
