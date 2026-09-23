@@ -4,6 +4,8 @@ on:
   push:
     tags:
       - "v*"
+    branches:
+      - "release-v*"
 
 permissions:
   contents: write
@@ -15,6 +17,20 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+
+      - name: Resolve release tag
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            RELEASE_TAG="$GITHUB_REF_NAME"
+          else
+            RELEASE_TAG="${GITHUB_REF_NAME#release-}"
+          fi
+          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Invalid release tag: $RELEASE_TAG" >&2
+            exit 64
+          fi
+          echo "RELEASE_TAG=$RELEASE_TAG" >> "$GITHUB_ENV"
 
       - name: Select Xcode
         run: sudo xcode-select -s /Applications/Xcode.app
@@ -32,11 +48,12 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
-            gh release upload "${GITHUB_REF_NAME}" dist/*.tar.gz dist/*.tar.gz.sha256 --clobber
+          if gh release view "${RELEASE_TAG}" >/dev/null 2>&1; then
+            gh release upload "${RELEASE_TAG}" dist/*.tar.gz dist/*.tar.gz.sha256 --clobber
           else
-            gh release create "${GITHUB_REF_NAME}" dist/*.tar.gz dist/*.tar.gz.sha256 \
-              --title "${GITHUB_REF_NAME}" \
+            gh release create "${RELEASE_TAG}" dist/*.tar.gz dist/*.tar.gz.sha256 \
+              --target "${GITHUB_SHA}" \
+              --title "${RELEASE_TAG}" \
               --generate-notes
           fi
 
@@ -48,19 +65,19 @@ jobs:
       - name: Verify Homebrew formula
         env:
           GH_TOKEN: ${{ github.token }}
-        run: scripts/verify-homebrew-formula.sh --version "${GITHUB_REF_NAME}"
+        run: scripts/verify-homebrew-formula.sh --version "${RELEASE_TAG}"
 
       - name: Upload Homebrew formula
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "${GITHUB_REF_NAME}" Formula/ascendkit.rb --clobber
+        run: gh release upload "${RELEASE_TAG}" Formula/ascendkit.rb --clobber
 
       - name: Upload installer script
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "${GITHUB_REF_NAME}" scripts/install-ascendkit.sh --clobber
+        run: gh release upload "${RELEASE_TAG}" scripts/install-ascendkit.sh --clobber
 
       - name: Verify uploaded release assets
         env:
           GH_TOKEN: ${{ github.token }}
-        run: scripts/verify-release-assets.sh --version "${GITHUB_REF_NAME}"
+        run: scripts/verify-release-assets.sh --version "${RELEASE_TAG}"
