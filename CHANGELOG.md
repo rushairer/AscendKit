@@ -2,6 +2,16 @@
 
 AscendKit follows [Semantic Versioning](https://semver.org/). The `1.x` line keeps the documented v1 command surface stable; breaking workflow changes require a new major version.
 
+## 1.10.0 - 2026-09-23
+
+### Added
+
+- Added `asc achievements list` for read-only Game Center Achievement discovery by Game Center group or detail.
+- Added `asc achievements sync` for idempotent JSON-driven Game Center Achievement synchronization keyed by `vendorIdentifier`, including create/update/skip planning, explicit remote-mutation confirmation, and localized name/before-earned/after-earned copy.
+- Added Game Center Achievement v2 API models and synchronization support, including editable achievement-version handling for localization changes.
+- Added a copyable `docs/game-center-achievements.example.json` catalog template and command documentation.
+
+
 ## 1.9.1 - 2026-09-21
 
 ### Fixed
