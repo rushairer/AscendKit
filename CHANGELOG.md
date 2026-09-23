@@ -2,6 +2,19 @@
 
 AscendKit follows [Semantic Versioning](https://semver.org/). The `1.x` line keeps the documented v1 command surface stable; breaking workflow changes require a new major version.
 
+## 1.11.0 - 2026-09-23
+
+### Added
+
+- Added `agent advise` and alias `agent next` commands for AI agent release copilot guidance, returning structured phase detection, exact recommended commands, real blockers, and ignorable warnings.
+- Added `AgentAdvisor` engine and `AgentAdviseReport` models to AscendKitCore.
+- Added comprehensive Agent Release Copilot protocol and "Safe Assumptions vs. Real Blockers Matrix" to `docs/agent-release-playbook.md`.
+
+### Fixed
+
+- Fixed `findReusableReviewSubmissionID` to strictly match review submissions in `READY_FOR_REVIEW` state instead of matching completed submissions.
+- Added HTTP 409 tolerance for immutable or already declared fields during review submission execution (`app.content-rights.update`, `primary-category.update`, `age-rating-declaration.update`, and `build.export-compliance.update`).
+
 ## 1.10.0 - 2026-09-23
 
 ### Added
