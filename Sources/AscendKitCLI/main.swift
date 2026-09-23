@@ -1369,8 +1369,11 @@ struct CLIRunner {
         if domain == "privacy" {
             return try await ascPrivacy(args, json: json)
         }
+        if domain == "achievements" {
+            return try await ascAchievements(args, json: json)
+        }
         guard domain == "builds" else {
-            throw AscendKitError.invalidArguments("Usage: ascendkit asc auth init|check OR ascendkit asc lookup plan|apps OR ascendkit asc apps lookup OR ascendkit asc builds list|import OR ascendkit asc metadata import OR ascendkit asc pricing set-free OR ascendkit asc privacy set-not-collected|status|confirm-manual")
+            throw AscendKitError.invalidArguments("Usage: ascendkit asc auth init|check OR ascendkit asc lookup plan|apps OR ascendkit asc apps lookup OR ascendkit asc builds list|import OR ascendkit asc metadata import OR ascendkit asc pricing set-free OR ascendkit asc privacy set-not-collected|status|confirm-manual OR ascendkit asc achievements list|sync")
         }
         switch args.dropFirst().first {
         case "observe":
@@ -1857,6 +1860,75 @@ struct CLIRunner {
             return result.executed
                 ? "ASC free pricing was set for app \(appID).\n\(version)"
                 : "ASC free pricing was planned but not executed; pass --confirm-remote-mutation to apply it.\n\(version)"
+        }
+    }
+
+    private func ascAchievements(_ args: [String], json: Bool) async throws -> String {
+        guard let subcommand = args.dropFirst().first else {
+            throw AscendKitError.invalidArguments("Usage: ascendkit asc achievements list|sync --workspace PATH (--group-id ID | --detail-id ID) [--file PATH] [--confirm-remote-mutation] [--json]")
+        }
+        let workspace = try loadWorkspace(from: args)
+        guard let authConfig = try loadIfExists(ASCAuthConfig.self, path: workspace.paths.ascAuthConfig) else {
+            throw AscendKitError.invalidState("ASC auth config is missing. Run asc auth init first.")
+        }
+        let authStatus = ASCAuthStatus(config: authConfig)
+        guard authStatus.configured else {
+            throw AscendKitError.invalidState("ASC auth config is not ready: \(authStatus.findings.joined(separator: " "))")
+        }
+        let target: GameCenterAchievementTarget
+        if let groupID = value(after: "--group-id", in: args), !groupID.isEmpty {
+            target = GameCenterAchievementTarget(kind: .group, id: groupID)
+        } else if let detailID = value(after: "--detail-id", in: args), !detailID.isEmpty {
+            target = GameCenterAchievementTarget(kind: .detail, id: detailID)
+        } else {
+            throw AscendKitError.invalidArguments("Pass exactly one Game Center target: --group-id ID or --detail-id ID.")
+        }
+        if value(after: "--group-id", in: args) != nil && value(after: "--detail-id", in: args) != nil {
+            throw AscendKitError.invalidArguments("Pass only one Game Center target: --group-id ID or --detail-id ID.")
+        }
+
+        let privateKey = try ASCSecretResolver(fileManager: fileManager).resolve(authConfig.privateKey)
+        let token = try ASCJWTSigner().token(config: authConfig, privateKeyPEM: privateKey)
+        let client = ASCAPIClient()
+
+        switch subcommand {
+        case "list":
+            let report = try await client.listGameCenterAchievements(target: target, token: token)
+            return try render(report, json: json) {
+                let values = report.achievements.map {
+                    "- \($0.vendorIdentifier ?? $0.id): \($0.referenceName ?? "(unnamed)") [\($0.points.map(String.init) ?? "?") pts]"
+                }
+                return (["Game Center achievements: \(report.achievements.count)", "AscendKit version: \(report.ascendKitVersion ?? "unknown")"] + values).joined(separator: "\n")
+            }
+        case "sync":
+            guard let filePath = value(after: "--file", in: args) else {
+                throw AscendKitError.invalidArguments("Usage: ascendkit asc achievements sync --workspace PATH (--group-id ID | --detail-id ID) --file PATH [--confirm-remote-mutation] [--json]")
+            }
+            let sourceURL = URL(fileURLWithPath: filePath)
+            guard fileManager.fileExists(atPath: sourceURL.path) else {
+                throw AscendKitError.fileNotFound(sourceURL.path)
+            }
+            let catalog = try AscendKitJSON.decoder.decode(
+                GameCenterAchievementCatalog.self,
+                from: Data(contentsOf: sourceURL)
+            )
+            let result = try await client.syncGameCenterAchievements(
+                catalog: catalog,
+                target: target,
+                confirmRemoteMutation: args.contains("--confirm-remote-mutation"),
+                token: token
+            )
+            return try render(result, json: json) {
+                let changed = result.items.filter { item in
+                    item.action != .skip || item.localizations.contains(where: { $0.action != .skip })
+                }.count
+                if result.executed {
+                    return "Game Center achievement sync applied: \(changed) changed item(s).\nAscendKit version: \(result.ascendKitVersion ?? "unknown")"
+                }
+                return "Game Center achievement sync dry run: \(changed) item(s) would change. Pass --confirm-remote-mutation to apply.\nAscendKit version: \(result.ascendKitVersion ?? "unknown")"
+            }
+        default:
+            throw AscendKitError.invalidArguments("Usage: ascendkit asc achievements list|sync --workspace PATH (--group-id ID | --detail-id ID) [--file PATH] [--confirm-remote-mutation] [--json]")
         }
     }
 
