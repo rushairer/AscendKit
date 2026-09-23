@@ -266,6 +266,55 @@ struct ASCTests {
         #expect(decoded.responses.first?.id == "app-pricing.set-free")
     }
 
+    @Test("validates and serializes Game Center achievement catalog")
+    func validatesAndSerializesGameCenterAchievementCatalog() throws {
+        let catalog = GameCenterAchievementCatalog(achievements: [
+            GameCenterAchievementDefinition(
+                referenceName: "First Practice",
+                vendorIdentifier: "grp.practice_first_session",
+                points: 10,
+                showBeforeEarned: true,
+                repeatable: false,
+                localizations: [
+                    GameCenterAchievementLocalizationDefinition(
+                        locale: "en-US",
+                        name: "First Practice",
+                        beforeEarnedDescription: "Complete your first practice session.",
+                        afterEarnedDescription: "You completed your first practice session."
+                    ),
+                    GameCenterAchievementLocalizationDefinition(
+                        locale: "zh-Hans",
+                        name: "初次练习",
+                        beforeEarnedDescription: "完成第一次练习。",
+                        afterEarnedDescription: "你已完成第一次练习。"
+                    )
+                ]
+            )
+        ])
+
+        try catalog.validate()
+        let data = try AscendKitJSON.encoder.encode(catalog)
+        let decoded = try AscendKitJSON.decoder.decode(GameCenterAchievementCatalog.self, from: data)
+
+        #expect(decoded.schemaVersion == 1)
+        #expect(decoded.achievements.first?.vendorIdentifier == "grp.practice_first_session")
+        #expect(decoded.achievements.first?.localizations.count == 2)
+    }
+
+    @Test("rejects duplicate Game Center achievement vendor identifiers")
+    func rejectsDuplicateGameCenterAchievementVendorIdentifiers() {
+        let duplicate = GameCenterAchievementDefinition(
+            referenceName: "Duplicate",
+            vendorIdentifier: "grp.duplicate",
+            points: 10
+        )
+        let catalog = GameCenterAchievementCatalog(achievements: [duplicate, duplicate])
+
+        #expect(throws: AscendKitError.self) {
+            try catalog.validate()
+        }
+    }
+
     @Test("serializes screenshot upload execution result")
     func serializesScreenshotUploadExecutionResult() throws {
         let result = ScreenshotUploadExecutionResult(

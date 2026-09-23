@@ -34,10 +34,17 @@ These command groups are expected to remain available through `v1.x`:
 - `asc metadata`
 - `asc pricing`
 - `asc privacy`
+- `asc achievements`
 - `submit`
 - `iap`
 
 Flag names used in README examples and `docs/agent-release-playbook.md` should be treated as v1-stable. Breaking workflow changes require a new major version.
+
+## Game Center Achievements
+
+`asc achievements list` reads existing Game Center achievements for a Game Center group or detail.
+
+`asc achievements sync` reads a versioned JSON catalog, matches achievements by `vendorIdentifier`, and produces CREATE / UPDATE / SKIP actions. It is dry-run by default; confirmed remote changes require `--confirm-remote-mutation`. Achievement and localization resources use the current App Store Connect Game Center Achievement v2 API surface.
 
 ## Migration Compatibility Commands
 

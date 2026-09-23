@@ -59,6 +59,8 @@ public enum AscendKitCommandCatalog {
         "ascendkit asc privacy set-not-collected --workspace PATH [--app-id ID] --confirm-remote-mutation [--json]",
         "ascendkit asc privacy status --workspace PATH [--json]",
         "ascendkit asc privacy confirm-manual --workspace PATH --data-not-collected [--json]",
+        "ascendkit asc achievements list --workspace PATH (--group-id ID | --detail-id ID) [--json]",
+        "ascendkit asc achievements sync --workspace PATH (--group-id ID | --detail-id ID) --file PATH [--confirm-remote-mutation] [--json]",
         "ascendkit submit readiness --workspace PATH [--json]",
         "ascendkit submit prepare --workspace PATH [--json]",
         "ascendkit submit review-plan --workspace PATH [--json]",
