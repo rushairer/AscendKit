@@ -566,6 +566,13 @@ ascendkit agent prompt \
 
 `agent prompt` refuses placeholder-style sample values such as `<<...>>`, `/path/to/App`, and `app-1.0-b1`. Use `--workspace` when a release workspace already exists; AscendKit derives the app root and release id from `PATH/.ascendkit/releases/RELEASE_ID` without reading workspace contents or writing audit records. The output prompt includes the release workspace, the selected ASC profile name, safety boundaries, and the first deterministic commands an agent should run. It does not include secrets, reviewer details, screenshots, binaries, or raw `.ascendkit/` contents.
 
+Query the Agent Release Copilot to get the current release phase, exact recommended command, blockers, ignorable warnings, and LLM directive:
+
+```bash
+ascendkit agent advise --workspace "$WORKSPACE"
+ascendkit agent next --workspace "$WORKSPACE" --json
+```
+
 ### `workspace`
 
 Inspect existing release workspace state.

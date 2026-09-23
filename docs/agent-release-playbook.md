@@ -279,6 +279,37 @@ If remote execution is not allowed (readiness or review plan conditions not met)
 ascendkit submit handoff --workspace "$WORKSPACE" --json
 ```
 
+## Agent Release Copilot Protocol (`agent advise` / `agent next`)
+
+When an agent takes over a release or needs guidance on what to do next, do not guess or rely on stale conversation memory. Query the built-in advisor:
+
+```bash
+ascendkit agent advise --workspace "$WORKSPACE" --json
+# or the alias:
+ascendkit agent next --workspace "$WORKSPACE" --json
+```
+
+The output gives the agent:
+- `phase`: Current phase (`intake`, `screenshotsCapture`, `screenshotsUpload`, `buildSelection`, `metadataSync`, `complianceAndPrivacy`, `readyToSubmit`, `waitingForReview`, `complete`)
+- `readyForNextStep`: Boolean indicating readiness to advance
+- `recommendedCommand`: Concrete command to execute next
+- `blockers`: Active blockers preventing release progress
+- `ignorableWarnings`: Safe assumptions that must not halt execution
+- `agentPrompt`: Natural-language directive explaining the next action
+
+### Safe Assumptions vs. Real Blockers Matrix
+
+| Issue / Signal | Category | Rationale & Agent Action |
+| :--- | :--- | :--- |
+| **HTTP 409 on `app.content-rights.update`** | **Ignorable** | Third-party rights declaration is already locked on App Store Connect. Safe to proceed. |
+| **HTTP 409 on `primaryCategory` / `ageRatingDeclaration`** | **Ignorable** | App category or age rating is already set and immutable via patch. Safe to proceed. |
+| **HTTP 409 on `build.export-compliance.update`** | **Ignorable** | Build already recorded `usesNonExemptEncryption: false`. Safe to proceed. |
+| **HTTP 401 on Iris `dataUsages`** | **Ignorable** | Iris is an internal endpoint requiring Apple employee tokens. If `publishedDataNotCollected` is confirmed locally or via ASC web UI, skip safely. |
+| **Missing `whatsNew` on update versions** | **CRITICAL BLOCKER** | Apple strictly mandates `whatsNew` for all supported locales on update releases (versions > 1.0.0). Missing `whatsNew` causes HTTP 409 upon creating review submission items. Must sync all localized `releaseNotes`. |
+| **Screenshot `assetDeliveryState` not `COMPLETE`** | **CRITICAL BLOCKER** | An HTTP 200 upload response does not guarantee processing completion. Re-read remote screenshot sets and verify every asset reached `COMPLETE` before submission. |
+| **Build `processingState` is `PROCESSING`** | **CRITICAL BLOCKER** | Xcode Cloud builds must finish processing and reach `VALID` before attaching to an App Store version. |
+| **Review submission reuse on `COMPLETE` state** | **CRITICAL BLOCKER** | Only review submissions with `state == "READY_FOR_REVIEW"` can be reused. Never attempt to submit an already completed submission. |
+
 ## What To Report Back
 
 The agent should finish with:

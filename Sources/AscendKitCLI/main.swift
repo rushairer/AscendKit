@@ -65,9 +65,20 @@ struct CLIRunner {
     }
 
     private func agent(_ args: [String], json: Bool) throws -> String {
-        guard args.first == "prompt" else {
-            throw AscendKitError.invalidArguments("Usage: ascendkit agent prompt (--app-root PATH --release-id ID | --workspace PATH) --asc-profile NAME [--playbook PATH_OR_URL] [--output FILE] [--json]")
+        guard let action = args.first else {
+            throw AscendKitError.invalidArguments("Usage: ascendkit agent prompt|advise|next ...")
         }
+        switch action {
+        case "prompt":
+            return try agentPrompt(Array(args.dropFirst()), json: json)
+        case "advise", "next":
+            return try agentAdvise(Array(args.dropFirst()), json: json)
+        default:
+            throw AscendKitError.invalidArguments("Usage: ascendkit agent prompt|advise|next ...")
+        }
+    }
+
+    private func agentPrompt(_ args: [String], json: Bool) throws -> String {
         guard let ascProfile = value(after: "--asc-profile", in: args) else {
             throw AscendKitError.invalidArguments("Usage: ascendkit agent prompt (--app-root PATH --release-id ID | --workspace PATH) --asc-profile NAME [--playbook PATH_OR_URL] [--output FILE] [--json]")
         }
@@ -109,6 +120,41 @@ struct CLIRunner {
                 ].joined(separator: "\n")
             }
             return report.prompt
+        }
+    }
+
+    private func agentAdvise(_ args: [String], json: Bool) throws -> String {
+        let workspace = try loadWorkspace(from: args)
+        let report = AgentAdvisor(fileManager: fileManager).advise(workspace: workspace)
+        return try render(report, json: json) {
+            var lines = [
+                "AscendKit Agent Release Advisor",
+                "Release: \(report.releaseID)",
+                "Phase: \(report.phase.rawValue)",
+                "Status: \(report.statusSummary)",
+                "Ready for Next Step: \(report.readyForNextStep ? "YES" : "NO")",
+                ""
+            ]
+            if !report.blockers.isEmpty {
+                lines.append("Blockers:")
+                for b in report.blockers {
+                    lines.append("  ✗ \(b)")
+                }
+                lines.append("")
+            }
+            if !report.ignorableWarnings.isEmpty {
+                lines.append("Safe Assumptions / Ignorable Warnings:")
+                for w in report.ignorableWarnings {
+                    lines.append("  ℹ︎ \(w)")
+                }
+                lines.append("")
+            }
+            lines.append("Recommended Next Command:")
+            lines.append("  \(report.recommendedCommand)")
+            lines.append("")
+            lines.append("Agent Directive:")
+            lines.append("  \(report.agentPrompt)")
+            return lines.joined(separator: "\n")
         }
     }
 
