@@ -614,44 +614,74 @@ public struct ASCAPIClient {
         )
         responses.append(buildResponse)
 
-        let buildEncryptionResponse = try await sendJSONAPIRequest(
-            id: "build.export-compliance.update",
-            method: "PATCH",
-            path: "/v1/builds/\(buildID)",
-            payload: [
-                "data": [
-                    "type": "builds",
-                    "id": buildID,
-                    "attributes": [
-                        "usesNonExemptEncryption": false
+        do {
+            let buildEncryptionResponse = try await sendJSONAPIRequest(
+                id: "build.export-compliance.update",
+                method: "PATCH",
+                path: "/v1/builds/\(buildID)",
+                payload: [
+                    "data": [
+                        "type": "builds",
+                        "id": buildID,
+                        "attributes": [
+                            "usesNonExemptEncryption": false
+                        ]
                     ]
-                ]
-            ],
-            token: token
-        )
-        responses.append(buildEncryptionResponse)
+                ],
+                token: token
+            )
+            responses.append(buildEncryptionResponse)
+        } catch {
+            let desc = String(describing: error)
+            if desc.contains("409") || desc.contains("already set") {
+                responses.append(ReviewSubmissionExecutionResponse(
+                    id: "build.export-compliance.update",
+                    method: "PATCH",
+                    path: "/v1/builds/\(buildID)",
+                    statusCode: 409,
+                    resourceID: buildID
+                ))
+            } else {
+                throw error
+            }
+        }
 
         let appInfoResponse = try await updateAppInfo(appInfoID: appInfoID, token: token)
         if let appInfoResponse {
             responses.append(appInfoResponse)
         }
 
-        let appResponse = try await sendJSONAPIRequest(
-            id: "app.content-rights.update",
-            method: "PATCH",
-            path: "/v1/apps/\(appID)",
-            payload: [
-                "data": [
-                    "type": "apps",
-                    "id": appID,
-                    "attributes": [
-                        "contentRightsDeclaration": "DOES_NOT_USE_THIRD_PARTY_CONTENT"
+        do {
+            let appResponse = try await sendJSONAPIRequest(
+                id: "app.content-rights.update",
+                method: "PATCH",
+                path: "/v1/apps/\(appID)",
+                payload: [
+                    "data": [
+                        "type": "apps",
+                        "id": appID,
+                        "attributes": [
+                            "contentRightsDeclaration": "DOES_NOT_USE_THIRD_PARTY_CONTENT"
+                        ]
                     ]
-                ]
-            ],
-            token: token
-        )
-        responses.append(appResponse)
+                ],
+                token: token
+            )
+            responses.append(appResponse)
+        } catch {
+            let desc = String(describing: error)
+            if desc.contains("409") || desc.contains("INVALID_STATE") {
+                responses.append(ReviewSubmissionExecutionResponse(
+                    id: "app.content-rights.update",
+                    method: "PATCH",
+                    path: "/v1/apps/\(appID)",
+                    statusCode: 409,
+                    resourceID: appID
+                ))
+            } else {
+                throw error
+            }
+        }
 
         do {
             responses.append(contentsOf: try await publishDataNotCollectedPrivacyAnswers(appID: appID, token: token))
@@ -699,19 +729,34 @@ public struct ASCAPIClient {
         }
         let ageRatingResponse: ReviewSubmissionExecutionResponse
         if let ageRatingDeclarationID = existingAgeRatingDeclarationID {
-            ageRatingResponse = try await sendJSONAPIRequest(
-                id: "age-rating-declaration.update",
-                method: "PATCH",
-                path: "/v1/ageRatingDeclarations/\(ageRatingDeclarationID)",
-                payload: [
-                    "data": [
-                        "type": "ageRatingDeclarations",
-                        "id": ageRatingDeclarationID,
-                        "attributes": defaultAgeRatingDeclarationAttributes()
-                    ]
-                ],
-                token: token
-            )
+            do {
+                ageRatingResponse = try await sendJSONAPIRequest(
+                    id: "age-rating-declaration.update",
+                    method: "PATCH",
+                    path: "/v1/ageRatingDeclarations/\(ageRatingDeclarationID)",
+                    payload: [
+                        "data": [
+                            "type": "ageRatingDeclarations",
+                            "id": ageRatingDeclarationID,
+                            "attributes": defaultAgeRatingDeclarationAttributes()
+                        ]
+                    ],
+                    token: token
+                )
+            } catch {
+                let desc = String(describing: error)
+                if desc.contains("409") || desc.contains("not editable") {
+                    ageRatingResponse = ReviewSubmissionExecutionResponse(
+                        id: "age-rating-declaration.update",
+                        method: "PATCH",
+                        path: "/v1/ageRatingDeclarations/\(ageRatingDeclarationID)",
+                        statusCode: 409,
+                        resourceID: ageRatingDeclarationID
+                    )
+                } else {
+                    throw error
+                }
+            }
         } else {
             ageRatingResponse = try await sendJSONAPIRequest(
                 id: "age-rating-declaration.create",
@@ -780,32 +825,49 @@ public struct ASCAPIClient {
             reviewSubmissionID = createdReviewSubmissionID
         }
 
-        let itemResponse = try await sendJSONAPIRequest(
-            id: "review-submission-item.create",
-            method: "POST",
-            path: "/v1/reviewSubmissionItems",
-            payload: [
-                "data": [
-                    "type": "reviewSubmissionItems",
-                    "relationships": [
-                        "appStoreVersion": [
-                            "data": [
-                                "type": "appStoreVersions",
-                                "id": appStoreVersionID
-                            ]
-                        ],
-                        "reviewSubmission": [
-                            "data": [
-                                "type": "reviewSubmissions",
-                                "id": reviewSubmissionID
+        let itemResponse: ReviewSubmissionExecutionResponse
+        do {
+            itemResponse = try await sendJSONAPIRequest(
+                id: "review-submission-item.create",
+                method: "POST",
+                path: "/v1/reviewSubmissionItems",
+                payload: [
+                    "data": [
+                        "type": "reviewSubmissionItems",
+                        "relationships": [
+                            "appStoreVersion": [
+                                "data": [
+                                    "type": "appStoreVersions",
+                                    "id": appStoreVersionID
+                                ]
+                            ],
+                            "reviewSubmission": [
+                                "data": [
+                                    "type": "reviewSubmissions",
+                                    "id": reviewSubmissionID
+                                ]
                             ]
                         ]
                     ]
-                ]
-            ],
-            token: token
-        )
-        responses.append(itemResponse)
+                ],
+                token: token
+            )
+            responses.append(itemResponse)
+        } catch {
+            let desc = String(describing: error)
+            if desc.contains("409") || desc.contains("already") {
+                itemResponse = ReviewSubmissionExecutionResponse(
+                    id: "review-submission-item.create",
+                    method: "POST",
+                    path: "/v1/reviewSubmissionItems",
+                    statusCode: 409,
+                    resourceID: nil
+                )
+                responses.append(itemResponse)
+            } else {
+                throw error
+            }
+        }
 
         let submitResponse = try await sendJSONAPIRequest(
             id: "review-submission.submit",
@@ -1365,26 +1427,40 @@ public struct ASCAPIClient {
         guard let appInfoID else {
             return nil
         }
-        return try await sendJSONAPIRequest(
-            id: "app-info.primary-category.update",
-            method: "PATCH",
-            path: "/v1/appInfos/\(appInfoID)",
-            payload: [
-                "data": [
-                    "type": "appInfos",
-                    "id": appInfoID,
-                    "relationships": [
-                        "primaryCategory": [
-                            "data": [
-                                "type": "appCategories",
-                                "id": "LIFESTYLE"
+        do {
+            return try await sendJSONAPIRequest(
+                id: "app-info.primary-category.update",
+                method: "PATCH",
+                path: "/v1/appInfos/\(appInfoID)",
+                payload: [
+                    "data": [
+                        "type": "appInfos",
+                        "id": appInfoID,
+                        "relationships": [
+                            "primaryCategory": [
+                                "data": [
+                                    "type": "appCategories",
+                                    "id": "LIFESTYLE"
+                                ]
                             ]
                         ]
                     ]
-                ]
-            ],
-            token: token
-        )
+                ],
+                token: token
+            )
+        } catch {
+            let desc = String(describing: error)
+            if desc.contains("409") || desc.contains("INVALID_STATE") {
+                return ReviewSubmissionExecutionResponse(
+                    id: "app-info.primary-category.update",
+                    method: "PATCH",
+                    path: "/v1/appInfos/\(appInfoID)",
+                    statusCode: 409,
+                    resourceID: appInfoID
+                )
+            }
+            throw error
+        }
     }
 
     public func publishDataNotCollectedPrivacyAnswers(appID: String, token: String) async throws -> [ReviewSubmissionExecutionResponse] {
@@ -1502,7 +1578,7 @@ public struct ASCAPIClient {
             as: ReviewSubmissionResource.self
         )
         return submissions.first { submission in
-            submission.attributes.platform == platform && submission.attributes.submitted != true
+            submission.attributes.platform == platform && submission.attributes.state == "READY_FOR_REVIEW"
         }?.id
     }
 
