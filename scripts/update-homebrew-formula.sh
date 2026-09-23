@@ -40,6 +40,23 @@ if [[ -z "${SHA256}" ]] && command -v gh >/dev/null 2>&1; then
     RELEASE_EXISTS=true
     DIGEST="$(gh release view "v${VERSION}" --repo "${REPOSITORY}" --json assets \
       --jq ".assets[] | select(.name == \"${ARCHIVE_NAME}\") | .digest" 2>/dev/null || true)"
+    if [[ -z "${DIGEST}" ]]; then
+      OWNER="${REPOSITORY%%/*}"
+      REPO="${REPOSITORY#*/}"
+      DIGEST="$(gh api graphql -F owner="${OWNER}" -F name="${REPO}" -F tagName="v${VERSION}" -f query='
+query($owner: String!, $name: String!, $tagName: String!) {
+  repository(owner: $owner, name: $name) {
+    release(tagName: $tagName) {
+      releaseAssets(first: 30) {
+        nodes {
+          name
+          digest
+        }
+      }
+    }
+  }
+}' --jq ".data.repository.release.releaseAssets.nodes[] | select(.name == \"${ARCHIVE_NAME}\") | .digest" 2>/dev/null || true)"
+    fi
     SHA256="${DIGEST#sha256:}"
     if [[ -n "${SHA256}" && "${SHA256}" != "${DIGEST}" ]]; then
       SHA_SOURCE="published release asset digest"
@@ -54,10 +71,12 @@ if [[ -z "${SHA256}" && "${RELEASE_EXISTS}" == true ]]; then
   if ! gh release download "v${VERSION}" \
     --repo "${REPOSITORY}" \
     --pattern "${ARCHIVE_NAME}" \
-    --dir "${TMP_DIR}" >/dev/null; then
-    echo "GitHub Release v${VERSION} exists, but ${ARCHIVE_NAME} could not be downloaded." >&2
-    echo "Refusing to fall back to the local archive because that can create a stale Formula checksum." >&2
-    exit 66
+    --dir "${TMP_DIR}" >/dev/null 2>&1; then
+    if ! curl -fsSL "https://github.com/${REPOSITORY}/releases/download/v${VERSION}/${ARCHIVE_NAME}" -o "${TMP_DIR}/${ARCHIVE_NAME}"; then
+      echo "GitHub Release v${VERSION} exists, but ${ARCHIVE_NAME} could not be downloaded via gh or curl." >&2
+      echo "Refusing to fall back to the local archive because that can create a stale Formula checksum." >&2
+      exit 66
+    fi
   fi
   SHA256="$(shasum -a 256 "${TMP_DIR}/${ARCHIVE_NAME}" | awk '{print $1}')"
   SHA_SOURCE="downloaded published release asset"

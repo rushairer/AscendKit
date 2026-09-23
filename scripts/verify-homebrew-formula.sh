@@ -83,7 +83,30 @@ if ! gh release view "${TAG}" --repo "${REPOSITORY}" >/dev/null 2>&1; then
 fi
 
 DIGEST="$(gh release view "${TAG}" --repo "${REPOSITORY}" --json assets \
-  --jq ".assets[] | select(.name == \"${ARCHIVE_NAME}\") | .digest")"
+  --jq ".assets[] | select(.name == \"${ARCHIVE_NAME}\") | .digest" 2>/dev/null || true)"
+if [[ -z "${DIGEST}" ]]; then
+  OWNER="${REPOSITORY%%/*}"
+  REPO="${REPOSITORY#*/}"
+  DIGEST="$(gh api graphql -F owner="${OWNER}" -F name="${REPO}" -F tagName="${TAG}" -f query='
+query($owner: String!, $name: String!, $tagName: String!) {
+  repository(owner: $owner, name: $name) {
+    release(tagName: $tagName) {
+      releaseAssets(first: 30) {
+        nodes {
+          name
+          digest
+        }
+      }
+    }
+  }
+}' --jq ".data.repository.release.releaseAssets.nodes[] | select(.name == \"${ARCHIVE_NAME}\") | .digest" 2>/dev/null || true)"
+fi
+if [[ -z "${DIGEST}" ]]; then
+  SHA_FROM_URL="$(curl -fsSL "https://github.com/${REPOSITORY}/releases/download/${TAG}/${ARCHIVE_NAME}.sha256" 2>/dev/null | awk '{print $1}' || true)"
+  if [[ -n "${SHA_FROM_URL}" ]]; then
+    DIGEST="sha256:${SHA_FROM_URL}"
+  fi
+fi
 EXPECTED_SHA="${DIGEST#sha256:}"
 if [[ -z "${EXPECTED_SHA}" || "${EXPECTED_SHA}" == "${DIGEST}" ]]; then
   echo "Missing release archive digest for ${ARCHIVE_NAME} in ${TAG}." >&2
