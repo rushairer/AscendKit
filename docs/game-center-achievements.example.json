@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "achievements": [
+    {
+      "referenceName": "First Practice",
+      "vendorIdentifier": "grp.practice_first_session",
+      "points": 10,
+      "showBeforeEarned": true,
+      "repeatable": false,
+      "localizations": [
+        {
+          "locale": "en-US",
+          "name": "First Practice",
+          "beforeEarnedDescription": "Complete your first practice session.",
+          "afterEarnedDescription": "You completed your first practice session."
+        },
+        {
+          "locale": "zh-Hans",
+          "name": "初次练习",
+          "beforeEarnedDescription": "完成第一次练习。",
+          "afterEarnedDescription": "你已完成第一次练习。"
+        }
+      ]
+    }
+  ]
+}
