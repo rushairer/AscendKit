@@ -2,6 +2,18 @@
 
 AscendKit follows [Semantic Versioning](https://semver.org/). The `1.x` line keeps the documented v1 command surface stable; breaking workflow changes require a new major version.
 
+## [Unreleased]
+
+## 1.12.0 - 2026-10-10
+
+### Added
+
+- Added agent-operable `asc ppo` commands for Product Page Optimization v2 experiments, treatments, localizations, screenshot upload and ordering, dedicated review submissions, and applying treatments to a product page.
+- Added verified treatment-only screenshot ordering by inherited filename prefix, including complete-set and delivery-state checks and remote readback; documented the no-reupload experiment flow.
+- Added credential-free mutation planning, JSON API resource responses, workspace PPO plans/results and audit events, and an AI operating playbook. Remote mutations require explicit confirmation; review submission additionally requires submission confirmation and rejects unrelated review items.
+- Added screenshot composition `--theme` selection, opt-in `--include-release-notes` metadata requests, and `--preserve-existing-app-metadata` for eligible update submissions.
+- Added guarded `asc marketplace-search-detail observe|set` for eligible alternative-marketplace apps; unsupported ordinary App Store apps fail without a mutation.
+
 ## 1.11.0 - 2026-09-23
 
 ### Added

@@ -13,6 +13,8 @@ Use both:
 
 Do not rely on a long one-off prompt alone. Prompts drift, while this playbook evolves with AscendKit versions.
 
+For post-release Product Page Optimization tasks, use [the PPO operating playbook](product-page-optimization.md). `asc ppo` supports real ASC experiment, treatment, screenshot, review, and promotion operations. Obtain bounded authorization once, chain returned resource IDs with `--json`, and ask only about real blockers or operations outside that scope. Never treat permission to prepare a test as permission to start it or apply its assets to the live page.
+
 Do not package this as a Codex Skill yet unless your team repeatedly runs this workflow across apps. A future skill should be a thin wrapper around this playbook and the CLI, not a separate source of truth.
 
 ## Minimal Agent Prompt

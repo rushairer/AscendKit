@@ -33,6 +33,7 @@ public struct ReleaseWorkspacePaths: Codable, Equatable, Sendable {
     public var ascMetadataPlan: String
     public var ascMetadataRequests: String
     public var ascMetadataApplyResult: String
+    public var ascMarketplaceSearchDetailResult: String?
     public var ascPricingResult: String
     public var ascPrivacyStatus: String
     public var iapSubscriptions: String
@@ -73,6 +74,7 @@ public struct ReleaseWorkspacePaths: Codable, Equatable, Sendable {
         self.ascMetadataPlan = releaseRoot.appendingPathComponent("asc/metadata-plan.json").path
         self.ascMetadataRequests = releaseRoot.appendingPathComponent("asc/metadata-requests.json").path
         self.ascMetadataApplyResult = releaseRoot.appendingPathComponent("asc/metadata-apply-result.json").path
+        self.ascMarketplaceSearchDetailResult = releaseRoot.appendingPathComponent("asc/marketplace-search-detail-result.json").path
         self.ascPricingResult = releaseRoot.appendingPathComponent("asc/pricing-result.json").path
         self.ascPrivacyStatus = releaseRoot.appendingPathComponent("asc/privacy-status.json").path
         self.iapSubscriptions = releaseRoot.appendingPathComponent("iap/subscriptions.json").path

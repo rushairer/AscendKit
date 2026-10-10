@@ -126,6 +126,298 @@ public struct ASCAPIClient {
         return ASCAppsLookupReport(bundleIDs: bundleIDs, apps: apps, findings: findings)
     }
 
+    public func executePPO(
+        plan: PPOPlan,
+        confirmRemoteMutation: Bool = false,
+        confirmRemoteSubmission: Bool = false,
+        token: String
+    ) async throws -> PPOResult {
+        if plan.mutatesRemote && (!confirmRemoteMutation || (plan.requiresSubmissionConfirmation && !confirmRemoteSubmission)) {
+            return PPOResult(plan: plan, executed: false, findings: [
+                plan.requiresSubmissionConfirmation
+                    ? "Review submission requires --confirm-remote-mutation and --confirm-remote-submission. No remote request was executed."
+                    : "Pass --confirm-remote-mutation to execute this plan. No remote request was executed."
+            ])
+        }
+        if plan.action == .reviewSubmit {
+            let reviewID = String(plan.path.split(separator: "/").last!)
+            let itemsPlan = try PPOPlanner().plan(action: .reviewItems, options: ["review-submission-id": reviewID])
+            let observed = try await executePPO(plan: itemsPlan, token: token)
+            var itemCount = 0
+            for document in observed.responses {
+                guard case .array(let items) = document["data"] else {
+                    throw AscendKitError.invalidState("ASC did not return review submission items; refusing PPO submission.")
+                }
+                for item in items {
+                    guard case .string(let experimentID) = item["relationships"]?["appStoreVersionExperimentV2"]?["data"]?["id"], !experimentID.isEmpty else {
+                        throw AscendKitError.invalidState("PPO review-submit only accepts a dedicated submission containing PPO v2 experiments. This submission has an unrelated or unidentified item; inspect review-items.")
+                    }
+                    itemCount += 1
+                }
+            }
+            guard itemCount > 0 else {
+                throw AscendKitError.invalidState("PPO review submission is empty. Run review-add before review-submit.")
+            }
+        }
+        if plan.action == .screenshotOrderByPrefix {
+            guard let setID = plan.screenshotSetID,
+                  case .string(let localizationID)? = plan.payload?["localizationID"],
+                  case .array(let requested)? = plan.payload?["prefixes"] else {
+                throw AscendKitError.invalidState("PPO screenshot order plan is incomplete.")
+            }
+            let setsPlan = try PPOPlanner().plan(action: .screenshotSets, options: ["localization-id": localizationID])
+            let sets = try await executePPO(plan: setsPlan, token: token)
+            var matchingSets = 0
+            for document in sets.responses {
+                guard case .array(let items)? = document["data"] else {
+                    throw AscendKitError.invalidState("Treatment screenshot set list is incomplete.")
+                }
+                matchingSets += items.filter { $0["id"] == .string(setID) }.count
+            }
+            guard matchingSets == 1 else {
+                throw AscendKitError.invalidState("Screenshot set is not present exactly once under the specified treatment localization; refusing to change the original product page.")
+            }
+            let screenshotsPlan = try PPOPlanner().plan(action: .screenshots, options: ["set-id": setID])
+            func orderedScreenshots() async throws -> [(id: String, prefix: String)] {
+                let result = try await executePPO(plan: screenshotsPlan, token: token)
+                var screenshots: [(id: String, prefix: String)] = []
+                for document in result.responses {
+                    guard case .array(let items)? = document["data"] else {
+                        throw AscendKitError.invalidState("Screenshot list is incomplete.")
+                    }
+                    for item in items {
+                        guard case .string(let id)? = item["id"],
+                              case .string(let name)? = item["attributes"]?["fileName"],
+                              case .string("COMPLETE")? = item["attributes"]?["assetDeliveryState"]?["state"] else {
+                            throw AscendKitError.invalidState("Screenshot is missing filename, ID, or COMPLETE delivery state.")
+                        }
+                        let prefix = String(name.prefix(while: { $0.isNumber }))
+                        guard !prefix.isEmpty, ["_", "-"].contains(String(name.dropFirst(prefix.count).prefix(1))) else {
+                            throw AscendKitError.invalidState("Screenshot filename must start with a numeric prefix followed by '_' or '-': \(name)")
+                        }
+                        screenshots.append((id, prefix))
+                    }
+                }
+                guard !screenshots.isEmpty,
+                      Set(screenshots.map(\.id)).count == screenshots.count,
+                      Set(screenshots.map(\.prefix)).count == screenshots.count else {
+                    throw AscendKitError.invalidState("Screenshot set is empty or contains duplicate IDs/prefixes.")
+                }
+                return screenshots
+            }
+            let before = try await orderedScreenshots()
+            let prefixes = requested.compactMap { value -> String? in
+                guard case .string(let prefix) = value else { return nil }
+                return prefix
+            }
+            guard prefixes.count == before.count, Set(prefixes) == Set(before.map(\.prefix)) else {
+                throw AscendKitError.invalidState("Requested prefixes must match every screenshot in this treatment set exactly; no additions or omissions allowed.")
+            }
+            let ids = prefixes.map { prefix in before.first { $0.prefix == prefix }!.id }
+            let orderPlan = try PPOPlanner().plan(action: .screenshotOrder, options: ["set-id": setID, "screenshot-ids": ids.joined(separator: ",")])
+            let mutation = try await executePPO(plan: orderPlan, confirmRemoteMutation: true, token: token)
+            let after = try await orderedScreenshots()
+            guard after.map(\.id) == ids else {
+                throw AscendKitError.invalidState("Screenshot order did not match the remote readback; inspect ASC before review.")
+            }
+            return PPOResult(plan: plan, executed: true, responses: mutation.responses, findings: [
+                "Verified treatment set \(setID) (localization \(localizationID)): \(ids.count) COMPLETE screenshots in requested order after remote readback."
+            ])
+        }
+        if plan.action == .screenshotUpload {
+            guard let sourcePath = plan.sourcePath, let setID = plan.screenshotSetID else {
+                throw AscendKitError.invalidState("PPO screenshot upload plan is missing its file or set ID.")
+            }
+            let fileURL = URL(fileURLWithPath: sourcePath)
+            let data = try ScreenshotImageSanitizer.opaquePNGData(from: fileURL)
+            let checksum = Insecure.MD5.hash(data: data).map { String(format: "%02hhx", $0) }.joined()
+            let fileName = fileURL.deletingPathExtension().lastPathComponent + ".png"
+            let reservation = try await createAppScreenshotReservation(
+                appScreenshotSetID: setID, fileName: fileName, fileSize: data.count, token: token
+            )
+            try await uploadAssetParts(uploadOperations: reservation.uploadOperations, data: data)
+            let commit = try await commitAppScreenshot(screenshotID: reservation.id, checksum: checksum, token: token)
+            let delivery = try await pollAppScreenshotDeliveryState(screenshotID: reservation.id, token: token)
+            return PPOResult(plan: plan, executed: true, upload: ScreenshotUploadExecutionItem(
+                planItemID: "ppo.screenshot-upload", appScreenshotSetID: setID, appScreenshotID: reservation.id,
+                fileName: fileName, checksum: checksum, assetDeliveryState: delivery.state,
+                assetDeliveryPollAttempts: delivery.attempts, responses: [reservation.response, commit]
+            ), findings: delivery.state == "COMPLETE"
+                ? ["Screenshot delivery is COMPLETE."]
+                : ["Screenshot uploaded but delivery is \(delivery.state ?? "unknown"). Inspect screenshots; do not submit until delivery is COMPLETE."])
+        }
+
+        let initialURL = baseURL.appendingPathComponent(plan.path)
+        var nextURL: URL? = initialURL
+        var visited = Set<URL>()
+        var documents: [PPOJSONValue] = []
+        while let url = nextURL {
+            guard url.scheme == initialURL.scheme, url.host == initialURL.host,
+                  url.port == initialURL.port, url.path == initialURL.path,
+                  url.user == nil, url.password == nil,
+                  visited.insert(url).inserted else {
+                throw AscendKitError.invalidState("ASC PPO returned an unsafe or repeated pagination URL.")
+            }
+            var request = URLRequest(url: url)
+            request.httpMethod = plan.method
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+            request.setValue("application/json", forHTTPHeaderField: "Accept")
+            if let payload = plan.payload {
+                request.httpBody = try AscendKitJSON.encoder.encode(payload)
+                request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            }
+            let data: Data
+            let response: URLResponse
+            if plan.method == "GET" {
+                (data, response) = try await dataWithRetry(for: request)
+            } else {
+                (data, response) = try await session.data(for: request)
+            }
+            guard let http = response as? HTTPURLResponse else {
+                throw AscendKitError.invalidState("ASC PPO did not return an HTTP response for \(plan.path).")
+            }
+            guard (200..<300).contains(http.statusCode) else {
+                throw AscendKitError.invalidState("ASC PPO \(plan.action.rawValue) failed with HTTP \(http.statusCode): \(String(decoding: data.prefix(8192), as: UTF8.self))")
+            }
+            nextURL = nil
+            if !data.isEmpty {
+                let document = try AscendKitJSON.decoder.decode(PPOJSONValue.self, from: data)
+                documents.append(document)
+                if plan.method == "GET", case .string(let link) = document["links"]?["next"] {
+                    guard let resolved = URL(string: link, relativeTo: url)?.absoluteURL else {
+                        throw AscendKitError.invalidState("ASC PPO returned an invalid pagination URL.")
+                    }
+                    nextURL = resolved
+                }
+            }
+        }
+        return PPOResult(plan: plan, executed: plan.mutatesRemote, responses: documents, findings: [
+            plan.mutatesRemote ? "Executed the PPO operation. Observe remote state before continuing or retrying."
+                : "Observed PPO resources; no remote mutation was made. Responses contain all result pages."
+        ])
+    }
+
+    public func observeMarketplaceSearchDetail(
+        appID: String,
+        token: String
+    ) async throws -> ASCMarketplaceSearchDetail? {
+        do {
+            guard let resource = try await getOptionalResource(
+                path: "v1/apps/\(appID)/marketplaceSearchDetail",
+                token: token,
+                as: MarketplaceSearchDetailResource.self
+            ) else {
+                return nil
+            }
+            return ASCMarketplaceSearchDetail(
+                id: resource.id,
+                appID: appID,
+                catalogURL: resource.attributes.catalogUrl
+            )
+        } catch {
+            if Self.isMarketplaceSearchDetailUnsupported(error) {
+                throw AscendKitError.unsupported(
+                    "App Store Connect returned an Apple-side HTTP 500 for marketplaceSearchDetail. This resource is only available to alternative marketplace apps; the app is not eligible for Title and Search Results catalog configuration through this API."
+                )
+            }
+            throw error
+        }
+    }
+
+    public static func isMarketplaceSearchDetailUnsupported(_ error: Error) -> Bool {
+        let description = String(describing: error)
+        return description.contains("marketplaceSearchDetail")
+            && description.contains("HTTP 500")
+            && description.contains("UNEXPECTED_ERROR")
+    }
+
+    public func setMarketplaceSearchDetail(
+        appID: String,
+        catalogURL: String,
+        confirmRemoteMutation: Bool,
+        token: String
+    ) async throws -> ASCMarketplaceSearchDetailMutationResult {
+        guard Self.isValidMarketplaceCatalogURL(catalogURL) else {
+            throw AscendKitError.invalidArguments("Marketplace search detail catalog URL must be an absolute http or https URL.")
+        }
+
+        let existing = try await observeMarketplaceSearchDetail(appID: appID, token: token)
+        guard confirmRemoteMutation else {
+            return ASCMarketplaceSearchDetailMutationResult(
+                appID: appID,
+                detail: ASCMarketplaceSearchDetail(
+                    id: existing?.id ?? "planned",
+                    appID: appID,
+                    catalogURL: catalogURL
+                ),
+                executed: false,
+                findings: [
+                    existing == nil
+                        ? "Marketplace search detail creation was planned but not executed."
+                        : "Marketplace search detail update was planned but not executed.",
+                    "Re-run with --confirm-remote-mutation to apply the App Store Connect mutation."
+                ]
+            )
+        }
+
+        let response: ReviewSubmissionExecutionResponse
+        if let existing {
+            response = try await sendJSONAPIRequest(
+                id: "marketplace-search-detail.update",
+                method: "PATCH",
+                path: "/v1/marketplaceSearchDetails/\(existing.id)",
+                payload: [
+                    "data": [
+                        "type": "marketplaceSearchDetails",
+                        "id": existing.id,
+                        "attributes": ["catalogUrl": catalogURL]
+                    ]
+                ],
+                token: token
+            )
+        } else {
+            response = try await sendJSONAPIRequest(
+                id: "marketplace-search-detail.create",
+                method: "POST",
+                path: "/v1/marketplaceSearchDetails",
+                payload: [
+                    "data": [
+                        "type": "marketplaceSearchDetails",
+                        "attributes": ["catalogUrl": catalogURL],
+                        "relationships": [
+                            "app": [
+                                "data": ["type": "apps", "id": appID]
+                            ]
+                        ]
+                    ]
+                ],
+                token: token
+            )
+        }
+
+        return ASCMarketplaceSearchDetailMutationResult(
+            appID: appID,
+            detail: ASCMarketplaceSearchDetail(
+                id: response.resourceID ?? existing?.id ?? "unknown",
+                appID: appID,
+                catalogURL: catalogURL
+            ),
+            executed: true,
+            response: response,
+            findings: ["Marketplace search detail was updated through the official App Store Connect API."]
+        )
+    }
+
+    public static func isValidMarketplaceCatalogURL(_ value: String) -> Bool {
+        guard let url = URL(string: value),
+              let scheme = url.scheme?.lowercased(),
+              (scheme == "http" || scheme == "https"),
+              url.host != nil else {
+            return false
+        }
+        return true
+    }
+
     public func observeMetadata(appID: String, versionString: String?, platform: ApplePlatform? = nil, token: String) async throws -> MetadataObservedState {
         let appInfos = try await getList(
             path: "v1/apps/\(appID)/appInfos",
@@ -264,9 +556,13 @@ public struct ASCAPIClient {
         buildNumber: String?,
         token: String
     ) async throws -> BuildCandidatesReport {
-        let query = ["limit": "200"]
+        let query = [
+            "filter[app]": appID,
+            "limit": "200",
+            "include": "preReleaseVersion"
+        ]
         let response = try await getListResponse(
-            path: "v1/apps/\(appID)/builds",
+            path: "v1/builds",
             query: query,
             token: token,
             as: BuildResource.self,
@@ -587,6 +883,7 @@ public struct ASCAPIClient {
         buildID: String,
         platform: ApplePlatform,
         reviewInfo: ReviewInfo,
+        preserveExistingAppMetadata: Bool = false,
         token: String
     ) async throws -> ReviewSubmissionExecutionResult {
         let platformValue = ascPlatformValue(for: platform)
@@ -646,70 +943,72 @@ public struct ASCAPIClient {
             }
         }
 
-        let appInfoResponse = try await updateAppInfo(appInfoID: appInfoID, token: token)
-        if let appInfoResponse {
-            responses.append(appInfoResponse)
-        }
+        if !preserveExistingAppMetadata {
+            let appInfoResponse = try await updateAppInfo(appInfoID: appInfoID, token: token)
+            if let appInfoResponse {
+                responses.append(appInfoResponse)
+            }
 
-        do {
-            let appResponse = try await sendJSONAPIRequest(
-                id: "app.content-rights.update",
+            do {
+                let appResponse = try await sendJSONAPIRequest(
+                    id: "app.content-rights.update",
+                    method: "PATCH",
+                    path: "/v1/apps/\(appID)",
+                    payload: [
+                        "data": [
+                            "type": "apps",
+                            "id": appID,
+                            "attributes": [
+                                "contentRightsDeclaration": "DOES_NOT_USE_THIRD_PARTY_CONTENT"
+                            ]
+                        ]
+                    ],
+                    token: token
+                )
+                responses.append(appResponse)
+            } catch {
+                let desc = String(describing: error)
+                if desc.contains("409") || desc.contains("INVALID_STATE") {
+                    responses.append(ReviewSubmissionExecutionResponse(
+                        id: "app.content-rights.update",
+                        method: "PATCH",
+                        path: "/v1/apps/\(appID)",
+                        statusCode: 409,
+                        resourceID: appID
+                    ))
+                } else {
+                    throw error
+                }
+            }
+
+            do {
+                responses.append(contentsOf: try await publishDataNotCollectedPrivacyAnswers(appID: appID, token: token))
+            } catch AscendKitError.invalidState(let message) where message.contains("HTTP 401") || message.contains("NOT_AUTHORIZED") {
+                responses.append(ReviewSubmissionExecutionResponse(
+                    id: "app-privacy.data-not-collected.skip-iris-unauthorized",
+                    method: "SKIP",
+                    path: "/iris/v1/apps/\(appID)/dataUsages",
+                    statusCode: 401
+                ))
+            }
+
+            let copyrightResponse = try await sendJSONAPIRequest(
+                id: "app-store-version.copyright.update",
                 method: "PATCH",
-                path: "/v1/apps/\(appID)",
+                path: "/v1/appStoreVersions/\(appStoreVersionID)",
                 payload: [
                     "data": [
-                        "type": "apps",
-                        "id": appID,
+                        "type": "appStoreVersions",
+                        "id": appStoreVersionID,
                         "attributes": [
-                            "contentRightsDeclaration": "DOES_NOT_USE_THIRD_PARTY_CONTENT"
+                            "copyright": copyrightText(reviewInfo: reviewInfo)
                         ]
                     ]
                 ],
                 token: token
             )
-            responses.append(appResponse)
-        } catch {
-            let desc = String(describing: error)
-            if desc.contains("409") || desc.contains("INVALID_STATE") {
-                responses.append(ReviewSubmissionExecutionResponse(
-                    id: "app.content-rights.update",
-                    method: "PATCH",
-                    path: "/v1/apps/\(appID)",
-                    statusCode: 409,
-                    resourceID: appID
-                ))
-            } else {
-                throw error
-            }
+            responses.append(copyrightResponse)
         }
-
-        do {
-            responses.append(contentsOf: try await publishDataNotCollectedPrivacyAnswers(appID: appID, token: token))
-        } catch AscendKitError.invalidState(let message) where message.contains("HTTP 401") || message.contains("NOT_AUTHORIZED") {
-            responses.append(ReviewSubmissionExecutionResponse(
-                id: "app-privacy.data-not-collected.skip-iris-unauthorized",
-                method: "SKIP",
-                path: "/iris/v1/apps/\(appID)/dataUsages",
-                statusCode: 401
-            ))
-        }
-
-        let copyrightResponse = try await sendJSONAPIRequest(
-            id: "app-store-version.copyright.update",
-            method: "PATCH",
-            path: "/v1/appStoreVersions/\(appStoreVersionID)",
-            payload: [
-                "data": [
-                    "type": "appStoreVersions",
-                    "id": appStoreVersionID,
-                    "attributes": [
-                        "copyright": copyrightText(reviewInfo: reviewInfo)
-                    ]
-                ]
-            ],
-            token: token
-        )
-        responses.append(copyrightResponse)
 
         let reviewDetailID = try await upsertReviewDetail(
             appStoreVersionID: appStoreVersionID,
@@ -718,68 +1017,70 @@ public struct ASCAPIClient {
             responses: &responses
         )
 
-        let existingAgeRatingDeclarationID: String?
-        if let appInfoID {
-            existingAgeRatingDeclarationID = try await getRelationshipResourceID(
-                path: "v1/appInfos/\(appInfoID)/relationships/ageRatingDeclaration",
-                token: token
-            )
-        } else {
-            existingAgeRatingDeclarationID = nil
-        }
-        let ageRatingResponse: ReviewSubmissionExecutionResponse
-        if let ageRatingDeclarationID = existingAgeRatingDeclarationID {
-            do {
+        if !preserveExistingAppMetadata {
+            let existingAgeRatingDeclarationID: String?
+            if let appInfoID {
+                existingAgeRatingDeclarationID = try await getRelationshipResourceID(
+                    path: "v1/appInfos/\(appInfoID)/relationships/ageRatingDeclaration",
+                    token: token
+                )
+            } else {
+                existingAgeRatingDeclarationID = nil
+            }
+            let ageRatingResponse: ReviewSubmissionExecutionResponse
+            if let ageRatingDeclarationID = existingAgeRatingDeclarationID {
+                do {
+                    ageRatingResponse = try await sendJSONAPIRequest(
+                        id: "age-rating-declaration.update",
+                        method: "PATCH",
+                        path: "/v1/ageRatingDeclarations/\(ageRatingDeclarationID)",
+                        payload: [
+                            "data": [
+                                "type": "ageRatingDeclarations",
+                                "id": ageRatingDeclarationID,
+                                "attributes": defaultAgeRatingDeclarationAttributes()
+                            ]
+                        ],
+                        token: token
+                    )
+                } catch {
+                    let desc = String(describing: error)
+                    if desc.contains("409") || desc.contains("not editable") {
+                        ageRatingResponse = ReviewSubmissionExecutionResponse(
+                            id: "age-rating-declaration.update",
+                            method: "PATCH",
+                            path: "/v1/ageRatingDeclarations/\(ageRatingDeclarationID)",
+                            statusCode: 409,
+                            resourceID: ageRatingDeclarationID
+                        )
+                    } else {
+                        throw error
+                    }
+                }
+            } else {
                 ageRatingResponse = try await sendJSONAPIRequest(
-                    id: "age-rating-declaration.update",
-                    method: "PATCH",
-                    path: "/v1/ageRatingDeclarations/\(ageRatingDeclarationID)",
+                    id: "age-rating-declaration.create",
+                    method: "POST",
+                    path: "/v1/ageRatingDeclarations",
                     payload: [
                         "data": [
                             "type": "ageRatingDeclarations",
-                            "id": ageRatingDeclarationID,
-                            "attributes": defaultAgeRatingDeclarationAttributes()
+                            "attributes": defaultAgeRatingDeclarationAttributes(),
+                            "relationships": [
+                                "appStoreVersion": [
+                                    "data": [
+                                        "type": "appStoreVersions",
+                                        "id": appStoreVersionID
+                                    ]
+                                ]
+                            ]
                         ]
                     ],
                     token: token
                 )
-            } catch {
-                let desc = String(describing: error)
-                if desc.contains("409") || desc.contains("not editable") {
-                    ageRatingResponse = ReviewSubmissionExecutionResponse(
-                        id: "age-rating-declaration.update",
-                        method: "PATCH",
-                        path: "/v1/ageRatingDeclarations/\(ageRatingDeclarationID)",
-                        statusCode: 409,
-                        resourceID: ageRatingDeclarationID
-                    )
-                } else {
-                    throw error
-                }
             }
-        } else {
-            ageRatingResponse = try await sendJSONAPIRequest(
-                id: "age-rating-declaration.create",
-                method: "POST",
-                path: "/v1/ageRatingDeclarations",
-                payload: [
-                    "data": [
-                        "type": "ageRatingDeclarations",
-                        "attributes": defaultAgeRatingDeclarationAttributes(),
-                        "relationships": [
-                            "appStoreVersion": [
-                                "data": [
-                                    "type": "appStoreVersions",
-                                    "id": appStoreVersionID
-                                ]
-                            ]
-                        ]
-                    ]
-                ],
-                token: token
-            )
+            responses.append(ageRatingResponse)
         }
-        responses.append(ageRatingResponse)
 
         let reviewSubmissionID: String
         if let reusableReviewSubmissionID = try await findReusableReviewSubmissionID(
@@ -973,6 +1274,29 @@ public struct ASCAPIClient {
         let (data, response) = try await dataWithRetry(for: request)
         guard let http = response as? HTTPURLResponse else {
             throw AscendKitError.invalidState("ASC request did not return an HTTP response for \(path).")
+        }
+        guard (200..<300).contains(http.statusCode) else {
+            throw AscendKitError.invalidState("ASC request failed for \(path) with HTTP \(http.statusCode): \(String(decoding: data.prefix(512), as: UTF8.self))")
+        }
+        return try JSONDecoder().decode(SingleResponse<Resource>.self, from: data).data
+    }
+
+    private func getOptionalResource<Resource: Decodable>(
+        path: String,
+        token: String,
+        as type: Resource.Type
+    ) async throws -> Resource? {
+        var request = URLRequest(url: baseURL.appendingPathComponent(path))
+        request.httpMethod = "GET"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+
+        let (data, response) = try await dataWithRetry(for: request)
+        guard let http = response as? HTTPURLResponse else {
+            throw AscendKitError.invalidState("ASC request did not return an HTTP response for \(path).")
+        }
+        if http.statusCode == 404 {
+            return nil
         }
         guard (200..<300).contains(http.statusCode) else {
             throw AscendKitError.invalidState("ASC request failed for \(path) with HTTP \(http.statusCode): \(String(decoding: data.prefix(512), as: UTF8.self))")
@@ -2015,6 +2339,15 @@ public struct ASCAPIClient {
 
     private struct AppInfoResource: Decodable {
         var id: String
+    }
+
+    private struct MarketplaceSearchDetailResource: Decodable {
+        var id: String
+        var attributes: MarketplaceSearchDetailAttributes
+    }
+
+    private struct MarketplaceSearchDetailAttributes: Decodable {
+        var catalogUrl: String
     }
 
     private struct AppInfoLocalizationResource: Decodable {

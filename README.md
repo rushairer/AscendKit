@@ -14,6 +14,7 @@ AscendKit is a local-first Swift CLI for Apple developers. Turn screenshots into
 | --- | --- |
 | Prepare store screenshots | Import screenshots or use deterministic UI tests, add localized copy, and compose themed posters with device frames. |
 | Update store metadata | Create or import metadata, lint it, and inspect local-versus-remote changes before applying them. |
+| Operate product page tests | Let an AI agent manage PPO experiments, localized screenshot treatments, review submission, and applying a selected treatment through official ASC APIs. |
 | Check an upcoming release | Inspect the Xcode project and get release diagnostics plus suggested next commands. |
 | Hand release work to an agent | Keep progress in a local workspace, use JSON output, and resume through `workspace next-steps`. |
 | Submit a prepared build | Select an existing ASC build, check readiness, and execute a guarded App Review submission. |
@@ -57,7 +58,7 @@ After installation, run `ascendkit` from any app project directory. User-facing 
 Alternative direct installer from a source checkout or release asset:
 
 ```bash
-scripts/install-ascendkit.sh --version 1.11.0
+scripts/install-ascendkit.sh --version 1.12.0
 ASCENDKIT_INSTALL_DIR=/usr/local/bin scripts/install-ascendkit.sh
 ```
 
@@ -66,7 +67,7 @@ The installer downloads the macOS universal release archive from GitHub Releases
 Verify a published release before announcing it:
 
 ```bash
-scripts/verify-release-assets.sh --version 1.11.0
+scripts/verify-release-assets.sh --version 1.12.0
 ```
 
 The verifier checks for the expected GitHub Release assets and performs a temporary installer smoke test.
@@ -92,11 +93,11 @@ Homebrew formula maintenance:
 
 ```bash
 scripts/update-homebrew-formula.sh
-scripts/verify-homebrew-formula.sh --version 1.11.0
-scripts/diagnose-homebrew-install.sh --version 1.11.0
+scripts/verify-homebrew-formula.sh --version 1.12.0
+scripts/diagnose-homebrew-install.sh --version 1.12.0
 scripts/sync-homebrew-tap.sh --commit --push
-scripts/finalize-homebrew-release.sh --version 1.11.0 --commit --push --reinstall
-scripts/v1-release-readiness.sh --version 1.11.0 --app-root /path/to/RepresentativeApp
+scripts/finalize-homebrew-release.sh --version 1.12.0 --commit --push --reinstall
+scripts/v1-release-readiness.sh --version 1.12.0 --app-root /path/to/RepresentativeApp
 ruby -c Formula/ascendkit.rb
 ```
 
@@ -105,7 +106,7 @@ The generated formula points at the GitHub Release archive for the current `asce
 For normal post-tag release finalization, prefer the single finalizer:
 
 ```bash
-scripts/finalize-homebrew-release.sh --version 1.11.0 --commit --push --reinstall
+scripts/finalize-homebrew-release.sh --version 1.12.0 --commit --push --reinstall
 ```
 
 Run it only after `.github/workflows/release.yml` has completed for the tag. It refreshes the formula from the final GitHub Release asset digest, verifies the formula, syncs the Homebrew tap, and optionally reinstalls and diagnoses the installed Homebrew binary.
@@ -113,7 +114,7 @@ Run it only after `.github/workflows/release.yml` has completed for the tag. It 
 If Homebrew reports a checksum mismatch, stale formula, wrong tap, or unexpected installed version, run:
 
 ```bash
-scripts/diagnose-homebrew-install.sh --version 1.11.0
+scripts/diagnose-homebrew-install.sh --version 1.12.0
 ```
 
 The diagnostic is read-only. It checks the installed `ascendkit` binary, universal architectures, tap remote, formula URL, formula SHA-256, and GitHub Release asset digest, then prints repair commands such as re-tapping and reinstalling from `rushairer/ascendkit`.
@@ -486,6 +487,10 @@ ascendkit asc metadata apply \
   --json
 ```
 
+When the target version permits editing What’s New, add `--include-release-notes`
+to both `asc metadata requests` and `asc metadata apply`. AscendKit omits that
+field by default because App Store Connect rejects it for some version states.
+
 Set the app price to free through the official App Store Connect API:
 
 ```bash
@@ -804,6 +809,7 @@ ascendkit screenshots compose --workspace "$WORKSPACE" --mode storeReadyCopy
 ascendkit screenshots compose --workspace "$WORKSPACE" --mode poster
 ascendkit screenshots compose --workspace "$WORKSPACE" --mode deviceFrame
 ascendkit screenshots compose --workspace "$WORKSPACE" --mode framedPoster --copy "$WORKSPACE/screenshots/copy/en-US.json"
+ascendkit screenshots compose --workspace "$WORKSPACE" --mode framedPoster --copy "$WORKSPACE/screenshots/copy/en-US.json" --theme oceanBlue
 ```
 
 Composition modes:
@@ -812,6 +818,8 @@ Composition modes:
 - `poster`: render local poster-style PNG artifacts.
 - `deviceFrame`: compatibility alias for `framedPoster`; renders a complete App Store marketing screenshot, not a border-only frame.
 - `framedPoster`: render App Store-sized PNG artifacts with an opaque background, title/subtitle copy, and an inset high-fidelity device frame while preserving the source screenshot dimensions. Uses the built-in `DeviceFrameRegistry` to resolve physical hardware specifications (exact pixel size, corner radius, bezel width, Dynamic Island, and notch) by matching source image dimensions with tolerant orientation-aware detection. Supported device frames include iPhone 6.7" (1290x2796, Dynamic Island), iPhone 6.5" (1242x2688, notch), iPad Pro 13-inch (2064x2752), and Mac Desktop (2560x1600).
+
+Use `--theme` with `tealGold`, `midnightPurple`, `oceanBlue`, `warmAmber`, or `minimalLight` to choose a stable composition palette. The default is `tealGold`.
 
 Optional framed poster copy file. If `--copy` is omitted, AscendKit first reads default locale copy assets from `screenshots/copy/<locale>.json`, then falls back to `screenshot-plan.json` screen names and purposes as inferred title/subtitle copy:
 
@@ -1015,6 +1023,20 @@ ascendkit asc pricing set-free \
 
 Creates an App Store Connect `appPriceSchedules` resource that sets the app to free. This uses the official ASC API and does not depend on fastlane.
 
+### `asc ppo`
+
+Operate Product Page Optimization through official App Store Connect APIs. See [the PPO operating playbook](docs/product-page-optimization.md) for the full AI workflow, resource-ID chaining, screenshot uploads, review, and promotion.
+
+```bash
+ascendkit asc ppo list --workspace "$WORKSPACE" --json
+ascendkit asc ppo create --workspace "$WORKSPACE" \
+  --name "Benefits-first screenshots" --traffic-proportion 50 --json
+```
+
+Mutation commands default to local plans and do not require credentials until execution. Add `--confirm-remote-mutation` only within the developer's authorized scope. `review-submit` also requires `--confirm-remote-submission` and checks that every review item is a PPO v2 experiment. JSON responses expose ASC resource IDs for the next command. Plans and results live in `asc/ppo/` inside the workspace.
+
+This module operates experiments; it does not automatically choose winners or fetch PPO statistical results. App icons must already exist in the uploaded app binary. Preview-video upload is not included in this first implementation.
+
 ### `asc achievements`
 
 List and idempotently synchronize Game Center Achievement definitions through the App Store Connect API v2 achievement resources.
@@ -1131,6 +1153,11 @@ ascendkit submit execute \
 
 When all readiness and review plan conditions are met (`remoteSubmissionExecutionAllowed` is true), executes the full review submission pipeline: attaches build, updates compliance, publishes privacy answers, upserts review detail and age rating, creates or reuses a review submission, and submits for review. The result is written to `review/submission-result.json` and logged in the audit trail. Existing non-submitted review submissions are reused for idempotency.
 
+For an update whose existing App Store category, content rights, privacy answers,
+copyright, and age rating have already been verified, pass
+`--preserve-existing-app-metadata` to leave those fields untouched. Build
+attachment, export compliance, review contact, and submission still run.
+
 ### `iap`
 
 Create and validate local subscription templates.
@@ -1208,7 +1235,7 @@ Remote mutation commands require explicit flags:
 <details>
 <summary>Version, supported capabilities, and current boundaries</summary>
 
-Current documented release: `v1.11.0`.
+Current documented release: `v1.12.0`.
 
 AscendKit follows [Semantic Versioning](https://semver.org/). The v1 command surface is stable for `1.x`: breaking workflow changes require a new major version, while compatible commands, flags, diagnostics, and documentation can continue to evolve through minor releases.
 

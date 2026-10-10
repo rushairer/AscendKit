@@ -767,7 +767,8 @@ struct CLIRunner {
                 workspace: workspace,
                 store: store,
                 mode: mode,
-                copyPath: value(after: "--copy", in: args)
+                copyPath: value(after: "--copy", in: args),
+                themeName: value(after: "--theme", in: args)
             )
             return try render(manifest, json: json) {
                 "Screenshot composition manifest saved with \(manifest.artifacts.count) artifact(s)"
@@ -1187,7 +1188,8 @@ struct CLIRunner {
         workspace: ReleaseWorkspace,
         store: ReleaseWorkspaceStore,
         mode: ScreenshotCompositionMode,
-        copyPath: String?
+        copyPath: String?,
+        themeName: String? = nil
     ) throws -> ScreenshotCompositionManifest {
         guard let importManifest = try loadIfExists(ScreenshotImportManifest.self, path: workspace.paths.screenshotImportManifest) else {
             throw AscendKitError.fileNotFound(workspace.paths.screenshotImportManifest)
@@ -1199,11 +1201,18 @@ struct CLIRunner {
             copyPath: copyPath
         )
         let outputRoot = URL(fileURLWithPath: workspace.paths.root).appendingPathComponent("screenshots/composed")
+        let theme = try themeName.map { name in
+            guard let theme = ScreenshotTheme.allCases.first(where: { $0.name == name }) else {
+                throw AscendKitError.invalidArguments("Unknown screenshot theme: \(name)")
+            }
+            return theme
+        } ?? .tealGold
         let manifest = try ScreenshotComposer(fileManager: fileManager).compose(
             importManifest: importManifest,
             outputRoot: outputRoot,
             mode: mode,
-            copyManifest: copyManifest
+            copyManifest: copyManifest,
+            theme: theme
         )
         try store.save(manifest, to: URL(fileURLWithPath: workspace.paths.screenshotCompositionManifest))
         try store.appendAudit(.init(action: .screenshotCompositionManifestSaved, summary: "Saved screenshot composition manifest"), to: workspace)
@@ -1412,6 +1421,12 @@ struct CLIRunner {
         if domain == "pricing" {
             return try await ascPricing(args, json: json)
         }
+        if domain == "ppo" {
+            return try await ascPPO(args, json: json)
+        }
+        if domain == "marketplace-search-detail" {
+            return try await ascMarketplaceSearchDetail(args, json: json)
+        }
         if domain == "privacy" {
             return try await ascPrivacy(args, json: json)
         }
@@ -1419,7 +1434,7 @@ struct CLIRunner {
             return try await ascAchievements(args, json: json)
         }
         guard domain == "builds" else {
-            throw AscendKitError.invalidArguments("Usage: ascendkit asc auth init|check OR ascendkit asc lookup plan|apps OR ascendkit asc apps lookup OR ascendkit asc builds list|import OR ascendkit asc metadata import OR ascendkit asc pricing set-free OR ascendkit asc privacy set-not-collected|status|confirm-manual OR ascendkit asc achievements list|sync")
+            throw AscendKitError.invalidArguments("Usage: ascendkit asc auth init|check OR ascendkit asc lookup plan|apps OR ascendkit asc apps lookup OR ascendkit asc builds list|import OR ascendkit asc metadata import OR ascendkit asc pricing set-free OR ascendkit asc marketplace-search-detail observe|set OR ascendkit asc privacy set-not-collected|status|confirm-manual OR ascendkit asc achievements list|sync")
         }
         switch args.dropFirst().first {
         case "observe":
@@ -1701,12 +1716,12 @@ struct CLIRunner {
                 "ASC metadata dry-run plan saved with \(plan.operations.count) operation(s); no ASC mutation was made.\nAscendKit version: \(plan.ascendKitVersion ?? "unknown")"
             }
         case "requests":
-            let requestPlan = try planASCMetadataRequests(workspace: workspace, store: store)
+            let requestPlan = try planASCMetadataRequests(workspace: workspace, store: store, includeReleaseNotes: args.contains("--include-release-notes"))
             return try render(requestPlan, json: json) {
                 "ASC metadata request dry-run plan saved with \(requestPlan.requests.count) request(s); no ASC mutation was made.\nAscendKit version: \(requestPlan.ascendKitVersion ?? "unknown")"
             }
         case "apply":
-            let result = try await applyASCMetadata(workspace: workspace, store: store, confirmed: args.contains("--confirm-remote-mutation"))
+            let result = try await applyASCMetadata(workspace: workspace, store: store, confirmed: args.contains("--confirm-remote-mutation"), includeReleaseNotes: args.contains("--include-release-notes"))
             return try render(result, json: json) {
                 let version = "AscendKit version: \(result.ascendKitVersion ?? "unknown")"
                 return result.applied
@@ -1764,10 +1779,10 @@ struct CLIRunner {
         return plan
     }
 
-    private func planASCMetadataRequests(workspace: ReleaseWorkspace, store: ReleaseWorkspaceStore) throws -> ASCMetadataRequestPlan {
+    private func planASCMetadataRequests(workspace: ReleaseWorkspace, store: ReleaseWorkspaceStore, includeReleaseNotes: Bool = false) throws -> ASCMetadataRequestPlan {
         let mutationPlan = try loadIfExists(ASCMetadataMutationPlan.self, path: workspace.paths.ascMetadataPlan)
             ?? planASCMetadata(workspace: workspace, store: store)
-        let requestPlan = ASCMetadataRequestPlanBuilder().build(from: mutationPlan)
+        let requestPlan = ASCMetadataRequestPlanBuilder().build(from: mutationPlan, includeReleaseNotes: includeReleaseNotes)
         try store.save(requestPlan, to: URL(fileURLWithPath: workspace.paths.ascMetadataRequests))
         try store.appendAudit(
             .init(
@@ -1783,7 +1798,8 @@ struct CLIRunner {
     private func applyASCMetadata(
         workspace: ReleaseWorkspace,
         store: ReleaseWorkspaceStore,
-        confirmed: Bool
+        confirmed: Bool,
+        includeReleaseNotes: Bool = false
     ) async throws -> ASCMetadataApplyResult {
         guard confirmed else {
             let result = ASCMetadataApplyResult(
@@ -1803,7 +1819,7 @@ struct CLIRunner {
         // Rebuild immediately before mutation so all current localized bundles
         // are included. Reusing a stale persisted plan can silently apply only
         // an older subset (for example, just en-US) while reporting success.
-        let requestPlan = try planASCMetadataRequests(workspace: workspace, store: store)
+        let requestPlan = try planASCMetadataRequests(workspace: workspace, store: store, includeReleaseNotes: includeReleaseNotes)
         let privateKey = try ASCSecretResolver(fileManager: fileManager).resolve(authConfig.privateKey)
         let token = try ASCJWTSigner().token(config: authConfig, privateKeyPEM: privateKey)
         let result = try await ASCAPIClient().applyMetadataRequests(requestPlan, token: token)
@@ -1906,6 +1922,182 @@ struct CLIRunner {
             return result.executed
                 ? "ASC free pricing was set for app \(appID).\n\(version)"
                 : "ASC free pricing was planned but not executed; pass --confirm-remote-mutation to apply it.\n\(version)"
+        }
+    }
+
+    private func ascPPO(_ args: [String], json: Bool) async throws -> String {
+        guard args.count >= 2, let action = PPOAction(rawValue: args[1]) else {
+            throw AscendKitError.invalidArguments("Usage: ascendkit asc ppo ACTION --workspace PATH [options] [--json]. Actions: \(PPOAction.allCases.map(\.rawValue).joined(separator: ", "))")
+        }
+        var options: [String: String] = [:]
+        var flags = Set<String>()
+        var index = 2
+        while index < args.count {
+            let argument = args[index]
+            guard argument.hasPrefix("--") else {
+                throw AscendKitError.invalidArguments("Unexpected PPO argument: \(argument)")
+            }
+            let key = String(argument.dropFirst(2))
+            guard options[key] == nil, !flags.contains(key) else {
+                throw AscendKitError.invalidArguments("Duplicate PPO option: \(argument)")
+            }
+            if key == "confirm-remote-mutation" || key == "confirm-remote-submission" {
+                flags.insert(key)
+                index += 1
+            } else {
+                guard index + 1 < args.count, !args[index + 1].hasPrefix("--") else {
+                    throw AscendKitError.invalidArguments("Missing value for PPO \(argument).")
+                }
+                options[key] = args[index + 1]
+                index += 2
+            }
+        }
+        let workspace = try loadWorkspace(from: args)
+        options.removeValue(forKey: "workspace")
+        if [.list, .create, .reviewCreate].contains(action), options["app-id"] == nil {
+            guard let apps = try loadIfExists(ASCAppsLookupReport.self, path: workspace.paths.ascApps),
+                  apps.apps.count == 1, let appID = apps.apps.first?.id else {
+                throw AscendKitError.invalidState("PPO needs an unambiguous app ID. Run asc apps lookup or pass --app-id.")
+            }
+            options["app-id"] = appID
+        }
+        let plan = try PPOPlanner().plan(action: action, options: options)
+        let store = ReleaseWorkspaceStore(fileManager: fileManager)
+        let directory = URL(fileURLWithPath: workspace.paths.root).appendingPathComponent("asc/ppo")
+        try store.save(plan, to: directory.appendingPathComponent("plan.json"))
+        let pendingResult = PPOResult(plan: plan, executed: false, findings: [
+            !plan.mutatesRemote ? "Observation has not completed."
+                : (plan.requiresSubmissionConfirmation
+                    ? "Plan only. Pass --confirm-remote-mutation and --confirm-remote-submission to submit for review."
+                    : "Plan only. Pass --confirm-remote-mutation to execute. No ASC credentials or network requests were used.")
+        ])
+        try store.save(pendingResult, to: directory.appendingPathComponent("result.json"))
+        if plan.mutatesRemote {
+            try store.appendAudit(.init(action: .ppoPlanned, summary: "Planned PPO \(action.rawValue)", details: ["method": plan.method, "path": plan.path]), to: workspace)
+        }
+        let confirmMutation = flags.contains("confirm-remote-mutation")
+        let confirmSubmission = flags.contains("confirm-remote-submission")
+        let result: PPOResult
+        if plan.mutatesRemote && (!confirmMutation || (plan.requiresSubmissionConfirmation && !confirmSubmission)) {
+            result = pendingResult
+        } else {
+            guard let authConfig = try loadIfExists(ASCAuthConfig.self, path: workspace.paths.ascAuthConfig) else {
+                throw AscendKitError.invalidState("ASC auth config is missing. Run asc auth init first.")
+            }
+            let status = ASCAuthStatus(config: authConfig)
+            guard status.configured else {
+                throw AscendKitError.invalidState("ASC auth config is not ready: \(status.findings.joined(separator: " "))")
+            }
+            let privateKey = try ASCSecretResolver(fileManager: fileManager).resolve(authConfig.privateKey)
+            let token = try ASCJWTSigner().token(config: authConfig, privateKeyPEM: privateKey)
+            do {
+                result = try await ASCAPIClient().executePPO(plan: plan, confirmRemoteMutation: confirmMutation, confirmRemoteSubmission: confirmSubmission, token: token)
+            } catch {
+                try? store.save(PPOResult(plan: plan, executed: false, findings: [
+                    "Operation failed. Remote state may have changed; inspect ASC resources before retrying. This result does not assert that no mutation occurred."
+                ]), to: directory.appendingPathComponent("result.json"))
+                try? store.appendAudit(.init(action: .ppoFailed, summary: "PPO \(action.rawValue) failed; inspect remote state before retrying", details: ["path": plan.path]), to: workspace)
+                throw error
+            }
+            try store.appendAudit(.init(action: plan.mutatesRemote ? .ppoExecuted : .ppoObserved, summary: "PPO \(action.rawValue)", details: ["path": plan.path, "executed": "\(result.executed)"]), to: workspace)
+        }
+        try store.save(result, to: directory.appendingPathComponent("result.json"))
+        let renderedResult = try AscendKitJSON.encodeString(result)
+        return try render(result, json: json) {
+            let state = result.executed ? "Executed" : (plan.mutatesRemote ? "Planned" : "Observed")
+            return "\(state) PPO \(action.rawValue).\n\(renderedResult)"
+        }
+    }
+
+    private func ascMarketplaceSearchDetail(_ args: [String], json: Bool) async throws -> String {
+        guard let subcommand = args.dropFirst().first,
+              subcommand == "observe" || subcommand == "set" else {
+            throw AscendKitError.invalidArguments("Usage: ascendkit asc marketplace-search-detail observe|set --workspace PATH [--app-id ID] [--catalog-url URL] [--confirm-remote-mutation] [--json]")
+        }
+
+        let workspace = try loadWorkspace(from: args)
+        let store = ReleaseWorkspaceStore(fileManager: fileManager)
+        guard let authConfig = try loadIfExists(ASCAuthConfig.self, path: workspace.paths.ascAuthConfig) else {
+            throw AscendKitError.invalidState("ASC auth config is missing. Run asc auth init first.")
+        }
+        let authStatus = ASCAuthStatus(config: authConfig)
+        guard authStatus.configured else {
+            throw AscendKitError.invalidState("ASC auth config is not ready: \(authStatus.findings.joined(separator: " "))")
+        }
+
+        let appID: String
+        if let explicitAppID = value(after: "--app-id", in: args), !explicitAppID.isEmpty {
+            appID = explicitAppID
+        } else {
+            guard let appsReport = try loadIfExists(ASCAppsLookupReport.self, path: workspace.paths.ascApps),
+                  let observedAppID = appsReport.apps.first?.id else {
+                throw AscendKitError.invalidState("ASC app ID is missing. Run asc apps lookup first or pass --app-id.")
+            }
+            appID = observedAppID
+        }
+
+        let privateKey = try ASCSecretResolver(fileManager: fileManager).resolve(authConfig.privateKey)
+        let token = try ASCJWTSigner().token(config: authConfig, privateKeyPEM: privateKey)
+        let client = ASCAPIClient()
+        let result: ASCMarketplaceSearchDetailMutationResult
+        if subcommand == "observe" {
+            do {
+                let detail = try await client.observeMarketplaceSearchDetail(appID: appID, token: token)
+                result = ASCMarketplaceSearchDetailMutationResult(
+                    appID: appID,
+                    detail: detail,
+                    executed: false,
+                    findings: detail == nil
+                        ? ["No marketplace search detail is configured for this app."]
+                        : ["Observed marketplace search detail; no ASC mutation was made."]
+                )
+            } catch let AscendKitError.unsupported(message) {
+                result = ASCMarketplaceSearchDetailMutationResult(
+                    appID: appID,
+                    executed: false,
+                    findings: [message]
+                )
+            }
+        } else {
+            guard let catalogURL = value(after: "--catalog-url", in: args) else {
+                throw AscendKitError.invalidArguments("Usage: ascendkit asc marketplace-search-detail set --workspace PATH [--app-id ID] --catalog-url URL [--confirm-remote-mutation] [--json]")
+            }
+            do {
+                result = try await client.setMarketplaceSearchDetail(
+                    appID: appID,
+                    catalogURL: catalogURL,
+                    confirmRemoteMutation: args.contains("--confirm-remote-mutation"),
+                    token: token
+                )
+            } catch let AscendKitError.unsupported(message) {
+                result = ASCMarketplaceSearchDetailMutationResult(
+                    appID: appID,
+                    executed: false,
+                    findings: [message]
+                )
+            }
+        }
+
+        let resultPath = workspace.paths.ascMarketplaceSearchDetailResult
+            ?? URL(fileURLWithPath: workspace.paths.root).appendingPathComponent("asc/marketplace-search-detail-result.json").path
+        try store.save(result, to: URL(fileURLWithPath: resultPath))
+        try store.appendAudit(
+            .init(
+                action: .ascObservedStateImported,
+                summary: result.executed ? "Applied ASC marketplace search detail" : "Observed or planned ASC marketplace search detail",
+                details: ["appID": appID, "executed": "\(result.executed)"]
+            ),
+            to: workspace
+        )
+        return try render(result, json: json) {
+            if subcommand == "observe" {
+                return result.detail == nil
+                    ? "No ASC marketplace search detail is configured."
+                    : "Observed ASC marketplace search detail for app \(appID)."
+            }
+            return result.executed
+                ? "ASC marketplace search detail was applied for app \(appID)."
+                : "ASC marketplace search detail was planned but not executed; pass --confirm-remote-mutation to apply it."
         }
     }
 
@@ -2345,6 +2537,7 @@ struct CLIRunner {
                 buildID: buildID,
                 platform: platform,
                 reviewInfo: reviewInfo,
+                preserveExistingAppMetadata: args.contains("--preserve-existing-app-metadata"),
                 token: token
             )
             try store.save(result, to: URL(fileURLWithPath: workspace.paths.reviewSubmissionResult))

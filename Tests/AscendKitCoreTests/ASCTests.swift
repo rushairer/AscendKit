@@ -5,6 +5,35 @@ import Testing
 
 @Suite("ASC observation models")
 struct ASCTests {
+    @Test("validates and serializes marketplace search detail")
+    func validatesMarketplaceSearchDetail() throws {
+        #expect(ASCAPIClient.isValidMarketplaceCatalogURL("https://example.com/catalog.json"))
+        #expect(!ASCAPIClient.isValidMarketplaceCatalogURL("file:///tmp/catalog.json"))
+        #expect(!ASCAPIClient.isValidMarketplaceCatalogURL("catalog.json"))
+
+        let result = ASCMarketplaceSearchDetailMutationResult(
+            appID: "app-1",
+            detail: ASCMarketplaceSearchDetail(
+                id: "detail-1",
+                appID: "app-1",
+                catalogURL: "https://example.com/catalog.json"
+            ),
+            executed: false,
+            findings: ["planned"]
+        )
+        let decoded = try AscendKitJSON.decoder.decode(
+            ASCMarketplaceSearchDetailMutationResult.self,
+            from: AscendKitJSON.encoder.encode(result)
+        )
+        #expect(decoded.detail?.catalogURL == "https://example.com/catalog.json")
+        #expect(decoded.executed == false)
+
+        let unsupported = AscendKitError.invalidState(
+            "ASC request failed for v1/apps/app-1/marketplaceSearchDetail with HTTP 500: UNEXPECTED_ERROR"
+        )
+        #expect(ASCAPIClient.isMarketplaceSearchDetailUnsupported(unsupported))
+    }
+
     @Test("identifies processable build candidates")
     func identifiesProcessableBuilds() {
         let report = BuildCandidatesReport(source: "test", candidates: [

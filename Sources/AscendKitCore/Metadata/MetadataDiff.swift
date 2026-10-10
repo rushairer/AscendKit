@@ -384,7 +384,7 @@ public struct ASCMetadataStatusBuilder {
 public struct ASCMetadataRequestPlanBuilder {
     public init() {}
 
-    public func build(from plan: ASCMetadataMutationPlan) -> ASCMetadataRequestPlan {
+    public func build(from plan: ASCMetadataMutationPlan, includeReleaseNotes: Bool = false) -> ASCMetadataRequestPlan {
         var findings = plan.findings
         let groups = Dictionary(grouping: plan.operations) { operation in
             RequestGroupKey(
@@ -397,7 +397,7 @@ public struct ASCMetadataRequestPlanBuilder {
         }
         let requests = groups.compactMap { key, operations -> ASCMetadataPlannedRequest? in
             let attributes = Dictionary(uniqueKeysWithValues: operations.compactMap { operation -> (String, String)? in
-                if operation.field == "releaseNotes" {
+                if operation.field == "releaseNotes" && !includeReleaseNotes {
                     findings.append("releaseNotes for \(operation.locale) is omitted from ASC metadata requests because App Store Connect may reject whatsNew for first-version or non-editable states.")
                     return nil
                 }

@@ -31,7 +31,8 @@ echo "==> Release archive"
 scripts/package-release.sh
 
 echo "==> Release checksum"
-VERSION="$(.build/apple/Products/Release/ascendkit --version | awk '{print $2}')"
+RELEASE_BIN_DIR="$(swift build -c release --product ascendkit --arch arm64 --arch x86_64 --show-bin-path)"
+VERSION="$("${RELEASE_BIN_DIR}/ascendkit" --version | awk '{print $2}')"
 (
   cd dist
   shasum -a 256 -c "ascendkit-${VERSION}-macos-universal.tar.gz.sha256"
