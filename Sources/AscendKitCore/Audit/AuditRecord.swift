@@ -38,6 +38,10 @@ public enum AuditAction: String, Codable, Equatable, Sendable {
     case ascMetadataApplied
     case ascPricingApplied
     case ascPrivacyUpdated
+    case ascOperationPlanned
+    case ascOperationObserved
+    case ascOperationExecuted
+    case ascOperationFailed
     case ppoPlanned
     case ppoObserved
     case ppoExecuted

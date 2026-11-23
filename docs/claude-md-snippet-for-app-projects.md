@@ -1,8 +1,10 @@
 ## App Store Release
 
-When the user asks to submit this app to the App Store, use **AscendKit** (`ascendkit` CLI, installed via `brew install rushairer/ascendkit/ascendkit`).
+When the user asks to release this app or manage it in App Store Connect, use **AscendKit** (`ascendkit` CLI, installed via `brew install rushairer/ascendkit/ascendkit`).
 
-**Do NOT write Python/Shell scripts to call the App Store Connect API.** AscendKit handles JWT auth, metadata, screenshots, pricing, privacy, and submission readiness.
+Start with `ascendkit --help` and, when available, `ascendkit asc capabilities --json`. Select the domain for the requested work and run its `--help`. The JSON catalog gives the first observation, how to find subsequent resource IDs, and when remote confirmation is needed. For applicable China mainland AIGC filings and security assessment declarations, report the manual step in App Store Connect → App Compliance. [Recent ASC API guide](https://github.com/rushairer/AscendKit/blob/main/docs/recent-asc-apis.md)
+
+Use AscendKit for ASC calls and inspect JSON plans before authorized mutations. For dedicated asset, retention, or purchase version review, add only the intended items and use both remote confirmation flags for `review-submit`.
 
 ```bash
 # Initialize release workspace

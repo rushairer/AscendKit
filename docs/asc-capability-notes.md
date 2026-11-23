@@ -85,9 +85,16 @@ As implementation starts, this file should become one of the highest-value docs 
 
 - Operations: read/create/update/start/stop/delete v2 experiments; create/update/delete treatments and their localizations; upload/delete/reorder treatment screenshots; prepare and submit dedicated PPO reviews; apply a selected treatment to an app version.
 - API/resources: `/v2/appStoreVersionExperiments`, `/v1/appStoreVersionExperimentTreatments`, `/v1/appStoreVersionExperimentTreatmentLocalizations`, `/v1/appScreenshotSets`, `/v1/appScreenshots`, `/v1/reviewSubmissions`, `/v1/reviewSubmissionItems`, `/v1/appStoreVersionPromotions`.
-- Status: implemented in the unreleased development version, with mock HTTP and CLI tests.
+- Status: available since AscendKit v1.12.0, with mock HTTP and CLI tests.
 - Real-app validation: no. No production experiment or product page was changed during implementation.
 - Local command: `ascendkit asc ppo ACTION --workspace PATH [options] --json`; see [the operating playbook](product-page-optimization.md).
 - Mutation guard: local plans by default; explicit `--confirm-remote-mutation` for writes. Submitting review additionally needs `--confirm-remote-submission` and refuses non-PPO review items.
 - Caveats: IOS/iPadOS product pages only; Apple validates eligibility and state transitions. Alternate icons must exist in the uploaded binary. Preview-video upload and statistical result retrieval are not implemented. Resource creation is not an upsert; observe before resuming or retrying a failed write.
 - Last documentation and local-test verification: 2026-10-10.
+
+## 11. China mainland App Compliance and public API 4.6.1
+
+- China mainland AIGC and security assessment declarations are available in the App Compliance page. Apple's public OpenAPI 4.6.1 contains no corresponding endpoints or attributes for these declarations, filings, or evidence uploads.
+- Apps that need to provide the declarations use the App Store Connect website. See [Apple's App and compliance information](https://developer.apple.com/help/app-store-connect/reference/app-information/app-and-compliance-information/).
+- Recent officially documented APIs implemented in AscendKit are listed in the [recent ASC API guide](recent-asc-apis.md).
+- Last checked against Apple's public specification on 2026-11-23.

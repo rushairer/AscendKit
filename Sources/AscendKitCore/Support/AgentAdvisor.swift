@@ -24,6 +24,7 @@ public struct AgentAdviseReport: Codable, Equatable, Sendable {
     public var ignorableWarnings: [String]
     public var recommendedCommand: String
     public var agentPrompt: String
+    public var ascCapabilities: ASCAgentGuidance?
 
     public init(
         ascendKitVersion: String? = AscendKitVersion.current,
@@ -49,6 +50,7 @@ public struct AgentAdviseReport: Codable, Equatable, Sendable {
         self.ignorableWarnings = ignorableWarnings
         self.recommendedCommand = recommendedCommand
         self.agentPrompt = agentPrompt
+        self.ascCapabilities = .current
     }
 }
 
@@ -132,11 +134,11 @@ public struct AgentAdvisor {
                 workspacePath: paths.root,
                 phase: .screenshotsUpload,
                 readyForNextStep: false,
-                statusSummary: "Composed screenshots exist but have not been uploaded to App Store Connect.",
-                blockers: ["Screenshot upload result is missing."],
+                statusSummary: "Composed screenshots exist and the workspace has no screenshot-set upload result.",
+                blockers: ["Screenshot-set upload result is missing."],
                 ignorableWarnings: ignorableWarnings,
                 recommendedCommand: "ascendkit screenshots upload-plan --workspace \"\(paths.root)\"",
-                agentPrompt: "Generate a screenshot upload plan and execute upload to App Store Connect. Ensure all uploaded screenshots reach COMPLETE delivery status."
+                agentPrompt: "Determine whether the task uses screenshot sets or App Asset Library placements. For screenshot sets, run the upload plan and verify COMPLETE delivery. For the asset library, use asc asset-library observe and inspect the target localization placements."
             )
         }
 
@@ -203,11 +205,11 @@ public struct AgentAdvisor {
                 workspacePath: paths.root,
                 phase: .readyToSubmit,
                 readyForNextStep: true,
-                statusSummary: "All preflight checks, builds, screenshots, metadata, and privacy requirements are satisfied. Ready to submit.",
+                statusSummary: "The workspace preflight checks are satisfied. Confirm any applicable App Compliance handoff before submitting.",
                 blockers: [],
                 ignorableWarnings: ignorableWarnings,
                 recommendedCommand: "ascendkit submit execute --workspace \"\(paths.root)\" --confirm-remote-submission",
-                agentPrompt: "Execute final review submission with `ascendkit submit execute --workspace \"\(paths.root)\" --confirm-remote-submission`. Verify the version transitions to WAITING_FOR_REVIEW with releaseType=AFTER_APPROVAL."
+                agentPrompt: "After confirming any applicable App Compliance handoff, execute final review submission with `ascendkit submit execute --workspace \"\(paths.root)\" --confirm-remote-submission`. Verify the version transitions to WAITING_FOR_REVIEW with releaseType=AFTER_APPROVAL."
             )
         }
 

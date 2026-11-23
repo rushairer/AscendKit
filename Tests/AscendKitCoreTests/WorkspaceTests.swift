@@ -224,6 +224,7 @@ struct WorkspaceTests {
         #expect(decoded.exportPath == "summary.json")
         #expect(decoded.steps.contains { $0.id == "manifest" && $0.relativePath == "manifest.json" })
         #expect(decoded.hygieneFindings.contains { $0.id == "workspace.local-artifacts" })
+        #expect(decoded.handoffCommands.contains { $0.command == ASCAgentGuidance.discoveryCommand })
         #expect(decoded.handoffCommands.contains {
             $0.id == "agent-prompt" &&
                 $0.command == "ascendkit agent prompt --workspace PATH --asc-profile ASC_PROFILE --output FILE"

@@ -30,6 +30,10 @@ struct CLIRunner {
         }
 
         if arguments.isEmpty || arguments.contains("--help") || arguments.contains("-h") {
+            if arguments.first == "asc", arguments.count > 1 {
+                let usage = ASCOperationPlanner.usage(for: arguments[1])
+                if !usage.isEmpty { return usage.joined(separator: "\n") }
+            }
             return Self.help
         }
 
@@ -154,6 +158,8 @@ struct CLIRunner {
             lines.append("")
             lines.append("Agent Directive:")
             lines.append("  \(report.agentPrompt)")
+            lines.append("")
+            lines.append("Discover task-specific ASC workflows with \(ASCAgentGuidance.discoveryCommand)")
             return lines.joined(separator: "\n")
         }
     }
@@ -1406,6 +1412,19 @@ struct CLIRunner {
         guard let domain = args.first else {
             throw AscendKitError.invalidArguments("Usage: ascendkit asc builds list|import OR ascendkit asc metadata import")
         }
+        if domain == "capabilities" {
+            guard args.count == 1 else {
+                throw AscendKitError.invalidArguments("Usage: ascendkit asc capabilities [--json]")
+            }
+            let guidance = ASCAgentGuidance.current
+            return try render(guidance, json: json) {
+                let entries = guidance.capabilities.map { capability in
+                    "\(capability.domain) — \(capability.useWhen)\n  \(capability.startCommand)\n  \(capability.nextSteps)\n  \(capability.helpCommand)"
+                }
+                return ([guidance.executionGuidance] + entries + [guidance.chinaMainlandAppCompliance, guidance.guideURL])
+                    .joined(separator: "\n\n")
+            }
+        }
         if domain == "metadata" {
             return try await ascMetadata(args, json: json)
         }
@@ -1433,8 +1452,11 @@ struct CLIRunner {
         if domain == "achievements" {
             return try await ascAchievements(args, json: json)
         }
+        if ASCOperationPlanner.domains.contains(domain) {
+            return try await ascOperation(args, json: json)
+        }
         guard domain == "builds" else {
-            throw AscendKitError.invalidArguments("Usage: ascendkit asc auth init|check OR ascendkit asc lookup plan|apps OR ascendkit asc apps lookup OR ascendkit asc builds list|import OR ascendkit asc metadata import OR ascendkit asc pricing set-free OR ascendkit asc marketplace-search-detail observe|set OR ascendkit asc privacy set-not-collected|status|confirm-manual OR ascendkit asc achievements list|sync")
+            throw AscendKitError.invalidArguments("Usage: ascendkit asc auth init|check OR ascendkit asc lookup plan|apps OR ascendkit asc apps lookup OR ascendkit asc builds list|import OR ascendkit asc metadata import OR ascendkit asc pricing set-free OR ascendkit asc marketplace-search-detail observe|set OR ascendkit asc privacy set-not-collected|status|confirm-manual OR ascendkit asc achievements list|sync. Run ascendkit --help for all ASC domains.")
         }
         switch args.dropFirst().first {
         case "observe":
@@ -2007,6 +2029,122 @@ struct CLIRunner {
             let state = result.executed ? "Executed" : (plan.mutatesRemote ? "Planned" : "Observed")
             return "\(state) PPO \(action.rawValue).\n\(renderedResult)"
         }
+    }
+
+    private func ascOperation(_ args: [String], json: Bool) async throws -> String {
+        let domain = args[0]
+        guard args.count >= 2 else {
+            throw AscendKitError.invalidArguments("Run ascendkit asc \(domain) --help for available actions.")
+        }
+        let action = args[1]
+        var options: [String: String] = [:]
+        var query: [String: String] = [:]
+        var flags = Set<String>()
+        var index = 2
+        while index < args.count {
+            let argument = args[index]
+            guard argument.hasPrefix("--"), argument.count > 2 else {
+                throw AscendKitError.invalidArguments("Unexpected argument \(argument).")
+            }
+            let key = String(argument.dropFirst(2))
+            if key == "confirm-remote-mutation" || key == "confirm-remote-submission" {
+                guard flags.insert(key).inserted else {
+                    throw AscendKitError.invalidArguments("Duplicate option \(argument).")
+                }
+                index += 1
+                continue
+            }
+            guard index + 1 < args.count, !args[index + 1].hasPrefix("--") else {
+                throw AscendKitError.invalidArguments("Missing value for \(argument).")
+            }
+            let value = args[index + 1]
+            if key == "query" {
+                let pair = value.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false)
+                guard pair.count == 2, !pair[0].isEmpty, !pair[1].isEmpty, query[String(pair[0])] == nil else {
+                    throw AscendKitError.invalidArguments("Use --query NAME=VALUE once per query parameter.")
+                }
+                query[String(pair[0])] = String(pair[1])
+            } else {
+                guard options[key] == nil else {
+                    throw AscendKitError.invalidArguments("Duplicate option \(argument).")
+                }
+                options[key] = value
+            }
+            index += 2
+        }
+
+        guard let workspacePath = options.removeValue(forKey: "workspace") else {
+            throw AscendKitError.invalidArguments("Missing --workspace PATH.")
+        }
+        let store = ReleaseWorkspaceStore(fileManager: fileManager)
+        let workspace = try store.loadWorkspace(root: URL(fileURLWithPath: workspacePath))
+        let planner = ASCOperationPlanner()
+        if planner.requiresAppID(domain: domain, action: action), options["app-id"] == nil {
+            guard let lookup = try loadIfExists(ASCAppsLookupReport.self, path: workspace.paths.ascApps),
+                  lookup.apps.count == 1, let appID = lookup.apps.first?.id else {
+                throw AscendKitError.invalidState("Run asc apps lookup to resolve one app, or pass --app-id.")
+            }
+            options["app-id"] = appID
+        }
+        let plan = try planner.plan(domain: domain, action: action, options: options, query: query)
+        let confirmMutation = flags.contains("confirm-remote-mutation")
+        let confirmSubmission = flags.contains("confirm-remote-submission")
+        guard plan.mutatesRemote || !confirmMutation else {
+            throw AscendKitError.invalidArguments("--confirm-remote-mutation applies to remote mutations.")
+        }
+        guard plan.requiresSubmissionConfirmation || !confirmSubmission else {
+            throw AscendKitError.invalidArguments("--confirm-remote-submission applies to review-submit.")
+        }
+
+        let directory = URL(fileURLWithPath: workspace.paths.root)
+            .appendingPathComponent("asc/\(domain)/\(action)", isDirectory: true)
+        let resultURL = directory.appendingPathComponent("result.json")
+        let details = ["method": plan.method, "path": plan.path]
+        let summary = "\(domain) \(action)"
+        let client = ASCAPIClient()
+        let result: ASCOperationResult
+        try store.save(plan, to: directory.appendingPathComponent("plan.json"))
+        if plan.mutatesRemote {
+            try store.appendAudit(.init(action: .ascOperationPlanned, summary: summary, details: details), to: workspace)
+        }
+
+        let planOnly = plan.mutatesRemote && (!confirmMutation || (plan.requiresSubmissionConfirmation && !confirmSubmission))
+        if planOnly {
+            result = try await client.executeASCOperation(plan: plan, token: "")
+        } else {
+            let pending = ASCOperationResult(plan: plan, executed: false, findings: ["Operation has not completed."])
+            try store.save(pending, to: resultURL)
+            do {
+                guard let authConfig = try loadIfExists(ASCAuthConfig.self, path: workspace.paths.ascAuthConfig) else {
+                    throw AscendKitError.invalidState("ASC auth config is missing. Run asc auth init first.")
+                }
+                let status = ASCAuthStatus(config: authConfig)
+                guard status.configured else {
+                    throw AscendKitError.invalidState("ASC auth config is not ready: \(status.findings.joined(separator: " "))")
+                }
+                let privateKey = try ASCSecretResolver(fileManager: fileManager).resolve(authConfig.privateKey)
+                let token = try ASCJWTSigner().token(config: authConfig, privateKeyPEM: privateKey)
+                result = try await client.executeASCOperation(plan: plan, confirmRemoteMutation: confirmMutation,
+                                                               confirmRemoteSubmission: confirmSubmission, token: token)
+            } catch {
+                let failed = ASCOperationResult(plan: plan, executed: false, findings: [
+                    plan.mutatesRemote
+                        ? "Execution did not complete. Check the command error and remote state before retrying."
+                        : "Observation failed. Check the command error."
+                ])
+                try? store.save(failed, to: resultURL)
+                try? store.appendAudit(.init(action: .ascOperationFailed, summary: summary, details: details), to: workspace)
+                throw error
+            }
+        }
+        try store.save(result, to: resultURL)
+        if !planOnly {
+            try store.appendAudit(.init(action: result.executed ? .ascOperationExecuted : .ascOperationObserved,
+                                        summary: summary, details: details), to: workspace)
+        }
+        let status = planOnly ? "Planned" : result.executed ? "Executed" : "Observed"
+        let rendered = try AscendKitJSON.encodeString(result)
+        return json ? rendered : "\(status) ASC \(summary).\n\(rendered)"
     }
 
     private func ascMarketplaceSearchDetail(_ args: [String], json: Bool) async throws -> String {

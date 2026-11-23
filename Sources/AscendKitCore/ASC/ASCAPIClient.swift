@@ -247,7 +247,177 @@ public struct ASCAPIClient {
                 : ["Screenshot uploaded but delivery is \(delivery.state ?? "unknown"). Inspect screenshots; do not submit until delivery is COMPLETE."])
         }
 
-        let initialURL = baseURL.appendingPathComponent(plan.path)
+        let documents = try await operationDocuments(
+            method: plan.method, path: plan.path, payload: plan.payload, label: "ASC PPO \(plan.action.rawValue)", token: token
+        )
+        return PPOResult(plan: plan, executed: plan.mutatesRemote, responses: documents, findings: [
+            plan.mutatesRemote ? "Executed the PPO operation. Observe remote state before continuing or retrying."
+                : "Observed PPO resources; no remote mutation was made. Responses contain all result pages."
+        ])
+    }
+
+    public func executeASCOperation(
+        plan: ASCOperationPlan,
+        confirmRemoteMutation: Bool = false,
+        confirmRemoteSubmission: Bool = false,
+        token: String
+    ) async throws -> ASCOperationResult {
+        if plan.mutatesRemote && (!confirmRemoteMutation || (plan.requiresSubmissionConfirmation && !confirmRemoteSubmission)) {
+            let confirmation = plan.requiresSubmissionConfirmation
+                ? "--confirm-remote-mutation and --confirm-remote-submission"
+                : "--confirm-remote-mutation"
+            return ASCOperationResult(plan: plan, executed: false, findings: ["Plan only. Pass \(confirmation) to execute."])
+        }
+
+        let label = "ASC \(plan.domain) \(plan.action)"
+        if let sourcePath = plan.sourcePath {
+            return try await executeAssetUpload(plan: plan, sourcePath: sourcePath, label: label, token: token)
+        }
+        if plan.requiresSubmissionConfirmation {
+            try await validateDedicatedReviewSubmission(plan: plan, label: label, token: token)
+        }
+        let responses = try await operationDocuments(
+            method: plan.method, path: plan.path, query: plan.query, accept: plan.accept, payload: plan.payload, label: label, token: token
+        )
+        return ASCOperationResult(plan: plan, executed: plan.mutatesRemote, responses: responses)
+    }
+
+    private func validateDedicatedReviewSubmission(plan: ASCOperationPlan, label: String, token: String) async throws {
+        let allowed: [String: String]
+        switch plan.domain {
+        case "retention":
+            allowed = ["retentionMessageVersion": "retentionMessageVersions"]
+        case "purchase-versions":
+            allowed = ["inAppPurchaseVersion": "inAppPurchaseVersions", "subscriptionVersion": "subscriptionVersions",
+                       "subscriptionGroupVersion": "subscriptionGroupVersions"]
+        default:
+            allowed = ["appAssetLibraryImage": "appAssetLibraryImages", "appAssetLibraryVideo": "appAssetLibraryVideos"]
+        }
+        let submissions = try await operationDocuments(method: "GET", path: plan.path,
+                                                       query: ["include": "appStoreVersionForReview"], label: label, token: token)
+        guard let submission = submissions.first?["data"],
+              submission["attributes"]?["state"] == .string("READY_FOR_REVIEW") else {
+            throw AscendKitError.invalidState("The review submission is not READY_FOR_REVIEW.")
+        }
+        if let linkedVersion = submission["relationships"]?["appStoreVersionForReview"]?["data"], linkedVersion != .null {
+            throw AscendKitError.invalidState("Use a dedicated \(plan.domain) submission without an App Store version.")
+        }
+        let pages = try await operationDocuments(method: "GET", path: plan.path + "/items",
+                                                query: ["include": allowed.keys.sorted().joined(separator: ",")], label: label, token: token)
+        var count = 0
+        for page in pages {
+            guard case .array(let items)? = page["data"] else {
+                throw AscendKitError.invalidState("ASC did not return review items for \(label).")
+            }
+            for item in items {
+                if item["attributes"]?["state"] == .string("REMOVED") { continue }
+                guard case .object(let relationships)? = item["relationships"] else {
+                    throw AscendKitError.invalidState("Review item has no relationships for \(label).")
+                }
+                let links = relationships.compactMapValues { $0["data"] }.filter { $0.value != .null }
+                guard links.count == 1, let (key, data) = links.first, let type = allowed[key],
+                      data["type"] == .string(type), case .string(let id)? = data["id"], !id.isEmpty else {
+                    throw AscendKitError.invalidState("Use a dedicated \(plan.domain) submission. The review contains an unrelated or unidentified item.")
+                }
+                count += 1
+            }
+        }
+        guard count > 0 else {
+            throw AscendKitError.invalidState("The review submission is empty. Run review-add before review-submit.")
+        }
+    }
+
+    private func executeAssetUpload(plan: ASCOperationPlan, sourcePath: String, label: String, token: String) async throws -> ASCOperationResult {
+        let source = URL(fileURLWithPath: sourcePath)
+        let bytes = try Data(contentsOf: source, options: [.mappedIfSafe])
+        guard !bytes.isEmpty else {
+            throw AscendKitError.invalidArguments("Asset upload requires a nonempty file.")
+        }
+        let collectionPath = plan.path.split(separator: "/").prefix(2).joined(separator: "/")
+        guard let collection = collectionPath.split(separator: "/").last.map(String.init) else {
+            throw AscendKitError.invalidState("The asset upload plan is missing its collection.")
+        }
+        if plan.method == "POST", plan.payload?["data"]?["attributes"]?["fileSize"] != .number(Double(bytes.count)) {
+            throw AscendKitError.invalidState("Asset file size changed after planning. Replan with the current file.")
+        }
+        let documents = try await operationDocuments(method: plan.method, path: plan.path, payload: plan.payload, label: label, token: token)
+        guard let asset = documents.first?["data"], asset["type"] == .string(collection),
+              case .string(let rawID)? = asset["id"], let attributes = asset["attributes"] else {
+            throw AscendKitError.invalidState("ASC did not return a usable asset reservation for \(label).")
+        }
+        let id = try ASCOperationPlanner.identifier(rawID, label: "asset ID")
+        let assetPath = "\(collectionPath)/\(id)"
+        guard plan.method == "POST" || plan.path == assetPath else {
+            throw AscendKitError.invalidState("The returned asset ID does not match the requested reservation.")
+        }
+        let state = attributes["state"] ?? attributes["assetDeliveryState"]?["state"]
+        guard state == .string("AWAITING_UPLOAD") else {
+            if plan.method == "GET" {
+                return ASCOperationResult(plan: plan, executed: false, responses: documents,
+                                          findings: ["Asset \(id) is outside the AWAITING_UPLOAD state. See its current state in the response."])
+            }
+            throw AscendKitError.invalidState("Asset \(id) is outside the AWAITING_UPLOAD state.")
+        }
+        guard attributes["fileName"] == .string(source.lastPathComponent),
+              attributes["fileSize"] == .number(Double(bytes.count)) else {
+            throw AscendKitError.invalidArguments("File name or size differs from the reservation for asset \(id).")
+        }
+        do {
+            guard let rawOperations = attributes["uploadOperations"] else {
+                throw AscendKitError.invalidState("ASC did not return upload operations.")
+            }
+            let operations = try AscendKitJSON.decoder.decode([UploadOperation].self, from: AscendKitJSON.encoder.encode(rawOperations))
+            var uploadedLength = 0
+            for operation in operations.sorted(by: { ($0.offset ?? 0) < ($1.offset ?? 0) }) {
+                guard let url = URLComponents(string: operation.url), url.scheme == "https", url.host != nil,
+                      url.user == nil, url.password == nil, operation.method == "PUT",
+                      (operation.offset ?? 0) == uploadedLength else {
+                    throw AscendKitError.invalidState("ASC returned an invalid asset upload operation.")
+                }
+                let remaining = bytes.count - uploadedLength
+                let length = operation.length ?? remaining
+                guard length > 0, length <= remaining else {
+                    throw AscendKitError.invalidState("ASC returned an invalid asset upload range.")
+                }
+                uploadedLength += length
+            }
+            guard uploadedLength == bytes.count else {
+                throw AscendKitError.invalidState("ASC upload ranges do not cover the file.")
+            }
+            try await uploadAssetParts(uploadOperations: operations, data: bytes)
+        } catch {
+            let resumeAction = plan.method == "GET" ? plan.action : plan.action + "-resume"
+            throw AscendKitError.invalidState("Upload parts failed for asset \(id). Inspect its state and use \(resumeAction) with the same file if it is AWAITING_UPLOAD.")
+        }
+
+        let commit: PPOJSONValue = .object(["data": .object([
+            "type": .string(collection), "id": .string(id), "attributes": .object(["uploaded": .bool(true)])
+        ])])
+        do {
+            let responses = try await operationDocuments(method: "PATCH", path: assetPath, payload: commit, label: label, token: token)
+            return ASCOperationResult(plan: plan, executed: true, responses: responses,
+                                      findings: ["Committed asset \(id). Observe its processing state before creating placements."])
+        } catch {
+            throw AscendKitError.invalidState("Could not confirm upload commit for asset \(id). Inspect its state before retrying. \(error)")
+        }
+    }
+
+    private func operationDocuments(
+        method: String, path: String, query: [String: String] = [:], accept: String = "application/json", payload: PPOJSONValue? = nil,
+        label: String, token: String
+    ) async throws -> [PPOJSONValue] {
+        let pathURL = baseURL.appendingPathComponent(path)
+        var components = URLComponents(url: pathURL, resolvingAgainstBaseURL: false)
+        if !query.isEmpty {
+            components?.queryItems = query.sorted(by: { $0.key < $1.key })
+                .map { URLQueryItem(name: $0.key, value: $0.value) }
+            if let encodedQuery = components?.percentEncodedQuery {
+                components?.percentEncodedQuery = encodedQuery.replacingOccurrences(of: "+", with: "%2B")
+            }
+        }
+        guard let initialURL = components?.url else {
+            throw AscendKitError.invalidState("Could not construct ASC URL for \(path).")
+        }
         var nextURL: URL? = initialURL
         var visited = Set<URL>()
         var documents: [PPOJSONValue] = []
@@ -256,45 +426,42 @@ public struct ASCAPIClient {
                   url.port == initialURL.port, url.path == initialURL.path,
                   url.user == nil, url.password == nil,
                   visited.insert(url).inserted else {
-                throw AscendKitError.invalidState("ASC PPO returned an unsafe or repeated pagination URL.")
+                throw AscendKitError.invalidState("\(label) returned an unsafe or repeated pagination URL.")
             }
             var request = URLRequest(url: url)
-            request.httpMethod = plan.method
+            request.httpMethod = method
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-            request.setValue("application/json", forHTTPHeaderField: "Accept")
-            if let payload = plan.payload {
+            request.setValue(accept, forHTTPHeaderField: "Accept")
+            if let payload {
                 request.httpBody = try AscendKitJSON.encoder.encode(payload)
                 request.setValue("application/json", forHTTPHeaderField: "Content-Type")
             }
             let data: Data
             let response: URLResponse
-            if plan.method == "GET" {
+            if method == "GET" {
                 (data, response) = try await dataWithRetry(for: request)
             } else {
                 (data, response) = try await session.data(for: request)
             }
             guard let http = response as? HTTPURLResponse else {
-                throw AscendKitError.invalidState("ASC PPO did not return an HTTP response for \(plan.path).")
+                throw AscendKitError.invalidState("\(label) did not return an HTTP response for \(path).")
             }
             guard (200..<300).contains(http.statusCode) else {
-                throw AscendKitError.invalidState("ASC PPO \(plan.action.rawValue) failed with HTTP \(http.statusCode): \(String(decoding: data.prefix(8192), as: UTF8.self))")
+                throw AscendKitError.invalidState("\(label) failed with HTTP \(http.statusCode): \(String(decoding: data.prefix(8192), as: UTF8.self))")
             }
             nextURL = nil
             if !data.isEmpty {
                 let document = try AscendKitJSON.decoder.decode(PPOJSONValue.self, from: data)
                 documents.append(document)
-                if plan.method == "GET", case .string(let link) = document["links"]?["next"] {
+                if method == "GET", case .string(let link) = document["links"]?["next"] {
                     guard let resolved = URL(string: link, relativeTo: url)?.absoluteURL else {
-                        throw AscendKitError.invalidState("ASC PPO returned an invalid pagination URL.")
+                        throw AscendKitError.invalidState("\(label) returned an invalid pagination URL.")
                     }
                     nextURL = resolved
                 }
             }
         }
-        return PPOResult(plan: plan, executed: plan.mutatesRemote, responses: documents, findings: [
-            plan.mutatesRemote ? "Executed the PPO operation. Observe remote state before continuing or retrying."
-                : "Observed PPO resources; no remote mutation was made. Responses contain all result pages."
-        ])
+        return documents
     }
 
     public func observeMarketplaceSearchDetail(
@@ -1473,7 +1640,7 @@ public struct ASCAPIClient {
 
     private func uploadAssetParts(uploadOperations: [UploadOperation], data: Data) async throws {
         guard !uploadOperations.isEmpty else {
-            throw AscendKitError.invalidState("ASC app screenshot reservation did not include upload operations.")
+            throw AscendKitError.invalidState("ASC asset reservation did not include upload operations.")
         }
 
         for operation in uploadOperations {
@@ -1481,9 +1648,13 @@ public struct ASCAPIClient {
                 throw AscendKitError.invalidState("ASC upload operation has an invalid URL: \(operation.url)")
             }
             let lowerBound = operation.offset ?? 0
-            let length = operation.length ?? (data.count - lowerBound)
-            guard lowerBound >= 0, length >= 0, lowerBound + length <= data.count else {
-                throw AscendKitError.invalidState("ASC upload operation range is outside local screenshot data.")
+            guard (0...data.count).contains(lowerBound) else {
+                throw AscendKitError.invalidState("ASC upload operation offset is outside the local file.")
+            }
+            let remaining = data.count - lowerBound
+            let length = operation.length ?? remaining
+            guard (0...remaining).contains(length) else {
+                throw AscendKitError.invalidState("ASC upload operation length is outside the local file.")
             }
 
             var request = URLRequest(url: url)

@@ -429,6 +429,11 @@ public struct SanitizedWorkspaceSummaryExporter {
                 command: "ascendkit --version"
             ),
             SanitizedHandoffCommand(
+                id: "asc-capabilities",
+                title: "Discover task-specific ASC workflows",
+                command: ASCAgentGuidance.discoveryCommand
+            ),
+            SanitizedHandoffCommand(
                 id: "agent-prompt",
                 title: "Generate a concrete receiving-agent prompt",
                 command: "ascendkit agent prompt --workspace PATH --asc-profile ASC_PROFILE --output FILE"
@@ -461,7 +466,7 @@ public struct SanitizedWorkspaceSummaryExporter {
             "Use the installed ascendkit binary from PATH, not swift run, unless contributing to AscendKit itself.",
             "Do not share or commit raw .ascendkit workspaces, screenshots, reviewer information, ASC credentials, binaries, or generated release artifacts.",
             "Do not upload binaries. Xcode Cloud remains the binary delivery path.",
-            "Do not execute final remote review submission. AscendKit stops at submit handoff.",
+            "Submit for review only when authorized and after checking readiness. Use submit handoff if the app release cannot be submitted through the CLI. For dedicated review-submit commands, inspect the plan and use both remote confirmation flags.",
             "Run dry-run or plan commands before any App Store Connect mutation and use --confirm-remote-mutation only for the intended operation."
         ]
     }
@@ -670,7 +675,8 @@ public struct HandoffValidator {
             "Use the installed ascendkit binary from PATH, not swift run, unless contributing to AscendKit itself.",
             "Do not share raw .ascendkit workspaces, screenshots, reviewer information, ASC credentials, binaries, or generated release artifacts.",
             "Generate a concrete receiving-agent prompt with agent prompt --workspace PATH --asc-profile ASC_PROFILE when an installed AscendKit binary is available.",
-            "Run workspace next-steps --workspace PATH --json first after taking over."
+            "Run workspace next-steps --workspace PATH --json first after taking over.",
+            "Run \(ASCAgentGuidance.discoveryCommand) to find ASC workflows for the requested task."
         ]
         if let sanitizedExportPath {
             instructions.append("Use the sanitized export at \(sanitizedExportPath) as status context; do not request raw workspace files unless a specific blocker requires local inspection.")

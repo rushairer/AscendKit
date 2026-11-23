@@ -22,6 +22,12 @@ struct AgentHandoffPromptTests {
         #expect(report.prompt.contains("ASC profile: smoke-profile"))
         #expect(report.prompt.contains("Stop: replace AscendKit prompt placeholders before running release commands."))
         #expect(report.prompt.contains("ascendkit workspace next-steps --workspace \"$WORKSPACE\" --json"))
+        #expect(report.prompt.contains(ASCAgentGuidance.discoveryCommand))
+        #expect(report.prompt.contains("App Store Connect > App Compliance"))
+        #expect(report.prompt.contains("--confirm-remote-mutation and --confirm-remote-submission"))
+        for capability in ASCAgentGuidance.current.capabilities {
+            #expect(report.prompt.contains(capability.startCommand))
+        }
         #expect(!report.prompt.contains("__ASCENDKIT_"))
         #expect(!report.prompt.contains("<<ABSOLUTE_APP_PROJECT_ROOT>>"))
     }

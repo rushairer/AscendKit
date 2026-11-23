@@ -15,7 +15,7 @@ struct ProductPageOptimizationCLITests {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("ppo-cli-\(UUID().uuidString)")
         defer { try? FileManager.default.removeItem(at: root) }
         let workspace = try ReleaseWorkspaceStore().createWorkspace(baseDirectory: root, manifest: ReleaseManifest(releaseID: "ppo", appSlug: "demo", projects: [], targets: []))
-        let output = try run(arguments: ["asc", "ppo"] + arguments + ["--workspace", workspace.paths.root, "--json"])
+        let output = try runAscendKitCLI(arguments: ["asc", "ppo"] + arguments + ["--workspace", workspace.paths.root, "--json"])
         #expect(output.status == 0)
         let result = try AscendKitJSON.decoder.decode(PPOJSONValue.self, from: Data(output.stdout.utf8))
         #expect(result["executed"] == .bool(false))
@@ -37,22 +37,10 @@ struct ProductPageOptimizationCLITests {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("ppo-cli-\(UUID().uuidString)")
         defer { try? FileManager.default.removeItem(at: root) }
         let workspace = try ReleaseWorkspaceStore().createWorkspace(baseDirectory: root, manifest: ReleaseManifest(releaseID: "ppo", appSlug: "demo", projects: [], targets: []))
-        let output = try run(arguments: ["asc", "ppo", "start"] + arguments + ["--workspace", workspace.paths.root, "--json"])
+        let output = try runAscendKitCLI(arguments: ["asc", "ppo", "start"] + arguments + ["--workspace", workspace.paths.root, "--json"])
         #expect(output.status == 2)
         #expect(!output.stderr.isEmpty)
         #expect(!FileManager.default.fileExists(atPath: workspace.paths.root + "/asc/ppo/plan.json"))
     }
 
-    private func run(arguments: [String]) throws -> (status: Int32, stdout: String, stderr: String) {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: ".build/debug/ascendkit").standardizedFileURL
-        process.arguments = arguments
-        let stdout = Pipe()
-        let stderr = Pipe()
-        process.standardOutput = stdout
-        process.standardError = stderr
-        try process.run()
-        process.waitUntilExit()
-        return (process.terminationStatus, String(decoding: stdout.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self), String(decoding: stderr.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self))
-    }
 }

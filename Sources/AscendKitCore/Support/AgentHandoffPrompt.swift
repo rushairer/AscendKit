@@ -100,12 +100,13 @@ public struct AgentHandoffPromptBuilder: Sendable {
         let safetyBoundaries = [
             "Do not commit secrets, .ascendkit workspaces, screenshots, reviewer info, ASC identifiers, App Store Connect credentials, or generated release artifacts.",
             "Do not upload binaries. Xcode Cloud handles binary upload.",
-            "Do not execute final remote review submission. AscendKit stops at submit handoff; complete final submission manually in App Store Connect.",
+            "Submit for review only when authorized and ready. Use submit preflight --remote before submit execute, or use submit handoff when the CLI cannot submit the app release. Dedicated asset, retention and purchase review-submit commands require --confirm-remote-mutation and --confirm-remote-submission.",
             "Before any remote ASC mutation, run the corresponding dry-run or plan command and inspect JSON output.",
-            "Use --confirm-remote-mutation only for the specific intended ASC metadata, pricing, privacy, or screenshot mutation.",
+            "Use --confirm-remote-mutation only for the specific authorized ASC operation.",
             "If App Privacy cannot be published through the API, stop at the documented App Store Connect UI handoff and ask the user to confirm when it is published."
         ]
 
+        let guidance = ASCAgentGuidance.current
         let prompt = """
         Use AscendKit to prepare this Apple app for App Store submission.
 
@@ -137,9 +138,15 @@ public struct AgentHandoffPromptBuilder: Sendable {
         esac
 
         ascendkit --version
+        \(ASCAgentGuidance.discoveryCommand)
         ascendkit intake inspect --root "$APP_ROOT" --release-id "$RELEASE_ID" --save --json
         ascendkit workspace gitignore --workspace "$WORKSPACE" --fix --json
         ascendkit workspace next-steps --workspace "$WORKSPACE" --json
+
+        For task-specific ASC work, read \(guidance.guideURL)
+        \(guidance.executionGuidance)
+        \(guidance.capabilities.map { "- \($0.useWhen) \($0.startCommand)" }.joined(separator: "\n"))
+        \(guidance.chinaMainlandAppCompliance)
 
         During the work, prefer workspace next-steps --json, workspace summary --json, workspace validate-handoff --json, and workspace export-summary --json over ad-hoc prose.
 
@@ -149,7 +156,8 @@ public struct AgentHandoffPromptBuilder: Sendable {
         - Metadata locales applied.
         - Screenshot display types uploaded or exact screenshot blockers.
         - Pricing result.
-        - App Privacy status.
+        - App Privacy status and any applicable App Compliance handoff.
+        - Task-specific ASC changes, observed results, and any remaining remote or manual steps.
         - Review handoff status or exact remaining blockers.
         - Validation commands run.
         """

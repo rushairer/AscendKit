@@ -17,6 +17,27 @@ For post-release Product Page Optimization tasks, use [the PPO operating playboo
 
 Do not package this as a Codex Skill yet unless your team repeatedly runs this workflow across apps. A future skill should be a thin wrapper around this playbook and the CLI, not a separate source of truth.
 
+## Discover ASC Workflows
+
+Run `ascendkit --help` and `ascendkit asc capabilities --json` on startup. The catalog needs neither a workspace nor credentials. It returns `useWhen`, `startCommand`, `nextSteps`, and `helpCommand` for each recent domain. Use `agent advise --workspace "$WORKSPACE" --json` for the standard release phase and the same task-specific guidance in `ascCapabilities`. The discovery command is available in builds containing these new commands. Check the installed binary's help when following this playbook from an earlier release.
+
+Choose the workflow that matches the user's request, including standalone tasks such as reading performance or updating retention copy. Resolve the app with the workspace's `asc apps lookup` or an explicit `--app-id`. Use the real IDs in `responses[].data`, and follow the domain's CLI help for the next action. [Recent ASC API guide](recent-asc-apis.md)
+
+| Request | First observation and next action |
+| --- | --- |
+| Age rating or regional descriptors | `asc age-rating app-infos` → `observe --app-info-id` and, when relevant, `territories`. Use the returned declaration ID for `set` with the requested answers. |
+| Accessibility labels | `asc accessibility list` → select the device family and prepare `create` or `set --declaration-id` from the intended accessibility answers. |
+| App screenshots, previews or creative assets using the Asset Library | `asc asset-library observe` → `ref-data` and the target localization's `*-placements`. Upload with `image-upload` or `video-upload`, then check the asset's state before creating or ordering placements. Use the corresponding `*-upload-resume` for an existing `AWAITING_UPLOAD` reservation. |
+| Subscription retention | `asc retention list` → message, version, localization and applicable offer actions. Find the subscription with `asc subscriptions groups` and `list`. Submit a dedicated review for the version when authorized. |
+| Subscription price, tiers, availability or multiseat setup | `asc subscriptions groups` → `list --group-id` and `get --subscription-id`. Observe prices and tiers, and run `price-change-preview` before scheduling a price change. |
+| Versioned IAP, subscription or subscription group metadata | `asc purchase-versions iap-list` for IAP. Use `asc subscriptions groups` and `list` for subscription and group IDs. Read the relevant `*-versions` and use the matching localization, image or review actions. |
+| Game Center player or leaderboard moderation | `asc game-center-moderation detail` → `blocked-players --detail-id` or `scores --leaderboard-id`. Plan the intended change with `player-set` or `score-set`. |
+| Performance overview or localized Background Assets | `asc app-performance overview` or `asc background-assets list`. Use app or build metrics for detail, or the Background Assets `filter[versions.locale]` query for a locale. |
+
+For a write, generate the plan without confirmation flags and check the target, body, and relationships. Execute the authorized plan with `--confirm-remote-mutation` and observe the remote result. A price preview or equalization needs that flag to send its POST request. Dedicated `review-submit` additionally needs `--confirm-remote-submission`. Inspect the submission with `review-items` first. The ordinary app release still uses `submit preflight --remote` and `submit execute`.
+
+For a mainland China distribution task involving applicable AIGC filings or security assessment declarations, record the manual step for **App Store Connect → App Compliance**. The public API does not expose these declarations. Age rating, App Privacy and export compliance results do not verify completion there. Treat an outstanding applicable declaration as pending and report its status at handoff. [China mainland App Compliance](recent-asc-apis.md#china-mainland-app-compliance)
+
 ## Minimal Agent Prompt
 
 Generate this prompt with the installed AscendKit CLI when possible:
@@ -62,6 +83,7 @@ Release workspace: <<ABSOLUTE_APP_PROJECT_ROOT>>/.ascendkit/releases/<<RELEASE_I
 ASC profile: <<ASC_PROFILE_NAME_OR_ASK_ME_TO_CREATE_ONE>>
 
 Follow <<ABSOLUTE_ASCENDKIT_CHECKOUT>>/docs/agent-release-playbook.md.
+Start with ascendkit --help and, when available, ascendkit asc capabilities --json. Pick the domain for the requested task, run its --help, and follow the first observation. For applicable China mainland AIGC and security assessment declarations, record the App Compliance web handoff.
 
 Before running commands, verify that every <<...>> placeholder has been replaced with a real value. If any placeholder remains, stop and ask the user for the missing value.
 Do not commit secrets, .ascendkit workspaces, screenshots, reviewer info, or App Store Connect credentials.
@@ -203,7 +225,9 @@ ascendkit asc pricing set-free --workspace "$WORKSPACE" --json
 ascendkit asc pricing set-free --workspace "$WORKSPACE" --confirm-remote-mutation --json
 ```
 
-Upload screenshots:
+For apps with reusable media in the App Asset Library, use the Asset Library observations and placement workflow above. The screenshot-set commands below provide the standard workspace upload artifacts. Verify library placements directly in ASC for work done through the Asset Library.
+
+Upload screenshot sets:
 
 ```bash
 ascendkit screenshots coverage --workspace "$WORKSPACE" --json
@@ -298,6 +322,7 @@ The output gives the agent:
 - `blockers`: Active blockers preventing release progress
 - `ignorableWarnings`: Safe assumptions that must not halt execution
 - `agentPrompt`: Natural-language directive explaining the next action
+- `ascCapabilities`: Task-specific ASC discovery, starter commands, and the China mainland App Compliance handoff. Use this field alongside the standard release phase to route the current request.
 
 ### Safe Assumptions vs. Real Blockers Matrix
 

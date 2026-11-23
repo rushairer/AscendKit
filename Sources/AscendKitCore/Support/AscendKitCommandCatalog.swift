@@ -67,6 +67,7 @@ public enum AscendKitCommandCatalog {
         "ascendkit asc auth init --workspace PATH --issuer-id ID --key-id ID --private-key-provider env|file --private-key-ref REF [--json]",
         "ascendkit asc auth init --workspace PATH --profile NAME [--json]",
         "ascendkit asc auth check --workspace PATH [--json]",
+        "ascendkit asc capabilities [--json]",
         "ascendkit asc lookup plan --workspace PATH [--json]",
         "ascendkit asc lookup apps --workspace PATH [--json]",
         "ascendkit asc apps lookup --workspace PATH [--json]",
@@ -98,7 +99,7 @@ public enum AscendKitCommandCatalog {
         "ascendkit submit review-info set --workspace PATH --first-name NAME --last-name NAME --email EMAIL --phone PHONE [--notes TEXT] [--requires-login true|false] [--credential-ref ENV_VAR] [--access-instructions TEXT] [--json]",
         "ascendkit iap template init --workspace PATH [--json]",
         "ascendkit iap validate --workspace PATH [--json]"
-    ]
+    ] + ASCOperationPlanner.domains.map { "ascendkit asc \($0) --help" }
 
     public static var helpText: String {
         (["AscendKit", "", "Usage:"] + usageLines.map { "  \($0)" }).joined(separator: "\n")

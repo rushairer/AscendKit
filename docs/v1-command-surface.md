@@ -46,6 +46,10 @@ Flag names used in README examples and `docs/agent-release-playbook.md` should b
 
 `asc achievements sync` reads a versioned JSON catalog, matches achievements by `vendorIdentifier`, and produces CREATE / UPDATE / SKIP actions. It is dry-run by default; confirmed remote changes require `--confirm-remote-mutation`. Achievement and localization resources use the current App Store Connect Game Center Achievement v2 API surface.
 
+## Recent App Store Connect APIs
+
+AscendKit v1.13.0 adds `asc capabilities [--json]` for local discovery of the new workspace-scoped ASC command groups. See the [recent ASC API guide](recent-asc-apis.md) for supported operations, arguments, and confirmation behavior.
+
 ## Migration Compatibility Commands
 
 The following commands are supported as migration helpers, not as the primary workflow:

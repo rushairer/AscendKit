@@ -53,17 +53,22 @@ https://github.com/rushairer/AscendKit
 
 先阅读 README 的 AI Agent Quick Start（包括完整提示词），
 再按照它链接的 agent-release-playbook.md 执行。
-使用已安装的 ascendkit CLI，通过 workspace next-steps 等 JSON 输出推进。
+使用已安装的 ascendkit CLI。先看 ascendkit --help，若支持则运行 ascendkit asc capabilities --json，
+按任务选年龄分级、素材库、订阅等功能，再用相应命令的 --help 和 JSON 结果推进。
+如果任务涉及适用的中国大陆 AIGC 备案或安全评估，在 App Store Connect 的「App 合规」页面交接人工处理，并汇报状态。
 缺少真实项目参数时先询问，不要把占位符当作实际值执行。
 远程修改前先检查计划，仅在任务授权范围内使用明确的确认参数。
 不要将密钥或发布工作区提交到仓库；二进制上传交给现有流程。
 最后汇报完成情况、阻塞项和仍需人工处理的步骤。
 ```
 
+`agent advise --workspace PATH --json` 同时提供发布阶段和 `ascCapabilities` 功能指引。上述发现命令随新增 API 命令一起提供，请以已安装版本的帮助为准。
+
 英文首页保留完整的 Agent 提示词、命令示例和恢复流程。网页上的折叠区只用于方便阅读，内容仍完整保存在原始 Markdown 中。准确命令和操作约束以英文 README、CLI 帮助和操作手册为准。
 
 ## 下一步
 
+- [近期 ASC API 命令与中国大陆 App 合规说明](recent-asc-apis.md)
 - [完整发布流程](../README.md#quick-start-submit-an-app-store-release)
 - [命令参考](../README.md#command-reference)
 - [添加项目级 Agent 指令](claude-md-snippet-for-app-projects.md)

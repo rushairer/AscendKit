@@ -4,6 +4,15 @@ AscendKit follows [Semantic Versioning](https://semver.org/). The `1.x` line kee
 
 ## [Unreleased]
 
+## 1.13.0 - 2026-11-23
+
+### Added
+
+- Added workspace-scoped ASC commands for age ratings, accessibility declarations, the App Asset Library, retention messaging, subscription pricing and plan availability, versioned purchase metadata, Game Center moderation, app performance, and localized Background Asset discovery.
+- Added asset upload and resume, and dedicated review commands for library assets, retention message versions, and purchase versions. ASC writes use local plans and the existing explicit confirmation flags.
+- Documented the China mainland App Compliance handoff and the public API coverage checked against Apple OpenAPI 4.6.1.
+- Added `asc capabilities` and surfaced task-specific ASC commands in Agent prompts, `agent advise`, and sanitized workspace handoffs.
+
 ## 1.12.0 - 2026-10-10
 
 ### Added
