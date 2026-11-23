@@ -48,7 +48,7 @@ Flag names used in README examples and `docs/agent-release-playbook.md` should b
 
 ## Recent App Store Connect APIs
 
-AscendKit v1.13.0 adds `asc capabilities [--json]` for local discovery of the new workspace-scoped ASC command groups. See the [recent ASC API guide](recent-asc-apis.md) for supported operations, arguments, and confirmation behavior.
+AscendKit v1.13.1 adds `asc capabilities [--json]` for local discovery of the new workspace-scoped ASC command groups. See the [recent ASC API guide](recent-asc-apis.md) for supported operations, arguments, and confirmation behavior.
 
 ## Migration Compatibility Commands
 

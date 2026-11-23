@@ -8,7 +8,7 @@ As of November 23, 2026, Apple's public OpenAPI 4.6.1 exposes no declaration, fi
 
 ## Commands
 
-Start with `ascendkit asc capabilities --json` for a task-to-command guide without credentials. Run `ascendkit asc DOMAIN --help` for actions and options. The [agent release playbook](agent-release-playbook.md#discover-asc-workflows) maps requests to starter observations and the IDs to use next. The commands are available in AscendKit v1.13.0. This coverage compares AscendKit v1.12.0 with the changes documented for Apple API 4.4 through 4.6.1 and includes related discovery, relationships, and accessibility declarations.
+Start with `ascendkit asc capabilities --json` for a task-to-command guide without credentials. Run `ascendkit asc DOMAIN --help` for actions and options. The [agent release playbook](agent-release-playbook.md#discover-asc-workflows) maps requests to starter observations and the IDs to use next. The commands are available in AscendKit v1.13.1. This coverage compares AscendKit v1.12.0 with the changes documented for Apple API 4.4 through 4.6.1 and includes related discovery, relationships, and accessibility declarations.
 
 | Domain | Operations |
 | --- | --- |

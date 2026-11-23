@@ -58,7 +58,7 @@ After installation, run `ascendkit` from any app project directory. User-facing 
 Alternative direct installer from a source checkout or release asset:
 
 ```bash
-scripts/install-ascendkit.sh --version 1.13.0
+scripts/install-ascendkit.sh --version 1.13.1
 ASCENDKIT_INSTALL_DIR=/usr/local/bin scripts/install-ascendkit.sh
 ```
 
@@ -67,7 +67,7 @@ The installer downloads the macOS universal release archive from GitHub Releases
 Verify a published release before announcing it:
 
 ```bash
-scripts/verify-release-assets.sh --version 1.13.0
+scripts/verify-release-assets.sh --version 1.13.1
 ```
 
 The verifier checks for the expected GitHub Release assets and performs a temporary installer smoke test.
@@ -93,11 +93,11 @@ Homebrew formula maintenance:
 
 ```bash
 scripts/update-homebrew-formula.sh
-scripts/verify-homebrew-formula.sh --version 1.13.0
-scripts/diagnose-homebrew-install.sh --version 1.13.0
+scripts/verify-homebrew-formula.sh --version 1.13.1
+scripts/diagnose-homebrew-install.sh --version 1.13.1
 scripts/sync-homebrew-tap.sh --commit --push
-scripts/finalize-homebrew-release.sh --version 1.13.0 --commit --push --reinstall
-scripts/v1-release-readiness.sh --version 1.13.0 --app-root /path/to/RepresentativeApp
+scripts/finalize-homebrew-release.sh --version 1.13.1 --commit --push --reinstall
+scripts/v1-release-readiness.sh --version 1.13.1 --app-root /path/to/RepresentativeApp
 ruby -c Formula/ascendkit.rb
 ```
 
@@ -106,7 +106,7 @@ The generated formula points at the GitHub Release archive for the current `asce
 For normal post-tag release finalization, prefer the single finalizer:
 
 ```bash
-scripts/finalize-homebrew-release.sh --version 1.13.0 --commit --push --reinstall
+scripts/finalize-homebrew-release.sh --version 1.13.1 --commit --push --reinstall
 ```
 
 Run it only after `.github/workflows/release.yml` has completed for the tag. It refreshes the formula from the final GitHub Release asset digest, verifies the formula, syncs the Homebrew tap, and optionally reinstalls and diagnoses the installed Homebrew binary.
@@ -114,7 +114,7 @@ Run it only after `.github/workflows/release.yml` has completed for the tag. It 
 If Homebrew reports a checksum mismatch, stale formula, wrong tap, or unexpected installed version, run:
 
 ```bash
-scripts/diagnose-homebrew-install.sh --version 1.13.0
+scripts/diagnose-homebrew-install.sh --version 1.13.1
 ```
 
 The diagnostic is read-only. It checks the installed `ascendkit` binary, universal architectures, tap remote, formula URL, formula SHA-256, and GitHub Release asset digest, then prints repair commands such as re-tapping and reinstalling from `rushairer/ascendkit`.
@@ -173,7 +173,7 @@ AscendKit is designed so a developer can hand the release workflow to an AI codi
 
 For applicable China mainland AIGC filings and security assessments, use **App Store Connect → App Compliance** and report the manual step in the handoff. [China mainland App Compliance](https://github.com/rushairer/AscendKit/blob/main/docs/recent-asc-apis.md#china-mainland-app-compliance)
 
-The discovery command and recent domains are available in v1.13.0. Check `ascendkit --help` for the capabilities present in the installed binary.
+The discovery command and recent domains are available in v1.13.1. Check `ascendkit --help` for the capabilities present in the installed binary.
 
 For agents reading this README: the following prompt is the release operating contract. Read it before running commands. When more detail is needed, use the [agent release playbook](https://github.com/rushairer/AscendKit/blob/main/docs/agent-release-playbook.md), [automation boundaries](https://github.com/rushairer/AscendKit/blob/main/docs/automation-boundaries.md), and [command reference](#command-reference). If linked documentation cannot be fetched, report the missing information before performing dependent operations.
 
@@ -556,7 +556,7 @@ Use `submit handoff` to generate a human-readable Markdown handoff, or `submit s
 
 All commands support `--json` where shown in `ascendkit --help`. JSON output is intended for scripts, CI, and AI-agent wrappers.
 
-AscendKit v1.13.0 adds age rating, accessibility, the App Asset Library, retention messages, purchase versions, subscription pricing, Game Center moderation, and performance commands. See the [recent App Store Connect API guide](https://github.com/rushairer/AscendKit/blob/main/docs/recent-asc-apis.md) for usage and the China mainland App Compliance handoff.
+AscendKit v1.13.1 adds age rating, accessibility, the App Asset Library, retention messages, purchase versions, subscription pricing, Game Center moderation, and performance commands. See the [recent App Store Connect API guide](https://github.com/rushairer/AscendKit/blob/main/docs/recent-asc-apis.md) for usage and the China mainland App Compliance handoff.
 
 ### `agent`
 
@@ -1247,7 +1247,7 @@ Remote mutation commands require explicit flags:
 <details>
 <summary>Version, supported capabilities, and current boundaries</summary>
 
-Current documented release: `v1.13.0`.
+Current documented release: `v1.13.1`.
 
 AscendKit follows [Semantic Versioning](https://semver.org/). The v1 command surface is stable for `1.x`: breaking workflow changes require a new major version, while compatible commands, flags, diagnostics, and documentation can continue to evolve through minor releases.
 

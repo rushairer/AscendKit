@@ -4,7 +4,7 @@ AscendKit follows [Semantic Versioning](https://semver.org/). The `1.x` line kee
 
 ## [Unreleased]
 
-## 1.13.0 - 2026-11-23
+## 1.13.1 - 2026-11-23
 
 ### Added
 
@@ -12,6 +12,14 @@ AscendKit follows [Semantic Versioning](https://semver.org/). The `1.x` line kee
 - Added asset upload and resume, and dedicated review commands for library assets, retention message versions, and purchase versions. ASC writes use local plans and the existing explicit confirmation flags.
 - Documented the China mainland App Compliance handoff and the public API coverage checked against Apple OpenAPI 4.6.1.
 - Added `asc capabilities` and surfaced task-specific ASC commands in Agent prompts, `agent advise`, and sanitized workspace handoffs.
+
+### Fixed
+
+- Simplified CLI help formatting to avoid a Swift type-checking timeout in the macOS release build.
+
+## 1.13.0 - 2026-11-23 [YANKED]
+
+The release build failed before distribution assets were published. Use 1.13.1 for the new ASC commands and Agent guidance.
 
 ## 1.12.0 - 2026-10-10
 

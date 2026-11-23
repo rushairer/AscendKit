@@ -40,16 +40,25 @@ public struct ASCOperationPlanner: Sendable {
 
     public static func usage(for domain: String) -> [String] {
         guard let routes = routes[domain] else { return [] }
-        return routes.map { route in
-            let arguments = route.requiredOptions.map { key in
-                key == "app-id" ? "[--app-id ID]" : usageOption(key)
+        return routes.map { route -> String in
+            var parts = ["ascendkit asc \(domain) \(route.action) --workspace PATH"]
+            for key in route.requiredOptions {
+                parts.append(key == "app-id" ? "[--app-id ID]" : usageOption(key))
             }
-            let optional = route.optionalOptions.map { "[\(usageOption($0))]" }
-            let queries = route.query.isEmpty ? [] : ["[--query NAME=VALUE ...]"]
-            let mutation = route.method != "GET" || route.body == .upload ? ["[--confirm-remote-mutation]"] : []
-            let submission = route.body == .reviewSubmit ? ["[--confirm-remote-submission]"] : []
-            return (["ascendkit asc \(domain) \(route.action) --workspace PATH"]
-                + arguments + optional + queries + mutation + submission + ["[--json]"]).joined(separator: " ")
+            for key in route.optionalOptions {
+                parts.append("[\(usageOption(key))]")
+            }
+            if !route.query.isEmpty {
+                parts.append("[--query NAME=VALUE ...]")
+            }
+            if route.method != "GET" || route.body == .upload {
+                parts.append("[--confirm-remote-mutation]")
+            }
+            if route.body == .reviewSubmit {
+                parts.append("[--confirm-remote-submission]")
+            }
+            parts.append("[--json]")
+            return parts.joined(separator: " ")
         }
     }
 
